@@ -1,0 +1,543 @@
+@import '../../styles/variables.scss';
+
+.doctor-application {
+  min-height: 100vh;
+  background: $light-gray;
+  padding: 60px 0;
+  
+  &__content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+  
+  &__header {
+    text-align: center;
+    margin-bottom: 80px;
+    
+    h1 {
+      color: $text-dark;
+      font-size: 3.5rem;
+      font-weight: 800;
+      margin-bottom: 24px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      letter-spacing: -0.5px;
+    }
+    
+    p {
+      color: $text-light;
+      font-size: 1.25rem;
+      max-width: 700px;
+      margin: 0 auto;
+      line-height: 1.7;
+      font-weight: 400;
+    }
+  }
+  
+  &__form {
+    background: $white;
+    border-radius: 24px;
+    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  &__section {
+    padding: 80px 120px;
+    
+    &:not(:last-child) {
+      border-bottom: 1px solid $gray;
+    }
+  }
+  
+  &__section-title {
+    color: $text-dark;
+    font-size: 2.25rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -12px;
+      left: 0;
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, $primary-blue, $secondary-blue);
+      border-radius: 2px;
+    }
+  }
+  
+  &__section-subtitle {
+    color: $text-light;
+    font-size: 1.125rem;
+    margin-bottom: 60px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+  
+  &__form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+  
+  &__form-group {
+    position: relative;
+    margin-bottom: 30px;
+  }
+  
+  &__form-group label {
+    display: block;
+    color: $text-dark;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    &::after {
+      content: ' *';
+      color: $error;
+      opacity: 0;
+    }
+    
+    &.required::after {
+      opacity: 1;
+    }
+  }
+  
+  &__input,
+  &__select,
+  &__textarea {
+    width: 100%;
+    padding: 18px 24px;
+    border: 2px solid $gray;
+    border-radius: 16px;
+    font-size: 1rem;
+    color: $text-dark;
+    background: $white;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    
+    &:focus {
+      outline: none;
+      border-color: $primary-blue;
+      box-shadow: 0 0 0 4px rgba($primary-blue, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    &:disabled {
+      background: $light-gray;
+      color: $text-light;
+      cursor: not-allowed;
+    }
+    
+    &::placeholder {
+      color: $text-light;
+      opacity: 0.8;
+      font-weight: 400;
+    }
+  }
+  
+  &__textarea {
+    resize: vertical;
+    min-height: 140px;
+    font-family: inherit;
+    line-height: 1.6;
+  }
+  
+  &__select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 24px center;
+    background-repeat: no-repeat;
+    background-size: 20px;
+    padding-right: 60px;
+  }
+  
+  &__checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  
+  &__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 16px 20px;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    background: $white;
+    border: 2px solid $gray;
+    min-width: 140px;
+    justify-content: center;
+    
+    &:hover {
+      background: $light-blue;
+      border-color: $primary-blue;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba($primary-blue, 0.15);
+    }
+    
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: $primary-blue;
+      cursor: pointer;
+      margin: 0;
+    }
+    
+    input[type="checkbox"]:checked + .doctor-application__checkbox-text {
+      color: $primary-blue;
+      font-weight: 700;
+    }
+  }
+  
+  &__checkbox-text {
+    color: $text-dark;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+  }
+  
+  &__file-section {
+    background: $light-gray;
+    padding: 60px;
+    border-radius: 20px;
+    margin-top: 60px;
+    border: 2px dashed $gray;
+  }
+  
+  &__file-group {
+    margin-bottom: 50px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  &__file-label {
+    display: block;
+    color: $text-dark;
+    font-weight: 700;
+    font-size: 1.125rem;
+    margin-bottom: 24px;
+  }
+  
+  &__file-upload {
+    position: relative;
+    border: 3px dashed $gray;
+    border-radius: 20px;
+    padding: 80px 40px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: $white;
+    
+    &:hover {
+      border-color: $primary-blue;
+      background: rgba($primary-blue, 0.02);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba($primary-blue, 0.1);
+    }
+    
+    &.has-file {
+      border-color: $success;
+      background: rgba($success, 0.05);
+    }
+  }
+  
+  &__file-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  
+  &__file-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    color: $text-light;
+    
+    svg {
+      width: 64px;
+      height: 64px;
+      color: $primary-blue;
+    }
+    
+    span {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: $text-dark;
+    }
+    
+    small {
+      font-size: 0.95rem;
+      opacity: 0.8;
+      font-weight: 500;
+    }
+  }
+  
+  &__file-preview {
+    margin-top: 24px;
+    padding: 24px;
+    background: $white;
+    border-radius: 16px;
+    border: 2px solid $gray;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    
+    img {
+      max-width: 250px;
+      max-height: 250px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 2px solid $gray;
+    }
+    
+    .file-name {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: $text-light;
+      font-weight: 500;
+    }
+  }
+  
+  &__actions {
+    padding: 80px;
+    background: $light-gray;
+    text-align: center;
+  }
+  
+  &__submit {
+    background: linear-gradient(135deg, $primary-blue 0%, $secondary-blue 100%);
+    color: $white;
+    border: none;
+    padding: 24px 60px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba($primary-blue, 0.3);
+    min-width: 280px;
+    letter-spacing: 0.5px;
+    
+    &:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba($primary-blue, 0.4);
+    }
+    
+    &:active:not(:disabled) {
+      transform: translateY(-1px);
+    }
+    
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+  
+  &__message {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    padding: 24px 32px;
+    border-radius: 16px;
+    font-weight: 600;
+    z-index: 1000;
+    animation: slideInRight 0.4s ease;
+    max-width: 450px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    
+    &.success {
+      background: $success;
+      color: $white;
+      box-shadow: 0 8px 25px rgba($success, 0.3);
+    }
+    
+    &.error {
+      background: $error;
+      color: $white;
+      box-shadow: 0 8px 25px rgba($error, 0.3);
+    }
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+// Темная тема
+.dark-theme {
+  .doctor-application {
+    background: linear-gradient(135deg, $dark-bg 0%, $dark-surface 100%);
+    
+    &__header {
+      h1 {
+        color: $white;
+      }
+      
+      p {
+        color: rgba($white, 0.7);
+      }
+    }
+    
+    &__form {
+      background: $dark-bg;
+      border: 1px solid $dark-border;
+    }
+    
+    &__section-title {
+      color: $white;
+    }
+    
+    &__section-subtitle {
+      color: rgba($white, 0.7);
+    }
+    
+    &__input,
+    &__select,
+    &__textarea {
+      background: $dark-surface;
+      border-color: $dark-border;
+      color: $white;
+      
+      &:focus {
+        border-color: $primary-blue;
+        box-shadow: 0 0 0 4px rgba($primary-blue, 0.2);
+      }
+      
+      &::placeholder {
+        color: rgba($white, 0.5);
+      }
+    }
+    
+    &__checkbox-text {
+      color: $white;
+    }
+    
+    &__checkbox {
+      background: $dark-surface;
+      border-color: $dark-border;
+      
+      &:hover {
+        background: rgba($primary-blue, 0.1);
+        border-color: $primary-blue;
+      }
+      
+      input[type="checkbox"]:checked + .doctor-application__checkbox-text {
+        color: $primary-blue;
+      }
+    }
+    
+    &__file-section {
+      background: $dark-surface-secondary;
+      border-color: $dark-border;
+    }
+    
+    &__file-upload {
+      background: $dark-bg;
+      border-color: $dark-border;
+      
+      &:hover {
+        background: rgba($primary-blue, 0.1);
+      }
+    }
+    
+    &__file-placeholder {
+      color: rgba($white, 0.7);
+      
+      span {
+        color: $white;
+      }
+    }
+    
+    &__file-preview {
+      background: $dark-surface-secondary;
+      border-color: $dark-border;
+    }
+    
+    &__actions {
+      background: $dark-surface-secondary;
+    }
+  }
+}
+
+// Адаптивность
+@media (max-width: 768px) {
+  .doctor-application {
+    padding: 40px 0;
+    
+    &__content {
+      padding: 0 20px;
+    }
+    
+    &__header {
+      h1 {
+        font-size: 2.5rem;
+      }
+      
+      p {
+        font-size: 1.1rem;
+      }
+    }
+    
+    &__section {
+      padding: 40px 20px;
+    }
+    
+    &__form-row {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    
+    &__checkbox-group {
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    &__file-section {
+      padding: 40px 20px;
+    }
+    
+    &__file-upload {
+      padding: 60px 20px;
+    }
+    
+    &__submit {
+      width: 100%;
+      padding: 20px;
+      font-size: 1.1rem;
+    }
+    
+    &__actions {
+      padding: 40px 20px;
+    }
+    
+    &__message {
+      right: 20px;
+      left: 20px;
+      max-width: none;
+    }
+  }
+} 

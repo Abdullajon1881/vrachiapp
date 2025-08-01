@@ -1,0 +1,423 @@
+@import '../../styles/variables.scss';
+
+.profile {
+  min-height: 100vh;
+  background: linear-gradient(135deg, $gradient-primary);
+  padding: $spacing-lg 0;
+  
+  &__container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 $spacing-lg;
+  }
+  
+  &__message {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    padding: $spacing-lg $spacing-xl;
+    border-radius: $border-radius-xl;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: left;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    z-index: 9999;
+    min-width: 350px;
+    max-width: 450px;
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-md;
+    transform-origin: right center;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    &--visible {
+      animation: slideInRight 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+    
+    &--hidden {
+      animation: slideOutRight 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      opacity: 0;
+      transform: translateX(100%) scale(0.8);
+    }
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: $gradient-primary;
+      border-radius: 0 $border-radius-sm $border-radius-sm 0;
+    }
+    
+    &--success {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(16, 185, 129, 0.9));
+      color: $white;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      box-shadow: 0 10px 40px rgba(34, 197, 94, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      
+      &::before {
+        background: linear-gradient(180deg, #22c55e, #10b981);
+      }
+      
+      &::after {
+        content: '🎯';
+        font-size: 18px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+    }
+    
+    &--error {
+      background: linear-gradient(135deg, rgba($error, 0.95), rgba(239, 68, 68, 0.9));
+      color: $white;
+      border: 1px solid rgba($error, 0.3);
+      box-shadow: 0 10px 40px rgba($error, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      
+      &::before {
+        background: linear-gradient(180deg, $error, #ef4444);
+      }
+      
+      &::after {
+        content: '❌';
+        font-size: 18px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+    }
+  }
+  
+  &__form {
+    background: $white;
+    border-radius: $border-radius-xl;
+    padding: $spacing-xxl;
+    box-shadow: $shadow-large;
+    backdrop-filter: blur(10px);
+  }
+  
+  &__section {
+    margin-bottom: $spacing-xxl;
+    
+    &:last-of-type {
+      margin-bottom: 0;
+    }
+  }
+  
+  &__section-title {
+    font-size: $font-size-xl;
+    font-weight: 700;
+    color: $text-dark;
+    margin-bottom: $spacing-xl;
+    padding-bottom: $spacing-md;
+    border-bottom: 2px solid $gray-light;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 60px;
+      height: 2px;
+      background: $gradient-primary;
+      border-radius: 1px;
+    }
+  }
+  
+
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-lg;
+    margin-bottom: $spacing-lg;
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+      gap: $spacing-md;
+    }
+  }
+  
+  &__field {
+    margin-bottom: $spacing-lg;
+  }
+  
+  &__label {
+    display: block;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-dark;
+    margin-bottom: $spacing-sm;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  &__input,
+  &__select,
+  &__textarea {
+    width: 100%;
+    padding: $spacing-lg;
+    border: 2px solid $gray-light;
+    border-radius: $border-radius-lg;
+    font-size: $font-size-base;
+    font-family: inherit;
+    background: $white;
+    color: $text-dark;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &:focus {
+      outline: none;
+      border-color: $primary;
+      box-shadow: 0 0 0 3px rgba($primary, 0.1);
+      transform: translateY(-1px);
+    }
+    
+    &::placeholder {
+      color: $text-light;
+      opacity: 0.7;
+    }
+    
+    &:disabled {
+      background: $gray-light;
+      color: $text-light;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+  
+  &__textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.6;
+  }
+  
+  &__select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right $spacing-md center;
+    background-repeat: no-repeat;
+    background-size: 16px 12px;
+    padding-right: $spacing-xxl;
+    appearance: none;
+  }
+  
+  &__actions {
+    text-align: center;
+    padding-top: $spacing-xl;
+    border-top: 1px solid $gray-light;
+  }
+  
+  &__submit {
+    background: $gradient-primary;
+    color: $white;
+    border: none;
+    border-radius: $border-radius-lg;
+    padding: $spacing-lg $spacing-xxl;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: $shadow-medium;
+    min-width: 200px;
+    
+    &:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: $shadow-large;
+    }
+    
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+  
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    font-size: $font-size-lg;
+    color: $white;
+    font-weight: 500;
+  }
+
+  &__auth-required {
+    text-align: center;
+    padding: 60px 20px;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  &__auth-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: $white;
+    margin-bottom: 16px;
+  }
+
+  &__auth-message {
+    font-size: 16px;
+    color: rgba($white, 0.8);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  &__auth-btn {
+    background: $gradient-primary;
+    color: $white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: $border-radius-lg;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: $shadow-medium;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-large;
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+}
+
+// Темная тема
+.dark-theme {
+  .profile {
+    background: linear-gradient(135deg, $dark-gradient-primary);
+    
+    &__form {
+      background: $dark-surface;
+      border: 1px solid $dark-border;
+    }
+    
+    &__section-title {
+      color: $dark-text-primary;
+      border-bottom-color: $dark-border;
+    }
+    
+    &__label {
+      color: $dark-text-primary;
+    }
+    
+    &__input,
+    &__select,
+    &__textarea {
+      background: $dark-surface-secondary;
+      border-color: $dark-border;
+      color: $dark-text-primary;
+      
+      &:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 3px rgba($primary, 0.2);
+      }
+      
+      &::placeholder {
+        color: $dark-text-secondary;
+      }
+      
+      &:disabled {
+        background: $dark-surface;
+        color: $dark-text-secondary;
+      }
+    }
+    
+    &__actions {
+      border-top-color: $dark-border;
+    }
+
+    &__auth-title {
+      color: $dark-text-primary;
+    }
+
+    &__auth-message {
+      color: $dark-text-secondary;
+    }
+  }
+}
+
+// Адаптивность
+@media (max-width: 768px) {
+  .profile {
+    padding: $spacing-lg 0;
+    
+    &__container {
+      padding: 0 $spacing-md;
+    }
+    
+    &__form {
+      padding: $spacing-xl $spacing-lg;
+    }
+    
+    &__header {
+      .profile__title {
+        font-size: $font-size-xl;
+      }
+      
+      .profile__subtitle {
+        font-size: $font-size-base;
+      }
+    }
+    
+    &__section-title {
+      font-size: $font-size-lg;
+    }
+    
+    &__submit {
+      width: 100%;
+      padding: $spacing-lg;
+    }
+  }
+}
+
+// Анимации
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateX(10%) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes slideOutRight {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+} 

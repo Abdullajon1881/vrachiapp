@@ -1,0 +1,510 @@
+@use '../../styles/variables' as *;
+
+.admin-panel {
+  padding: $spacing-xl;
+  min-height: 100vh;
+  background: linear-gradient(135deg, $primary-blue 0%, $light-blue 100%);
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-xl;
+    
+    h1 {
+      color: $white;
+      font-size: $font-size-xxl;
+      font-weight: $font-weight-bold;
+      margin: 0;
+    }
+  }
+  
+  &__tabs {
+    display: flex;
+    gap: $spacing-md;
+    
+    .admin-panel__tab {
+      padding: $spacing-md $spacing-lg;
+      background: rgba($white, 0.1);
+      border: 1px solid rgba($white, 0.2);
+      border-radius: $border-radius-lg;
+      color: $white;
+      font-weight: $font-weight-medium;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: rgba($white, 0.2);
+        transform: translateY(-2px);
+      }
+      
+      &.active {
+        background: $white;
+        color: $primary-blue;
+        box-shadow: $shadow-medium;
+      }
+    }
+  }
+  
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: $spacing-lg;
+    margin-bottom: $spacing-xl;
+    
+    .admin-panel__stat {
+      background: $white;
+      padding: $spacing-lg;
+      border-radius: $border-radius-lg;
+      text-align: center;
+      box-shadow: $shadow-medium;
+      
+      &-number {
+        display: block;
+        font-size: $font-size-xxl;
+        font-weight: $font-weight-bold;
+        color: $primary-blue;
+        margin-bottom: $spacing-sm;
+      }
+      
+      &-label {
+        color: $text-secondary;
+        font-size: $font-size-sm;
+      }
+    }
+  }
+  
+  &__filters {
+    display: flex;
+    gap: $spacing-md;
+    margin-bottom: $spacing-xl;
+    flex-wrap: wrap;
+    
+    .admin-panel__filter {
+      padding: $spacing-sm $spacing-lg;
+      background: $white;
+      border: 1px solid $border-color;
+      border-radius: $border-radius-md;
+      color: $text-primary;
+      font-weight: $font-weight-medium;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: $light-blue;
+        color: $white;
+      }
+      
+      &.active {
+        background: $primary-blue;
+        color: $white;
+        border-color: $primary-blue;
+      }
+    }
+  }
+  
+  &__applications,
+  &__users {
+    display: grid;
+    gap: $spacing-lg;
+  }
+  
+  &__application-card,
+  &__user-card {
+    background: $white;
+    padding: $spacing-lg;
+    border-radius: $border-radius-lg;
+    box-shadow: $shadow-medium;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-heavy;
+    }
+  }
+  
+  &__application-info,
+  &__user-info {
+    flex: 1;
+    
+    h3 {
+      color: $text-primary;
+      font-size: $font-size-lg;
+      font-weight: $font-weight-bold;
+      margin: 0 0 $spacing-sm 0;
+    }
+    
+    p {
+      color: $text-secondary;
+      margin: $spacing-xs 0;
+      font-size: $font-size-sm;
+    }
+  }
+  
+  &__application-specialization,
+  &__user-email {
+    color: $primary-blue !important;
+    font-weight: $font-weight-medium;
+  }
+  
+  &__application-location {
+    color: $text-secondary;
+  }
+  
+  &__application-status,
+  &__user-role {
+    .status-pending {
+      color: $warning;
+      font-weight: $font-weight-medium;
+    }
+    
+    .status-approved {
+      color: $success;
+      font-weight: $font-weight-medium;
+    }
+    
+    .status-rejected {
+      color: $error;
+      font-weight: $font-weight-medium;
+    }
+    
+    .role-patient {
+      color: $text-secondary;
+    }
+    
+    .role-doctor {
+      color: $primary-blue;
+      font-weight: $font-weight-medium;
+    }
+    
+    .role-admin {
+      color: $warning;
+      font-weight: $font-weight-medium;
+    }
+  }
+  
+  &__application-actions,
+  &__user-actions {
+    display: flex;
+    gap: $spacing-sm;
+  }
+  
+  &__view-btn {
+    padding: $spacing-sm $spacing-lg;
+    background: $primary-blue;
+    color: $white;
+    border: none;
+    border-radius: $border-radius-md;
+    font-weight: $font-weight-medium;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($primary-blue, 10%);
+      transform: translateY(-1px);
+    }
+  }
+  
+  &__empty {
+    text-align: center;
+    padding: $spacing-xxl;
+    background: $white;
+    border-radius: $border-radius-lg;
+    box-shadow: $shadow-medium;
+    
+    p {
+      color: $text-secondary;
+      font-size: $font-size-lg;
+      margin: 0;
+    }
+  }
+  
+  // Модальные окна
+  &__modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba($black, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: $spacing-lg;
+  }
+  
+  &__modal {
+    background: $white;
+    border-radius: $border-radius-lg;
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: $shadow-heavy;
+  }
+  
+  &__modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-lg;
+    border-bottom: 1px solid $border-color;
+    
+    h2 {
+      color: $text-primary;
+      font-size: $font-size-xl;
+      font-weight: $font-weight-bold;
+      margin: 0;
+    }
+  }
+  
+  &__modal-close {
+    background: none;
+    border: none;
+    font-size: $font-size-xl;
+    color: $text-secondary;
+    cursor: pointer;
+    padding: $spacing-xs;
+    border-radius: $border-radius-sm;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: $light-gray;
+      color: $text-primary;
+    }
+  }
+  
+  &__modal-content {
+    padding: $spacing-lg;
+  }
+  
+  &__modal-section {
+    margin-bottom: $spacing-xl;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    h3 {
+      color: $text-primary;
+      font-size: $font-size-lg;
+      font-weight: $font-weight-bold;
+      margin: 0 0 $spacing-md 0;
+      padding-bottom: $spacing-sm;
+      border-bottom: 2px solid $light-blue;
+    }
+    
+    p {
+      color: $text-secondary;
+      margin: $spacing-sm 0;
+      line-height: 1.6;
+      
+      strong {
+        color: $text-primary;
+        font-weight: $font-weight-medium;
+      }
+    }
+  }
+  
+  &__documents {
+    display: grid;
+    gap: $spacing-lg;
+    margin-top: $spacing-md;
+  }
+  
+  &__document {
+    background: $light-gray;
+    padding: $spacing-lg;
+    border-radius: $border-radius-md;
+    border: 1px solid $border-color;
+    
+    h4 {
+      color: $text-primary;
+      font-size: $font-size-base;
+      font-weight: $font-weight-medium;
+      margin: 0 0 $spacing-md 0;
+    }
+  }
+  
+  &__document-image {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: $border-radius-sm;
+    border: 1px solid $border-color;
+    object-fit: cover;
+  }
+  
+  &__document-link {
+    display: inline-block;
+    padding: $spacing-sm $spacing-lg;
+    background: $primary-blue;
+    color: $white;
+    text-decoration: none;
+    border-radius: $border-radius-sm;
+    font-weight: $font-weight-medium;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($primary-blue, 10%);
+      transform: translateY(-1px);
+    }
+  }
+  
+  &__modal-actions {
+    display: flex;
+    gap: $spacing-md;
+    justify-content: flex-end;
+  }
+  
+  &__approve-btn {
+    padding: $spacing-md $spacing-lg;
+    background: $success;
+    color: $white;
+    border: none;
+    border-radius: $border-radius-md;
+    font-weight: $font-weight-medium;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($success, 10%);
+      transform: translateY(-1px);
+    }
+  }
+  
+  &__reject-btn {
+    padding: $spacing-md $spacing-lg;
+    background: $error;
+    color: $white;
+    border: none;
+    border-radius: $border-radius-md;
+    font-weight: $font-weight-medium;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($error, 10%);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+// Темная тема
+@media (prefers-color-scheme: dark) {
+  .admin-panel {
+    background: linear-gradient(135deg, $dark-primary 0%, $dark-secondary 100%);
+    
+    &__header h1 {
+      color: $white;
+    }
+    
+    &__tab {
+      background: rgba($white, 0.1) !important;
+      border-color: rgba($white, 0.2) !important;
+      color: $white !important;
+      
+      &:hover {
+        background: rgba($white, 0.2) !important;
+      }
+      
+      &.active {
+        background: $white !important;
+        color: $dark-primary !important;
+      }
+    }
+    
+    &__stat {
+      background: $dark-surface !important;
+      color: $white !important;
+      
+      &-number {
+        color: $primary-blue !important;
+      }
+      
+      &-label {
+        color: $text-light !important;
+      }
+    }
+    
+    &__filter {
+      background: $dark-surface !important;
+      border-color: $dark-border !important;
+      color: $text-light !important;
+      
+      &:hover {
+        background: $primary-blue !important;
+        color: $white !important;
+      }
+      
+      &.active {
+        background: $primary-blue !important;
+        color: $white !important;
+      }
+    }
+    
+    &__application-card,
+    &__user-card {
+      background: $dark-surface !important;
+      color: $white !important;
+    }
+    
+    &__application-info h3,
+    &__user-info h3 {
+      color: $text-light !important;
+    }
+    
+    &__application-info p,
+    &__user-info p {
+      color: $text-secondary !important;
+    }
+    
+    &__empty {
+      background: $dark-surface !important;
+      
+      p {
+        color: $text-light !important;
+      }
+    }
+    
+    &__modal {
+      background: $dark-surface !important;
+      color: $white !important;
+    }
+    
+    &__modal-header {
+      border-bottom-color: $dark-border !important;
+      
+      h2 {
+        color: $text-light !important;
+      }
+    }
+    
+    &__modal-close {
+      color: $text-secondary !important;
+      
+      &:hover {
+        background: $dark-surface-secondary !important;
+        color: $text-light !important;
+      }
+    }
+    
+    &__modal-section {
+      h3 {
+        color: $text-light !important;
+        border-bottom-color: $primary-blue !important;
+      }
+      
+      p {
+        color: $text-secondary !important;
+        
+        strong {
+          color: $text-light !important;
+        }
+      }
+    }
+  }
+} 
