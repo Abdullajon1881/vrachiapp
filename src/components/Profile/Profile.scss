@@ -8,7 +8,48 @@
   &__container {
     max-width: 800px;
     margin: 0 auto;
-    padding: 0 $spacing-lg;
+    padding: 40px 20px;
+  }
+  
+  &__header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  
+  &__title {
+    font-size: 3rem;
+    font-weight: 800;
+    color: $text-dark;
+    margin-bottom: 16px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  &__subtitle {
+    font-size: 1.25rem;
+    color: $text-light;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  
+  &__info {
+    background: $light-blue;
+    border: 2px solid $primary-blue;
+    border-radius: 16px;
+    padding: 24px;
+    margin-top: 40px;
+    text-align: center;
+  }
+  
+  &__info-text {
+    color: $text-dark;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0;
+    
+    strong {
+      color: $primary-blue;
+      font-weight: 700;
+    }
   }
   
   &__message {
@@ -159,53 +200,139 @@
     letter-spacing: 0.5px;
   }
   
-  &__input,
-  &__select,
-  &__textarea {
+  &__input {
     width: 100%;
-    padding: $spacing-lg;
-    border: 2px solid $gray-light;
-    border-radius: $border-radius-lg;
-    font-size: $font-size-base;
-    font-family: inherit;
-    background: $white;
+    padding: 16px 20px;
+    border: 2px solid $gray;
+    border-radius: 12px;
+    font-size: 1rem;
     color: $text-dark;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: $white;
+    transition: all 0.3s ease;
+    font-weight: 500;
     
     &:focus {
       outline: none;
-      border-color: $primary;
-      box-shadow: 0 0 0 3px rgba($primary, 0.1);
-      transform: translateY(-1px);
+      border-color: $primary-blue;
+      box-shadow: 0 0 0 4px rgba($primary-blue, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    &--readonly {
+      background: $light-gray;
+      color: $text-light;
+      cursor: not-allowed;
+      border-color: $gray;
+      
+      &:focus {
+        border-color: $gray;
+        box-shadow: none;
+        transform: none;
+      }
+    }
+  }
+  
+  &__textarea {
+    width: 100%;
+    padding: 16px 20px;
+    border: 2px solid $gray;
+    border-radius: 12px;
+    font-size: 1rem;
+    color: $text-dark;
+    background: $white;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+    line-height: 1.6;
+    
+    &:focus {
+      outline: none;
+      border-color: $primary-blue;
+      box-shadow: 0 0 0 4px rgba($primary-blue, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    &--readonly {
+      background: $light-gray;
+      color: $text-light;
+      cursor: not-allowed;
+      border-color: $gray;
+      
+      &:focus {
+        border-color: $gray;
+        box-shadow: none;
+        transform: none;
+      }
+    }
+  }
+  
+  &__section-note {
+    font-size: 0.875rem;
+    color: $text-light;
+    font-weight: 400;
+    margin-left: 12px;
+    opacity: 0.8;
+  }
+  
+  &__languages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 20px;
+    background: $light-gray;
+    border: 2px solid $gray;
+    border-radius: 12px;
+    min-height: 56px;
+  }
+  
+  &__language-tag {
+    display: inline-block;
+    padding: 6px 12px;
+    background: $white;
+    color: $text-dark;
+    border: 1px solid $gray;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  &__select {
+    width: 100%;
+    padding: 16px 20px;
+    border: 2px solid $gray;
+    border-radius: 12px;
+    font-size: 1rem;
+    color: $text-dark;
+    background: $white;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 20px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 48px;
+    
+    &:focus {
+      outline: none;
+      border-color: $primary-blue;
+      box-shadow: 0 0 0 4px rgba($primary-blue, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    &:disabled {
+      background: $light-gray;
+      color: $text-light;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
     
     &::placeholder {
       color: $text-light;
       opacity: 0.7;
     }
-    
-    &:disabled {
-      background: $gray-light;
-      color: $text-light;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-  }
-  
-  &__textarea {
-    resize: vertical;
-    min-height: 120px;
-    line-height: 1.6;
-  }
-  
-  &__select {
-    cursor: pointer;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-    background-position: right $spacing-md center;
-    background-repeat: no-repeat;
-    background-size: 16px 12px;
-    padding-right: $spacing-xxl;
-    appearance: none;
   }
   
   &__actions {
@@ -245,12 +372,31 @@
   
   &__loading {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 400px;
-    font-size: $font-size-lg;
-    color: $white;
-    font-weight: 500;
+    gap: 24px;
+    
+    p {
+      font-size: 1.125rem;
+      color: $text-light;
+      font-weight: 500;
+    }
+  }
+  
+  &__spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid $gray;
+    border-top: 4px solid $primary-blue;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
   &__auth-required {
@@ -336,10 +482,46 @@
         background: $dark-surface;
         color: $dark-text-secondary;
       }
+      
+      &--readonly {
+        background: $dark-surface;
+        color: $dark-text-secondary;
+        border-color: $dark-border;
+        
+        &:focus {
+          border-color: $dark-border;
+          box-shadow: none;
+          transform: none;
+        }
+      }
     }
     
     &__actions {
       border-top-color: $dark-border;
+    }
+
+    &__languages {
+      background: $dark-surface-secondary;
+      border-color: $dark-border;
+    }
+    
+    &__language-tag {
+      background: $dark-surface;
+      color: $dark-text-primary;
+      border-color: $dark-border;
+    }
+
+    &__info {
+      background: rgba($primary-blue, 0.1);
+      border-color: $primary-blue;
+    }
+    
+    &__info-text {
+      color: $dark-text-primary;
+      
+      strong {
+        color: $primary-blue;
+      }
     }
 
     &__auth-title {

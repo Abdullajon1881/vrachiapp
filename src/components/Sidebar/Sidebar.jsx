@@ -8,6 +8,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
 
   // Определяем роль пользователя
   const isAdmin = userData && (userData.is_staff || userData.is_superuser);
+  const isDoctor = userData && userData.role === 'doctor';
 
   // Базовые пункты меню для всех пользователей
   const baseNavigationItems = [
@@ -158,7 +159,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
       </nav>
 
       <div className="sidebar__footer">
-        {isAuthenticated && !isAdmin && (
+        {isAuthenticated && !isAdmin && !isDoctor && (
           <div className="sidebar__doctor-application">
             <button
               className="sidebar__doctor-btn"

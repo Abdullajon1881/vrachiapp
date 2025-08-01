@@ -239,12 +239,146 @@
   
   &__modal {
     background: $white;
-    border-radius: $border-radius-lg;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
     max-width: 600px;
-    width: 100%;
-    max-height: 90vh;
+    width: 90%;
+    max-height: 80vh;
     overflow-y: auto;
-    box-shadow: $shadow-heavy;
+    
+    &--large {
+      max-width: 800px;
+    }
+  }
+  
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  &__form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  
+  &__form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  &__form-group label {
+    font-weight: 600;
+    color: $text-dark;
+    font-size: 0.875rem;
+  }
+  
+  &__input,
+  &__select,
+  &__textarea {
+    padding: 12px 16px;
+    border: 2px solid $gray;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: $text-dark;
+    background: $white;
+    transition: all 0.3s ease;
+    
+    &:focus {
+      outline: none;
+      border-color: $primary-blue;
+      box-shadow: 0 0 0 3px rgba($primary-blue, 0.1);
+    }
+    
+    &:disabled {
+      background: $light-gray;
+      color: $text-light;
+      cursor: not-allowed;
+    }
+  }
+  
+  &__textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+  }
+  
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  &__info p {
+    margin: 0;
+    color: $text-dark;
+    line-height: 1.5;
+  }
+  
+  &__edit-btn {
+    background: $primary-blue;
+    color: $white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($primary-blue, 10%);
+      transform: translateY(-2px);
+    }
+  }
+  
+  &__save-btn {
+    background: $success;
+    color: $white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($success, 10%);
+      transform: translateY(-2px);
+    }
+  }
+  
+  &__cancel-btn {
+    background: $gray;
+    color: $text-dark;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($gray, 10%);
+      transform: translateY(-2px);
+    }
+  }
+  
+  &__delete-btn {
+    background: $danger;
+    color: $white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($danger, 10%);
+      transform: translateY(-2px);
+    }
   }
   
   &__modal-header {
@@ -377,18 +511,34 @@
   }
   
   &__reject-btn {
-    padding: $spacing-md $spacing-lg;
     background: $error;
     color: $white;
     border: none;
-    border-radius: $border-radius-md;
-    font-weight: $font-weight-medium;
+    padding: 12px 24px;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 600;
     transition: all 0.3s ease;
     
     &:hover {
       background: darken($error, 10%);
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+    }
+  }
+  
+  &__update-name-btn {
+    background: $primary-blue;
+    color: $white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: darken($primary-blue, 10%);
+      transform: translateY(-2px);
     }
   }
 }

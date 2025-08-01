@@ -3,7 +3,8 @@ import './DoctorApplication.scss';
 
 const DoctorApplication = () => {
   const [formData, setFormData] = useState({
-    full_name: '',
+    first_name: '',
+    last_name: '',
     specialization: '',
     region: '',
     city: '',
@@ -163,13 +164,15 @@ const DoctorApplication = () => {
       Object.keys(formData).forEach(key => {
         if (key === 'languages') {
           formDataToSend.append(key, JSON.stringify(formData[key]));
-        } else if (key === 'region') {
-          // Для региона отправляем ID
-          formDataToSend.append(key, formData[key]);
+        } else if (key === 'region' || key === 'city' || key === 'district') {
+          // Для региона, города и района отправляем ID
+          if (formData[key]) {
+            formDataToSend.append(key, formData[key]);
+          }
         } else if (key === 'date_of_birth' && formData[key]) {
           // Форматируем дату
           formDataToSend.append(key, formData[key]);
-        } else if (formData[key] !== null && formData[key] !== '') {
+        } else if (formData[key] !== null && formData[key] !== '' && key !== 'photo' && key !== 'diploma' && key !== 'license') {
           formDataToSend.append(key, formData[key]);
         }
       });
@@ -178,6 +181,8 @@ const DoctorApplication = () => {
       if (formData.photo) formDataToSend.append('photo', formData.photo);
       if (formData.diploma) formDataToSend.append('diploma', formData.diploma);
       if (formData.license) formDataToSend.append('license', formData.license);
+
+      console.log('Отправляем данные:', Object.fromEntries(formDataToSend));
 
       const response = await fetch('http://localhost:8000/api/auth/doctor-applications/', {
         method: 'POST',
@@ -189,7 +194,8 @@ const DoctorApplication = () => {
         const result = await response.json();
         showMessage(result.message || 'Заявка успешно отправлена!');
         setFormData({
-          full_name: '',
+          first_name: '',
+          last_name: '',
           specialization: '',
           region: '',
           city: '',
@@ -213,9 +219,11 @@ const DoctorApplication = () => {
         });
       } else {
         const error = await response.json();
+        console.error('Ошибка сервера:', error);
         showMessage(error.message || 'Ошибка отправки заявки', 'error');
       }
     } catch (error) {
+      console.error('Ошибка соединения:', error);
       showMessage('Ошибка соединения с сервером', 'error');
     } finally {
       setLoading(false);
@@ -243,19 +251,35 @@ const DoctorApplication = () => {
             
             <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
-                <label htmlFor="full_name" className="required">Полное имя</label>
+                <label htmlFor="first_name" className="required">Имя</label>
                 <input
                   type="text"
-                  id="full_name"
-                  name="full_name"
-                  value={formData.full_name}
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
                   onChange={handleInputChange}
                   required
                   className="doctor-application__input"
-                  placeholder="Иванов Иван Иванович"
+                  placeholder="Иван"
                 />
               </div>
               
+              <div className="doctor-application__form-group">
+                <label htmlFor="last_name" className="required">Фамилия</label>
+                <input
+                  type="text"
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleInputChange}
+                  required
+                  className="doctor-application__input"
+                  placeholder="Иванов"
+                />
+              </div>
+            </div>
+
+            <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
                 <label htmlFor="specialization" className="required">Специализация</label>
                 <select
@@ -321,7 +345,7 @@ const DoctorApplication = () => {
                 >
                   <option value="">Выберите город</option>
                   {cities.map(city => (
-                    <option key={city.id} value={city.name}>
+                    <option key={city.id} value={city.id}>
                       {city.name}
                     </option>
                   ))}
@@ -341,7 +365,7 @@ const DoctorApplication = () => {
                 >
                   <option value="">Выберите район</option>
                   {districts.map(district => (
-                    <option key={district.id} value={district.name}>
+                    <option key={district.id} value={district.id}>
                       {district.name}
                     </option>
                   ))}

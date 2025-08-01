@@ -113,6 +113,28 @@ function App() {
     setCurrentPage('home'); // Возвращаемся на главную страницу
   };
 
+  // Функция для обновления данных пользователя
+  const updateUserData = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Обновляем данные пользователя:', data);
+        
+        // Обновляем userData с новыми данными
+        setUserData(data);
+        localStorage.setItem('user', JSON.stringify(data));
+      } else {
+        console.error('Ошибка получения данных пользователя');
+      }
+    } catch (error) {
+      console.error('Ошибка обновления данных пользователя:', error);
+    }
+  };
+
   const renderContent = () => {
     // Если пользователь не авторизован, показываем только главную страницу
     if (!isAuthenticated) {
@@ -131,11 +153,11 @@ function App() {
     // Если пользователь авторизован, показываем соответствующий контент
     switch (currentPage) {
       case 'profile':
-        return <Profile />;
+        return <Profile userData={userData} />;
       case 'doctor-application':
         return <DoctorApplication />;
       case 'admin-applications':
-        return <AdminPanel />;
+        return <AdminPanel updateUserData={updateUserData} />;
       case 'home':
       default:
         return (

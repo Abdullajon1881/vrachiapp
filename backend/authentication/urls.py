@@ -26,9 +26,12 @@ urlpatterns = [
     path('doctor-applications/list/', views.get_doctor_applications, name='get_doctor_applications'),
     path('doctor-applications/<int:application_id>/', views.get_doctor_application_detail, name='get_doctor_application_detail'),
     path('doctor-applications/<int:application_id>/update/', views.update_doctor_application, name='update_doctor_application'),
+    path('doctor-applications/<int:application_id>/update-name/', views.update_doctor_name_from_application, name='update_doctor_name_from_application'),
     path('user-applications/', views.get_user_applications, name='get_user_applications'),
     
     # Управление пользователями (только для админов)
     path('users/', views.get_all_users, name='get_all_users'),
+    path('users/<int:user_id>/delete/', views.delete_user, name='delete_user'),
     path('users/<int:user_id>/profile/', views.manage_user_profile, name='manage_user_profile'),
+    path('current-user/', views.get_current_user_data, name='get_current_user_data'),
 ] 

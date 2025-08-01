@@ -503,7 +503,15 @@ def user_profile(request):
     profile, created = UserProfile.objects.get_or_create(user=request.user)
     
     if request.method == 'GET':
-        return Response(UserProfileReadSerializer(profile).data)
+        print(f"Получаем профиль для пользователя {request.user.email}")
+        print(f"Роль пользователя: {request.user.role}")
+        print(f"Имя пользователя: first_name='{request.user.first_name}', last_name='{request.user.last_name}'")
+        
+        data = UserProfileReadSerializer(profile).data
+        print(f"Данные профиля: specialization={data.get('specialization')}, experience={data.get('experience')}")
+        print(f"Имя в данных: first_name='{data.get('first_name')}', last_name='{data.get('last_name')}'")
+        
+        return Response(data)
     
     elif request.method == 'PUT':
         if not request.user.is_authenticated:
@@ -552,10 +560,21 @@ def user_profile(request):
 @permission_classes([IsAuthenticated])
 def submit_doctor_application(request):
     """Подача заявки на роль врача"""
+    print(f"=== ПОДАЧА ЗАЯВКИ ВРАЧА ===")
+    print(f"Пользователь: {request.user.email}")
+    print(f"Данные запроса: {request.data}")
+    print(f"Файлы: {request.FILES}")
+    print(f"Тип данных: {type(request.data)}")
+    
     serializer = DoctorApplicationCreateSerializer(data=request.data)
+    print(f"Сериализатор создан")
+    
     if serializer.is_valid():
+        print("Сериализатор валиден")
+        print(f"Валидные данные: {serializer.validated_data}")
         # Привязываем заявку к текущему пользователю
         application = serializer.save(user=request.user)
+        print(f"Заявка создана с ID: {application.id}")
         
         # Возвращаем полную информацию о заявке
         full_serializer = DoctorApplicationSerializer(application)
@@ -564,6 +583,7 @@ def submit_doctor_application(request):
             'application': full_serializer.data
         }, status=status.HTTP_201_CREATED)
     else:
+        print(f"Ошибки валидации: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
@@ -609,12 +629,35 @@ def update_doctor_application(request, application_id):
         
         # Если заявка одобрена, обновляем профиль пользователя
         if application.status == 'approved':
+            print(f"=== ОДОБРЕНИЕ ЗАЯВКИ ===")
             user = application.user
+            print(f"Пользователь: {user.email}")
+            print(f"Текущее имя: first_name='{user.first_name}', last_name='{user.last_name}'")
+            
             user.role = 'doctor'
+            
+            # Копируем имя из заявки
+            if application.first_name:
+                user.first_name = application.first_name
+                print(f"Установлено first_name: '{user.first_name}'")
+            
+            if application.last_name:
+                user.last_name = application.last_name
+                print(f"Установлено last_name: '{user.last_name}'")
+            
             user.save()
+            print(f"Сохранено в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
+            
+            # Проверяем, что сохранилось
+            user.refresh_from_db()
+            print(f"После refresh: first_name='{user.first_name}', last_name='{user.last_name}'")
             
             # Обновляем или создаем профиль пользователя
             profile, created = UserProfile.objects.get_or_create(user=user)
+            
+            print(f"Одобряем заявку для пользователя {user.email}")
+            print(f"Данные из заявки: specialization={application.specialization}, experience={application.experience}")
+            print(f"Имя из заявки: first_name='{application.first_name}', last_name='{application.last_name}'")
             
             # Копируем все поля из заявки в профиль
             profile.specialization = application.specialization
@@ -639,6 +682,9 @@ def update_doctor_application(request, application_id):
                 profile.emergency_contact = application.emergency_contact
             
             profile.save()
+            
+            print(f"Профиль сохранен: specialization={profile.specialization}, experience={profile.experience}")
+            print(f"Имя пользователя: {user.first_name} {user.last_name}")
         
         # Возвращаем обновленную заявку
         full_serializer = DoctorApplicationSerializer(application)
@@ -656,6 +702,30 @@ def get_user_applications(request):
     applications = DoctorApplication.objects.filter(user=request.user)
     serializer = DoctorApplicationSerializer(applications, many=True)
     return Response(serializer.data) 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user_data(request):
+    """Получение актуальных данных текущего пользователя"""
+    user = request.user
+    profile, created = UserProfile.objects.get_or_create(user=user)
+    
+    print(f"Получаем данные пользователя: {user.email}")
+    print(f"Имя в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
+    
+    user_data = {
+        'id': user.id,
+        'email': user.email,
+        'username': user.username,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'role': user.role,
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser
+    }
+    
+    print(f"Отправляем данные: {user_data}")
+    return Response(user_data)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -690,12 +760,109 @@ def manage_user_profile(request, user_id):
         return Response(serializer.data)
     
     elif request.method == 'PUT':
-        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        # Обновляем данные пользователя (включая роль)
+        user_data = {}
+        if 'first_name' in request.data:
+            user_data['first_name'] = request.data['first_name']
+        if 'last_name' in request.data:
+            user_data['last_name'] = request.data['last_name']
+        if 'role' in request.data:
+            user_data['role'] = request.data['role']
+        
+        # Обновляем пользователя
+        if user_data:
+            for field, value in user_data.items():
+                setattr(user, field, value)
+            user.save()
+            print(f"Обновлен пользователь {user.email}: {user_data}")
+        
+        # Обновляем профиль
+        profile_data = {k: v for k, v in request.data.items() 
+                       if k not in ['first_name', 'last_name', 'email', 'username', 'role']}
+        
+        # Преобразуем названия полей для сериализатора
+        if 'region' in profile_data:
+            profile_data['region_id'] = profile_data.pop('region')
+        if 'city' in profile_data:
+            profile_data['city_id'] = profile_data.pop('city')
+        if 'district' in profile_data:
+            profile_data['district_id'] = profile_data.pop('district')
+        
+        serializer = UserProfileSerializer(profile, data=profile_data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({
                 'message': 'Профиль пользователя успешно обновлен!',
-                'profile': serializer.data
+                'profile': UserProfileSerializer(profile).data
             }, status=status.HTTP_200_OK)
         else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def update_doctor_name_from_application(request, application_id):
+    """Принудительное обновление имени врача из заявки (только для админов)"""
+    try:
+        application = DoctorApplication.objects.get(id=application_id)
+        
+        if application.status != 'approved':
+            return Response({'error': 'Заявка не одобрена'}, status=400)
+        
+        user = application.user
+        print(f"=== ОБНОВЛЕНИЕ ИМЕНИ ВРАЧА ===")
+        print(f"Пользователь: {user.email}")
+        print(f"Текущее имя: first_name='{user.first_name}', last_name='{user.last_name}'")
+        print(f"Имя из заявки: first_name='{application.first_name}', last_name='{application.last_name}'")
+        
+        # Копируем имя из заявки
+        if application.first_name:
+            user.first_name = application.first_name
+            print(f"Установлено first_name: '{user.first_name}'")
+        
+        if application.last_name:
+            user.last_name = application.last_name
+            print(f"Установлено last_name: '{user.last_name}'")
+        
+        user.save()
+        print(f"Сохранено в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
+        
+        # Проверяем, что сохранилось
+        user.refresh_from_db()
+        print(f"После refresh: first_name='{user.first_name}', last_name='{user.last_name}'")
+        
+        return Response({
+            'message': 'Имя врача успешно обновлено из заявки!',
+            'new_name': f"{user.first_name} {user.last_name}".strip()
+        })
+            
+    except DoctorApplication.DoesNotExist:
+        return Response({'error': 'Заявка не найдена'}, status=404) 
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_user(request, user_id):
+    """Удаление пользователя (только для админов)"""
+    try:
+        user = User.objects.get(id=user_id)
+        
+        # Проверяем, что админ не удаляет сам себя
+        if user.id == request.user.id:
+            return Response({'error': 'Нельзя удалить свой собственный аккаунт'}, status=400)
+        
+        # Проверяем, что не удаляем суперпользователя
+        if user.is_superuser:
+            return Response({'error': 'Нельзя удалить суперпользователя'}, status=400)
+        
+        print(f"Удаляем пользователя: {user.email} (ID: {user.id})")
+        
+        # Удаляем пользователя (это также удалит связанные профили и заявки)
+        user.delete()
+        
+        return Response({
+            'message': f'Пользователь {user.email} успешно удален!'
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'Пользователь не найден'}, status=404) 
+
+ 

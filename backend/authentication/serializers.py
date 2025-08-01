@@ -53,7 +53,9 @@ class UserProfileReadSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = [
             'first_name', 'last_name', 'email', 'date_of_birth', 'gender', 'phone', 
-            'region', 'city', 'district', 'address', 'medical_info', 'emergency_contact'
+            'region', 'city', 'district', 'address', 'medical_info', 'emergency_contact',
+            # Поля врача
+            'specialization', 'experience', 'education', 'license_number', 'languages', 'additional_info'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
@@ -64,10 +66,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
     city_name = serializers.CharField(source='city.name', read_only=True)
     district_name = serializers.CharField(source='district.name', read_only=True)
     
+    # Добавляем поля пользователя для редактирования
+    first_name = serializers.CharField(source='user.first_name', required=False)
+    last_name = serializers.CharField(source='user.last_name', required=False)
+    role = serializers.CharField(source='user.role', required=False)
+    
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'user', 'date_of_birth', 'gender', 'phone', 
+            'id', 'user', 'first_name', 'last_name', 'role',
+            'date_of_birth', 'gender', 'phone', 
             'region', 'region_name', 'city', 'city_name', 'district', 'district_name', 'address',
             'medical_info', 'emergency_contact',
             'specialization', 'experience', 'education', 'license_number', 'languages', 'additional_info',
@@ -76,14 +84,25 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
     
     def validate(self, attrs):
+        # Проверяем, является ли пользователь врачом
+        request = self.context.get('request')
+        if request and request.user:
+            # Если пользователь врач, блокируем редактирование полей врача
+            if request.user.role == 'doctor':
+                doctor_fields = ['specialization', 'experience', 'education', 'license_number', 'languages', 'additional_info']
+                for field in doctor_fields:
+                    if field in attrs:
+                        raise serializers.ValidationError(f"Поле '{field}' не может быть изменено врачом. Обратитесь к администратору.")
+        
         return attrs
     
     def update(self, instance, validated_data):
         # Обрабатываем ID для связей
-        region_id = validated_data.pop('region_id', None)
-        city_id = validated_data.pop('city_id', None)
-        district_id = validated_data.pop('district_id', None)
+        region_id = validated_data.pop('region', None)
+        city_id = validated_data.pop('city', None)
+        district_id = validated_data.pop('district', None)
         
+        # Обновляем связи
         if region_id is not None:
             try:
                 instance.region = Region.objects.get(id=region_id)
@@ -184,23 +203,37 @@ class DoctorApplicationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     reviewed_by = UserSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    region_name = serializers.CharField(source='region.name', read_only=True)
+    city_name = serializers.CharField(source='city.name', read_only=True)
+    district_name = serializers.CharField(source='district.name', read_only=True)
     
     class Meta:
         model = DoctorApplication
         fields = [
-            'id', 'user', 'full_name', 'specialization', 'region', 'city', 'district', 
+            'id', 'user', 'first_name', 'last_name', 'full_name', 'specialization', 
+            'region', 'region_name', 'city', 'city_name', 'district', 'district_name',
             'languages', 'experience', 'education', 'license_number', 'additional_info',
             'date_of_birth', 'gender', 'phone', 'address', 'medical_info', 'emergency_contact',
             'photo', 'diploma', 'license', 'status', 'status_display', 'rejection_reason', 
             'created_at', 'updated_at', 'reviewed_by', 'reviewed_at'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'reviewed_by', 'reviewed_at']
+    
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 class DoctorApplicationCreateSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(max_length=100, required=True)
+    last_name = serializers.CharField(max_length=100, required=True)
+    region = serializers.IntegerField(required=False, allow_null=True)
+    city = serializers.IntegerField(required=False, allow_null=True)
+    district = serializers.IntegerField(required=False, allow_null=True)
+    
     class Meta:
         model = DoctorApplication
         fields = [
-            'full_name', 'specialization', 'region', 'city', 'district', 
+            'first_name', 'last_name', 'specialization', 'region', 'city', 'district',
             'languages', 'experience', 'education', 'license_number', 'additional_info',
             'date_of_birth', 'gender', 'phone', 'address', 'medical_info', 'emergency_contact',
             'photo', 'diploma', 'license'
@@ -213,6 +246,37 @@ class DoctorApplicationCreateSerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 raise serializers.ValidationError("Неверный формат JSON для языков")
         return value
+    
+    def create(self, validated_data):
+        # Обрабатываем ID для связей
+        region_id = validated_data.pop('region', None)
+        city_id = validated_data.pop('city', None)
+        district_id = validated_data.pop('district', None)
+        
+        # Создаем заявку
+        application = DoctorApplication.objects.create(**validated_data)
+        
+        # Устанавливаем связи
+        if region_id:
+            try:
+                application.region = Region.objects.get(id=region_id)
+            except Region.DoesNotExist:
+                pass
+        
+        if city_id:
+            try:
+                application.city = City.objects.get(id=city_id)
+            except City.DoesNotExist:
+                pass
+        
+        if district_id:
+            try:
+                application.district = District.objects.get(id=district_id)
+            except District.DoesNotExist:
+                pass
+        
+        application.save()
+        return application
 
 class DoctorApplicationUpdateSerializer(serializers.ModelSerializer):
     class Meta:

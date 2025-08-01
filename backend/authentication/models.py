@@ -130,54 +130,42 @@ class UserProfile(models.Model):
 
 class DoctorApplication(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Ожидает рассмотрения'),
+        ('pending', 'На рассмотрении'),
         ('approved', 'Одобрена'),
         ('rejected', 'Отклонена'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_applications')
-    full_name = models.CharField(max_length=255)
-    specialization = models.CharField(max_length=255)
-    region = models.CharField(max_length=100, blank=True)
-    city = models.CharField(max_length=100)
-    district = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=100, default='')
+    last_name = models.CharField(max_length=100, default='')
+    specialization = models.CharField(max_length=100)
+    region = models.ForeignKey(Region, on_delete=models.CASCADE, null=True, blank=True)
+    city = models.ForeignKey(City, on_delete=models.CASCADE, null=True, blank=True)
+    district = models.ForeignKey(District, on_delete=models.CASCADE, null=True, blank=True)
     languages = models.JSONField(default=list)
     experience = models.TextField()
     education = models.TextField()
     license_number = models.CharField(max_length=100)
     additional_info = models.TextField(blank=True)
-    
-    # Поля профиля
-    date_of_birth = models.DateField(blank=True, null=True)
-    gender = models.CharField(max_length=10, choices=[
-        ('male', 'Мужской'),
-        ('female', 'Женский'),
-        ('other', 'Другой')
-    ], blank=True, null=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
-    address = models.TextField(blank=True, null=True)
-    medical_info = models.TextField(blank=True, null=True)
-    emergency_contact = models.CharField(max_length=20, blank=True, null=True)
-    
-    # Файлы
-    photo = models.FileField(
-        upload_to='doctor_applications/photos/',
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
-    )
-    diploma = models.FileField(
-        upload_to='doctor_applications/diplomas/',
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png'])]
-    )
-    license = models.FileField(
-        upload_to='doctor_applications/licenses/',
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png'])]
-    )
-    
-    # Статус и метаданные
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    rejection_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Поля профиля
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=[('male', 'Мужской'), ('female', 'Женский')], null=True, blank=True)
+    phone = models.CharField(max_length=20, blank=True, default='')
+    address = models.TextField(blank=True, default='')
+    medical_info = models.TextField(blank=True, default='')
+    emergency_contact = models.CharField(max_length=100, blank=True, default='')
+    
+    # Файлы
+    photo = models.FileField(upload_to='doctor_applications/photos/', null=True, blank=True)
+    diploma = models.FileField(upload_to='doctor_applications/diplomas/', null=True, blank=True)
+    license = models.FileField(upload_to='doctor_applications/licenses/', null=True, blank=True)
+    
+    # Статус и метаданные
+    rejection_reason = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -193,4 +181,4 @@ class DoctorApplication(models.Model):
         verbose_name_plural = 'Заявки на роль врача'
     
     def __str__(self):
-        return f"Заявка от {self.full_name} - {self.get_status_display()}" 
+        return f"Заявка от {self.first_name} {self.last_name} - {self.get_status_display()}" 
