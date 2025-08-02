@@ -315,7 +315,7 @@ p {
 @media (max-width: 768px) {
   main {
     margin-left: 0;
-    padding-top: $spacing-lg; // Меньший отступ сверху на мобильных
+    padding-top: $spacing-sm; // Небольшой отступ сверху для Header
     padding-bottom: 80px; // Отступ для нижней навигации
   }
 
@@ -347,7 +347,7 @@ p {
 
 @media (max-width: 480px) {
   main {
-    padding-top: $spacing-md; // Еще меньший отступ на маленьких экранах
+    padding-top: $spacing-xs; // Минимальный отступ на маленьких экранах
     padding-bottom: 70px; // Меньший отступ для маленьких экранов
   }
 

@@ -420,13 +420,10 @@
   .header {
     margin-left: 0;
     height: auto;
-    padding: 6px $spacing-md;
+    padding: $spacing-sm $spacing-md;
     background: rgba(242, 242, 242, 0.84);
     backdrop-filter: blur(28px);
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative; // Изменяем с fixed на relative
     z-index: 1000;
 
     .dark-theme & {
@@ -454,10 +451,10 @@
     }
 
     &__phone {
-      padding: 0 $spacing-md; // Увеличиваем горизонтальные отступы
+      padding: 0 $spacing-md;
       border-radius: 20px;
       height: 60px;
-      min-width: 80px; // Увеличиваем минимальную ширину
+      min-width: 80px;
       justify-content: center;
       background: transparent;
 
@@ -488,10 +485,10 @@
 
     &__language {
       &-container {
-        padding: 0 $spacing-md; // Увеличиваем горизонтальные отступы
+        padding: 0 $spacing-md;
         border-radius: 20px;
         height: 60px;
-        min-width: 80px; // Увеличиваем минимальную ширину
+        min-width: 80px;
         justify-content: center;
         background: transparent;
 
