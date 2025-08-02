@@ -41,12 +41,17 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: $spacing-2xl;
-    margin-bottom: $spacing-3xl; // Добавляем отступ снизу
+    margin-bottom: $spacing-3xl;
   }
 
   // Мобильная карусель
   &__carousel {
     display: none; // Скрываем на десктопе
+  }
+
+  &__cta {
+    text-align: center;
+    margin-top: $spacing-3xl;
   }
 }
 
@@ -117,6 +122,19 @@
     }
   }
 
+  &__category {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $primary-blue;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: $spacing-sm;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
   &__title {
     font-size: $font-size-xl;
     font-weight: 700;
@@ -183,6 +201,39 @@
     &:hover svg {
       transform: translateX(4px);
     }
+  }
+}
+
+// Стили для кнопки CTA
+.btn {
+  background: $gradient-primary;
+  color: $white;
+  border: none;
+  padding: $spacing-lg $spacing-2xl;
+  border-radius: $border-radius-lg;
+  font-weight: 600;
+  font-size: $font-size-lg;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-md;
+  box-shadow: $shadow-medium;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-large;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: translateX(4px);
   }
 }
 

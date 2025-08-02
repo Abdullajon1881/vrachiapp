@@ -3,6 +3,7 @@ import Header from './components/Header/Header';
 import Sidebar from './components/Sidebar/Sidebar';
 import Hero from './components/Hero/Hero';
 import Services from './components/Services/Services';
+import ServicesPage from './components/Services/ServicesPage';
 import Profile from './components/Profile/Profile';
 import DoctorApplication from './components/DoctorApplication/DoctorApplication';
 import AdminPanel from './components/AdminPanel/AdminPanel';
@@ -135,6 +136,11 @@ function App() {
     }
   };
 
+  // Обработчик для показа всех услуг
+  const handleShowAllServices = () => {
+    setCurrentPage('services');
+  };
+
   const renderContent = () => {
     // Если пользователь не авторизован, показываем только главную страницу
     if (!isAuthenticated) {
@@ -144,7 +150,7 @@ function App() {
           return (
             <>
               <Hero />
-              <Services />
+              <Services onShowAllServices={handleShowAllServices} />
             </>
           );
       }
@@ -152,6 +158,8 @@ function App() {
 
     // Если пользователь авторизован, показываем соответствующий контент
     switch (currentPage) {
+      case 'services':
+        return <ServicesPage />;
       case 'profile':
         return <Profile userData={userData} />;
       case 'doctor-application':
@@ -163,7 +171,7 @@ function App() {
         return (
           <>
             <Hero />
-            <Services />
+            <Services onShowAllServices={handleShowAllServices} />
           </>
         );
     }
@@ -190,7 +198,11 @@ function App() {
         {renderContent()}
       </main>
       <Footer />
-      <MobileNav />
+      <MobileNav 
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        isAuthenticated={isAuthenticated}
+      />
     </div>
   );
 }
