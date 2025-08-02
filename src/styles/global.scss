@@ -316,7 +316,7 @@ p {
   main {
     margin-left: 0;
     padding-top: $spacing-sm; // Небольшой отступ сверху для Header
-    padding-bottom: 80px; // Отступ для нижней навигации
+    padding-bottom: 100px; // Увеличиваем отступ для нижней навигации
   }
 
   .container {
@@ -348,7 +348,7 @@ p {
 @media (max-width: 480px) {
   main {
     padding-top: $spacing-xs; // Минимальный отступ на маленьких экранах
-    padding-bottom: 70px; // Меньший отступ для маленьких экранов
+    padding-bottom: 90px; // Увеличиваем отступ для маленьких экранов
   }
 
   .container {
