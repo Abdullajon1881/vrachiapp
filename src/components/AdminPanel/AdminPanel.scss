@@ -3,7 +3,7 @@
 .admin-panel {
   padding: $spacing-xl;
   min-height: 100vh;
-  background: linear-gradient(135deg, $primary-blue 0%, $light-blue 100%);
+  background: $white;
   
   &__header {
     display: flex;
@@ -12,7 +12,7 @@
     margin-bottom: $spacing-xl;
     
     h1 {
-      color: $white;
+      color: $text-primary;
       font-size: $font-size-xxl;
       font-weight: $font-weight-bold;
       margin: 0;
@@ -25,22 +25,24 @@
     
     .admin-panel__tab {
       padding: $spacing-md $spacing-lg;
-      background: rgba($white, 0.1);
-      border: 1px solid rgba($white, 0.2);
+      background: $light-gray;
+      border: 1px solid $border-color;
       border-radius: $border-radius-lg;
-      color: $white;
+      color: $text-primary;
       font-weight: $font-weight-medium;
       cursor: pointer;
       transition: all 0.3s ease;
       
       &:hover {
-        background: rgba($white, 0.2);
+        background: $light-blue;
+        border-color: rgba($primary-blue, 0.2);
         transform: translateY(-2px);
       }
       
       &.active {
-        background: $white;
-        color: $primary-blue;
+        background: $primary-blue;
+        color: $white;
+        border-color: $primary-blue;
         box-shadow: $shadow-medium;
       }
     }
@@ -544,26 +546,28 @@
 }
 
 // Темная тема
-@media (prefers-color-scheme: dark) {
+.app.dark-theme {
   .admin-panel {
-    background: linear-gradient(135deg, $dark-primary 0%, $dark-secondary 100%);
+    background: $dark-surface;
     
     &__header h1 {
-      color: $white;
+      color: $dark-text;
     }
     
     &__tab {
-      background: rgba($white, 0.1) !important;
-      border-color: rgba($white, 0.2) !important;
-      color: $white !important;
+      background: $dark-card !important;
+      border-color: $dark-border !important;
+      color: $dark-text !important;
       
       &:hover {
-        background: rgba($white, 0.2) !important;
+        background: $dark-hover !important;
+        border-color: $primary-blue !important;
       }
       
       &.active {
-        background: $white !important;
-        color: $dark-primary !important;
+        background: $primary-blue !important;
+        color: $white !important;
+        border-color: $primary-blue !important;
       }
     }
     
@@ -654,6 +658,32 @@
         strong {
           color: $text-light !important;
         }
+      }
+    }
+    
+    &__input,
+    &__select,
+    &__textarea {
+      background: $dark-surface-secondary !important;
+      border-color: $dark-border !important;
+      color: $text-light !important;
+      
+      &:focus {
+        border-color: $primary-blue !important;
+      }
+      
+      &:disabled {
+        background: $dark-surface !important;
+        color: $text-secondary !important;
+      }
+    }
+    
+    &__document {
+      background: $dark-surface-secondary !important;
+      border-color: $dark-border !important;
+      
+      h4 {
+        color: $text-light !important;
       }
     }
   }
