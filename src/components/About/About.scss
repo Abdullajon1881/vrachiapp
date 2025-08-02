@@ -1,0 +1,618 @@
+@import '../../styles/variables';
+
+.about {
+  padding: $spacing-4xl 0;
+  background: $white;
+  min-height: 100vh;
+
+  .dark-theme & {
+    background: $dark-bg;
+  }
+
+  &__header {
+    text-align: center;
+    margin-bottom: $spacing-4xl;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 $spacing-lg;
+  }
+
+  &__title {
+    font-size: $font-size-5xl;
+    font-weight: 800;
+    color: $dark-blue;
+    margin-bottom: $spacing-xl;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    background: $gradient-primary;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+
+    .dark-theme & {
+      background: linear-gradient(135deg, $white 0%, $dark-text 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  }
+
+  &__subtitle {
+    font-size: $font-size-xl;
+    color: $text-light;
+    line-height: 1.8;
+    font-weight: 400;
+    max-width: 800px;
+    margin: 0 auto;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
+  &__section {
+    margin-bottom: $spacing-4xl;
+    padding: 0 $spacing-lg;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &--conclusion {
+      margin-bottom: 0;
+      padding: 0;
+    }
+  }
+
+  &__section-content {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  &__section-title {
+    font-size: $font-size-3xl;
+    font-weight: 700;
+    color: $dark-blue;
+    margin-bottom: $spacing-2xl;
+    text-align: center;
+    position: relative;
+
+    .dark-theme & {
+      color: $dark-text;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -$spacing-lg;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 4px;
+      background: $gradient-primary;
+      border-radius: 2px;
+    }
+  }
+
+  &__vision-text {
+    p {
+      font-size: $font-size-lg;
+      color: $text-light;
+      line-height: 1.9;
+      margin-bottom: $spacing-xl;
+      text-align: justify;
+      font-weight: 400;
+
+      .dark-theme & {
+        color: $dark-text-secondary;
+      }
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  // Наши ценности
+  &__values {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: $spacing-2xl;
+    margin-top: $spacing-3xl;
+  }
+
+  &__value {
+    text-align: center;
+    padding: $spacing-3xl $spacing-2xl;
+    background: $white;
+    border-radius: $border-radius-xl;
+    box-shadow: $shadow-light;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba($primary-blue, 0.05);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: $gradient-primary;
+      transform: scaleX(0);
+      transition: transform 0.3s ease;
+    }
+
+    &:hover {
+      transform: translateY(-12px);
+      box-shadow: $shadow-large;
+      border-color: rgba($primary-blue, 0.1);
+
+      &::before {
+        transform: scaleX(1);
+      }
+    }
+
+    .dark-theme & {
+      background: $dark-card;
+      box-shadow: $shadow-dark-light;
+      border-color: $dark-border;
+
+      &:hover {
+        box-shadow: $shadow-dark-large;
+        border-color: $dark-hover;
+      }
+    }
+  }
+
+  &__value-icon {
+    width: 100px;
+    height: 100px;
+    background: $light-blue;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto $spacing-lg;
+    transition: all 0.4s ease;
+    position: relative;
+
+    .dark-theme & {
+      background: $dark-hover;
+    }
+
+    svg {
+      color: $primary-blue;
+      transition: all 0.4s ease;
+
+      .dark-theme & {
+        color: $dark-text;
+      }
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: $gradient-primary;
+      border-radius: 50%;
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+  }
+
+  &__value:hover &__value-icon {
+    background: $primary-blue;
+    transform: scale(1.1) rotate(5deg);
+
+    &::after {
+      opacity: 1;
+    }
+
+    svg {
+      color: $white;
+    }
+
+    .dark-theme & {
+      background: $primary-blue;
+    }
+  }
+
+  &__value-title {
+    font-size: $font-size-xl;
+    font-weight: 600;
+    color: $text-dark;
+    margin: 0;
+
+    .dark-theme & {
+      color: $dark-text;
+    }
+  }
+
+  // Наши обязательства
+  &__commitment-intro {
+    font-size: $font-size-lg;
+    color: $text-light;
+    line-height: 1.8;
+    margin-bottom: $spacing-2xl;
+    text-align: center;
+    font-weight: 400;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
+  &__commitment-footer {
+    text-align: center;
+    margin-top: $spacing-2xl;
+    padding: $spacing-3xl;
+    background: $gradient-light;
+    border-radius: $border-radius-xl;
+    border-left: 6px solid $primary-blue;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="rgba(9,88,128,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23dots)"/></svg>');
+      opacity: 0.3;
+    }
+
+    .dark-theme & {
+      background: $dark-hover;
+      border-left-color: $primary-blue;
+    }
+  }
+
+  &__commitment-quote {
+    font-size: $font-size-xl;
+    color: $text-dark;
+    line-height: 1.6;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+
+    .dark-theme & {
+      color: $dark-text;
+    }
+  }
+
+  // За что мы выступаем
+  &__commitments {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: $spacing-2xl;
+    margin-top: $spacing-3xl;
+  }
+
+  &__commitment {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-xl;
+    padding: $spacing-3xl;
+    background: $white;
+    border-radius: $border-radius-xl;
+    box-shadow: $shadow-light;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba($primary-blue, 0.05);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: $gradient-primary;
+      transform: scaleY(0);
+      transition: transform 0.3s ease;
+    }
+
+    &:hover {
+      transform: translateY(-8px);
+      box-shadow: $shadow-large;
+      border-color: rgba($primary-blue, 0.1);
+
+      &::before {
+        transform: scaleY(1);
+      }
+    }
+
+    .dark-theme & {
+      background: $dark-card;
+      box-shadow: $shadow-dark-light;
+      border-color: $dark-border;
+
+      &:hover {
+        box-shadow: $shadow-dark-large;
+        border-color: $dark-hover;
+      }
+    }
+  }
+
+  &__commitment-icon {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    background: $light-blue;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s ease;
+    position: relative;
+
+    .dark-theme & {
+      background: $dark-hover;
+    }
+
+    svg {
+      color: $primary-blue;
+      transition: all 0.4s ease;
+
+      .dark-theme & {
+        color: $dark-text;
+      }
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: $gradient-primary;
+      border-radius: 50%;
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+  }
+
+  &__commitment:hover &__commitment-icon {
+    background: $primary-blue;
+    transform: scale(1.1) rotate(5deg);
+
+    &::after {
+      opacity: 1;
+    }
+
+    svg {
+      color: $white;
+    }
+
+    .dark-theme & {
+      background: $primary-blue;
+    }
+  }
+
+  &__commitment-content {
+    flex: 1;
+  }
+
+  &__commitment-title {
+    font-size: $font-size-xl;
+    font-weight: 600;
+    color: $text-dark;
+    margin-bottom: $spacing-md;
+    line-height: 1.4;
+
+    .dark-theme & {
+      color: $dark-text;
+    }
+  }
+
+  &__commitment-description {
+    font-size: $font-size-md;
+    color: $text-light;
+    line-height: 1.7;
+    margin: 0;
+    font-weight: 400;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
+  // Заключение
+  &__conclusion {
+    text-align: center;
+    padding: $spacing-xxl $spacing-4xl;
+    background: $gradient-primary;
+    border-radius: $border-radius-xl;
+    color: $white;
+    position: relative;
+    overflow: hidden;
+    margin: 0 $spacing-lg;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      opacity: 0.2;
+    }
+  }
+
+  &__conclusion-title {
+    font-size: $font-size-4xl;
+    font-weight: 700;
+    margin-bottom: $spacing-lg;
+    position: relative;
+    z-index: 1;
+    line-height: 1.3;
+  }
+
+  &__conclusion-subtitle {
+    font-size: $font-size-xl;
+    margin-bottom: $spacing-2xl;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__conclusion-signature {
+    position: relative;
+    z-index: 1;
+
+    p {
+      font-size: $font-size-lg;
+      margin: 0;
+      opacity: 0.95;
+      font-weight: 500;
+    }
+  }
+}
+
+// Адаптивность
+@media (max-width: 768px) {
+  .about {
+    padding: $spacing-2xl 0;
+
+    &__header {
+      margin-bottom: $spacing-2xl;
+      padding: 0 $spacing-md;
+    }
+
+    &__title {
+      font-size: $font-size-3xl;
+    }
+
+    &__subtitle {
+      font-size: $font-size-lg;
+    }
+
+    &__section {
+      margin-bottom: $spacing-2xl;
+      padding: 0 $spacing-md;
+    }
+
+    &__section-title {
+      font-size: $font-size-2xl;
+    }
+
+    &__vision-text p {
+      font-size: $font-size-md;
+    }
+
+    &__values {
+      grid-template-columns: 1fr;
+      gap: $spacing-xl;
+    }
+
+    &__commitments {
+      grid-template-columns: 1fr;
+      gap: $spacing-xl;
+    }
+
+    &__commitment {
+      flex-direction: column;
+      text-align: center;
+      gap: $spacing-md;
+      padding: $spacing-2xl;
+    }
+
+    &__conclusion {
+      padding: $spacing-3xl $spacing-2xl;
+      margin: 0 $spacing-md;
+    }
+
+    &__conclusion-title {
+      font-size: $font-size-2xl;
+    }
+
+    &__conclusion-subtitle {
+      font-size: $font-size-lg;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .about {
+    padding: $spacing-xl 0;
+
+    &__header {
+      margin-bottom: $spacing-xl;
+      padding: 0 $spacing-sm;
+    }
+
+    &__title {
+      font-size: $font-size-2xl;
+    }
+
+    &__subtitle {
+      font-size: $font-size-md;
+    }
+
+    &__section {
+      padding: 0 $spacing-sm;
+    }
+
+    &__section-title {
+      font-size: $font-size-xl;
+    }
+
+    &__vision-text p {
+      font-size: $font-size-sm;
+    }
+
+    &__value {
+      padding: $spacing-2xl $spacing-lg;
+    }
+
+    &__value-icon {
+      width: 80px;
+      height: 80px;
+
+      svg {
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    &__commitment {
+      padding: $spacing-xl;
+    }
+
+    &__commitment-icon {
+      width: 60px;
+      height: 60px;
+
+      svg {
+        width: 28px;
+        height: 28px;
+      }
+    }
+
+    &__conclusion {
+      padding: $spacing-2xl $spacing-lg;
+      margin: 0 $spacing-sm;
+    }
+
+    &__conclusion-title {
+      font-size: $font-size-xl;
+    }
+
+    &__conclusion-subtitle {
+      font-size: $font-size-md;
+    }
+  }
+} 

@@ -21,6 +21,15 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
           <polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )
+    },
+    {
+      id: 'about',
+      label: 'О нас',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
     }
   ];
 
@@ -104,7 +113,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
   
   if (isAuthenticated) {
     if (isAdmin) {
-      // Для администраторов показываем только админские пункты + главная
+      // Для администраторов показываем только админские пункты + главная и о нас
       navigationItems = [...navigationItems, ...adminNavigationItems];
     } else {
       // Для обычных пользователей показываем обычные пункты

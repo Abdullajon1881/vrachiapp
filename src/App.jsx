@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar/Sidebar';
 import Hero from './components/Hero/Hero';
 import Services from './components/Services/Services';
 import ServicesPage from './components/Services/ServicesPage';
+import About from './components/About/About';
 import Profile from './components/Profile/Profile';
 import DoctorApplication from './components/DoctorApplication/DoctorApplication';
 import AdminPanel from './components/AdminPanel/AdminPanel';
@@ -142,9 +143,11 @@ function App() {
   };
 
   const renderContent = () => {
-    // Если пользователь не авторизован, показываем только главную страницу
+    // Если пользователь не авторизован, показываем только главную страницу и о нас
     if (!isAuthenticated) {
       switch (currentPage) {
+        case 'about':
+          return <About />;
         case 'home':
         default:
           return (
@@ -158,6 +161,8 @@ function App() {
 
     // Если пользователь авторизован, показываем соответствующий контент
     switch (currentPage) {
+      case 'about':
+        return <About />;
       case 'services':
         return <ServicesPage />;
       case 'profile':
@@ -202,6 +207,7 @@ function App() {
         currentPage={currentPage}
         onPageChange={setCurrentPage}
         isAuthenticated={isAuthenticated}
+        userData={userData}
       />
     </div>
   );

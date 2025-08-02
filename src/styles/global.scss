@@ -6,6 +6,15 @@
   box-sizing: border-box;
 }
 
+html {
+  background-color: $white;
+  transition: background-color 0.3s ease;
+
+  .app.dark-theme & {
+    background-color: $dark-bg;
+  }
+}
+
 body {
   font-family: $font-family;
   background-color: $white;
@@ -15,6 +24,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
 
   .app.dark-theme & {
     background-color: $dark-bg;
@@ -32,6 +42,13 @@ body {
 main {
   margin-left: 111px;
   transition: margin-left 0.3s ease;
+  min-height: 100vh;
+  background-color: $white;
+  padding-top: $spacing-xl; // Добавляем отступ сверху
+
+  .app.dark-theme & {
+    background-color: $dark-bg;
+  }
 }
 
 // Типографика

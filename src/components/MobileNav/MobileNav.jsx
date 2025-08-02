@@ -1,12 +1,17 @@
 import React from 'react';
 import './MobileNav.scss';
 
-const MobileNav = ({ currentPage, onPageChange, isAuthenticated }) => {
-  const handleItemClick = (pageId) => {
-    onPageChange(pageId);
+const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => {
+  const handleItemClick = (itemId) => {
+    onPageChange(itemId);
   };
 
-  const navigationItems = [
+  // Определяем роль пользователя
+  const isAdmin = userData && (userData.is_staff || userData.is_superuser);
+  const isDoctor = userData && userData.role === 'doctor';
+
+  // Базовые пункты меню для всех пользователей
+  const baseNavigationItems = [
     {
       id: 'home',
       label: 'Главная',
@@ -18,14 +23,18 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated }) => {
       )
     },
     {
-      id: 'services',
-      label: 'Услуги',
+      id: 'about',
+      label: 'О нас',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )
-    },
+    }
+  ];
+
+  // Пункты меню для обычных авторизованных пользователей (пациентов)
+  const patientNavigationItems = [
     {
       id: 'doctors',
       label: 'Врачи',
@@ -51,6 +60,15 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated }) => {
       )
     },
     {
+      id: 'services',
+      label: 'Услуги',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    },
+    {
       id: 'profile',
       label: 'Профиль',
       icon: (
@@ -62,15 +80,55 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated }) => {
     }
   ];
 
-  // Показываем только основные пункты для неавторизованных пользователей
-  const visibleItems = isAuthenticated 
-    ? navigationItems 
-    : navigationItems.filter(item => ['home', 'services'].includes(item.id));
+  // Пункты меню для администраторов
+  const adminNavigationItems = [
+    {
+      id: 'admin-dashboard',
+      label: 'Панель',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect x="14" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect x="14" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect x="3" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    },
+    {
+      id: 'admin-applications',
+      label: 'Заявки',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx="8.5" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M20 8v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M23 11h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+  ];
+
+  // Формируем итоговый список пунктов меню
+  let navigationItems = [...baseNavigationItems];
+  
+  if (isAuthenticated) {
+    if (isAdmin) {
+      // Для администраторов показываем только админские пункты + главная и о нас
+      navigationItems = [...navigationItems, ...adminNavigationItems];
+    } else {
+      // Для обычных пользователей показываем обычные пункты
+      navigationItems = [...navigationItems, ...patientNavigationItems];
+    }
+  } else {
+    // Для неавторизованных пользователей показываем только основные пункты
+    navigationItems = navigationItems.filter(item => ['home', 'about', 'services'].includes(item.id));
+  }
 
   return (
     <nav className="mobile-nav">
       <div className="mobile-nav__container">
-        {visibleItems.map((item) => (
+        {/* Навигационные пункты */}
+        {navigationItems.map((item) => (
           <div 
             key={item.id}
             className={`mobile-nav__item ${currentPage === item.id ? 'mobile-nav__item--active' : ''}`}
