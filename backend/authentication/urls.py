@@ -8,6 +8,11 @@ urlpatterns = [
     path('logout/', views.LogoutView.as_view(), name='logout'),
     path('google-auth/', views.GoogleAuthView.as_view(), name='google-auth'),
     
+    # Email верификация
+    path('verify-email/<str:token>/', views.verify_email_view, name='verify_email'),
+    path('verify-email-html/<str:token>/', views.verify_email_html_view, name='verify_email_html'),
+    path('resend-verification/', views.resend_verification_email, name='resend_verification_email'),
+    
     # Профиль
     path('profile/', views.user_profile, name='user-profile'),
     path('check-auth/', views.check_auth, name='check-auth'),

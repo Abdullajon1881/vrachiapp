@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.core.validators import FileExtensionValidator
+import uuid
+from datetime import timedelta
 
 
 class User(AbstractUser):
@@ -12,6 +14,8 @@ class User(AbstractUser):
         ('admin', 'Администратор'),
     ]
     
+    # Переопределяем username для уникальности
+    username = models.CharField(max_length=150, unique=True, blank=True, null=True)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     avatar = models.URLField(blank=True, null=True)
@@ -20,6 +24,11 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='patient')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Поля для email верификации
+    email_verification_token = models.UUIDField(blank=True, null=True)
+    email_verification_sent_at = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=False)  # Пользователь неактивен до подтверждения email
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']

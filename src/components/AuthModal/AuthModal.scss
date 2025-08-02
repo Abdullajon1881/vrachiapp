@@ -79,18 +79,60 @@
   }
 
   &__error {
-    background: #fee2e2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
+    background: rgba($error, 0.1);
+    border: 1px solid $error;
+    color: $error;
     padding: $spacing-md;
     border-radius: $border-radius-md;
     margin-bottom: $spacing-lg;
     font-size: $font-size-sm;
+    text-align: center;
+  }
 
-    .dark-theme & {
-      background: rgba(220, 38, 38, 0.1);
-      border-color: rgba(220, 38, 38, 0.3);
-      color: #fca5a5;
+  &__success-message {
+    background: rgba($success, 0.1);
+    border: 1px solid $success;
+    color: $success;
+    padding: $spacing-md;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-lg;
+    font-size: $font-size-sm;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  &__verification-message {
+    background: rgba($info, 0.1);
+    border: 1px solid $info;
+    color: $info;
+    padding: $spacing-md;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-lg;
+    font-size: $font-size-sm;
+    text-align: center;
+
+    p {
+      margin: 0 0 $spacing-sm 0;
+    }
+  }
+
+  &__resend-verification {
+    background: $info;
+    color: $white;
+    border: none;
+    padding: $spacing-sm $spacing-md;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover:not(:disabled) {
+      background: darken($info, 10%);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
   }
 

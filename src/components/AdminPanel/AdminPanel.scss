@@ -18,6 +18,27 @@
       margin: 0;
     }
   }
+
+  &__error {
+    background: $white;
+    padding: $spacing-xl;
+    border-radius: $border-radius-lg;
+    box-shadow: $shadow-medium;
+    text-align: center;
+    margin-top: $spacing-xl;
+    
+    p {
+      color: $text-primary;
+      font-size: $font-size-lg;
+      margin-bottom: $spacing-md;
+      
+      &:last-child {
+        color: $text-secondary;
+        font-size: $font-size-md;
+        margin-bottom: 0;
+      }
+    }
+  }
   
   &__tabs {
     display: flex;

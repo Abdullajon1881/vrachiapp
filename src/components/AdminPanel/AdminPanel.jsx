@@ -17,15 +17,50 @@ const AdminPanel = ({ updateUserData }) => {
   const [activeSection, setActiveSection] = useState('applications');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
+
+  useEffect(() => {
+    // Проверяем права пользователя при загрузке компонента
+    checkUserPermissions();
+  }, []);
 
   useEffect(() => {
     console.log('AdminPanel: useEffect triggered, activeSection:', activeSection);
-    if (activeSection === 'applications') {
+    if (hasAdminAccess && activeSection === 'applications') {
       fetchApplications();
-    } else if (activeSection === 'users') {
+    } else if (hasAdminAccess && activeSection === 'users') {
       fetchUsers();
     }
-  }, [activeSection, activeTab]);
+  }, [activeSection, activeTab, hasAdminAccess]);
+
+  const checkUserPermissions = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserData(data);
+        
+        // Проверяем, есть ли у пользователя права администратора
+        const isAdmin = data.is_staff || data.is_superuser || data.role === 'admin';
+        setHasAdminAccess(isAdmin);
+        
+        if (!isAdmin) {
+          setError('У вас нет прав для доступа к панели администратора');
+        }
+      } else {
+        setError('Ошибка проверки прав доступа');
+        setHasAdminAccess(false);
+      }
+    } catch (error) {
+      console.error('Ошибка проверки прав пользователя:', error);
+      setError('Ошибка соединения с сервером');
+      setHasAdminAccess(false);
+    }
+  };
 
   const fetchApplications = async () => {
     setLoading(true);
@@ -386,7 +421,22 @@ const AdminPanel = ({ updateUserData }) => {
     return 'Пациент';
   };
 
-  console.log('AdminPanel render:', { activeSection, loading, error, usersCount: users.length, applicationsCount: applications.length });
+  console.log('AdminPanel render:', { activeSection, loading, error, usersCount: users.length, applicationsCount: applications.length, hasAdminAccess });
+
+  // Если у пользователя нет прав администратора, показываем сообщение об ошибке
+  if (!hasAdminAccess) {
+    return (
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h1>Панель администратора</h1>
+        </div>
+        <div className="admin-panel__error">
+          <p>{error || 'У вас нет прав для доступа к панели администратора'}</p>
+          <p>Для доступа к панели администратора необходимо иметь права администратора.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-panel">

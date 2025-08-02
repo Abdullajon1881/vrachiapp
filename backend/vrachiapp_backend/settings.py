@@ -207,13 +207,15 @@ GOOGLE_CLIENT_ID = '735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleuse
 GOOGLE_CLIENT_SECRET = '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'
 
 
-# Email settings (для разработки)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_HOST = 'localhost'
-EMAIL_PORT = 1025
-EMAIL_USE_TLS = False
-EMAIL_HOST_USER = ''
-EMAIL_HOST_PASSWORD = ''
+# Email settings для Gmail SMTP
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'ymarumar502@gmail.com'
+EMAIL_HOST_PASSWORD = 'uqth iufx fscq xrmi'
+EMAIL_FROM = 'ymarumar502@gmail.com'
+DEFAULT_FROM_EMAIL = 'ymarumar502@gmail.com'
 
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 hours

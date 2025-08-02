@@ -13,6 +13,9 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleInputChange = (e) => {
     setFormData({
@@ -21,10 +24,46 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     });
   };
 
+  const handleResendVerification = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/resend-verification/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email: verificationEmail })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccessMessage('Email для подтверждения отправлен повторно. Проверьте вашу почту.');
+        setNeedsVerification(false);
+        // Очищаем сообщение через 5 секунд
+        setTimeout(() => setSuccessMessage(''), 5000);
+      } else {
+        setError(data.error || 'Ошибка отправки email');
+      }
+    } catch (err) {
+      setError('Ошибка соединения с сервером');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMessage('');
+    setNeedsVerification(false);
+
+    // Логируем данные формы для отладки
+    console.log('Form data being sent:', formData);
 
     try {
       const endpoint = isLogin ? '/api/auth/login/' : '/api/auth/register/';
@@ -38,19 +77,34 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
       });
 
       const data = await response.json();
+      console.log('Server response:', data);
 
       if (response.ok) {
-        // Сохраняем пользователя
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        onAuthSuccess(data.user);
-        onClose();
+        if (isLogin) {
+          // Сохраняем пользователя при входе
+          localStorage.setItem('user', JSON.stringify(data.user));
+          onAuthSuccess(data.user);
+          onClose();
+        } else {
+          // При регистрации показываем сообщение о необходимости подтверждения
+          setSuccessMessage(data.message || 'Регистрация успешна! Проверьте ваш email для подтверждения аккаунта.');
+          // Закрываем модальное окно через 3 секунды
+          setTimeout(() => {
+            onClose();
+            setSuccessMessage('');
+          }, 3000);
+        }
       } else {
         // Обрабатываем конкретные ошибки
         let errorMessage = 'Произошла ошибка';
         
         if (response.status === 400) {
-          if (data.error) {
+          if (data.needs_verification) {
+            // Пользователь не подтвердил email
+            setNeedsVerification(true);
+            setVerificationEmail(data.email);
+            errorMessage = data.error;
+          } else if (data.error) {
             errorMessage = data.error;
           } else if (data.email) {
             errorMessage = data.email[0];
@@ -74,6 +128,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
         setError(errorMessage);
       }
     } catch (err) {
+      console.error('Network error:', err);
       setError('Ошибка соединения с сервером. Проверьте интернет-соединение');
     } finally {
       setLoading(false);
@@ -158,6 +213,25 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
           {error && (
             <div className="auth-modal__error">
               {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="auth-modal__success-message">
+              {successMessage}
+            </div>
+          )}
+
+          {needsVerification && (
+            <div className="auth-modal__verification-message">
+              <p>Пожалуйста, подтвердите ваш email: {verificationEmail}</p>
+              <button 
+                className="auth-modal__resend-verification"
+                onClick={handleResendVerification}
+                disabled={loading}
+              >
+                {loading ? 'Отправка...' : 'Отправить повторно'}
+              </button>
             </div>
           )}
 
@@ -283,6 +357,9 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                     last_name: '',
                     username: ''
                   });
+                  setNeedsVerification(false);
+                  setVerificationEmail('');
+                  setSuccessMessage(''); // Очищаем сообщение при переключении
                 }}
               >
                 {isLogin ? 'Зарегистрироваться' : 'Войти'}

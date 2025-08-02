@@ -9,6 +9,9 @@ from django.conf import settings
 import requests
 import json
 from django.db import models
+from django.urls import reverse
+from django.shortcuts import render
+from django.http import HttpResponse
 
 from .models import User, UserProfile, Region, City, District, DoctorApplication
 from .serializers import (
@@ -17,29 +20,75 @@ from .serializers import (
     RegionSerializer, CitySerializer, DistrictSerializer,
     DoctorApplicationSerializer, DoctorApplicationCreateSerializer, DoctorApplicationUpdateSerializer
 )
+from .utils import create_user_with_verification, send_verification_email, verify_email_token, create_google_user
 
 
 class RegisterView(generics.CreateAPIView):
-    """Регистрация пользователя"""
+    """Регистрация пользователя с email верификацией"""
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        
+        # Логируем данные для отладки
+        print(f"Registration data: {request.data}")
+        
+        if not serializer.is_valid():
+            print(f"Validation errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Получаем данные из сериализатора
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+        first_name = serializer.validated_data.get('first_name', '')
+        last_name = serializer.validated_data.get('last_name', '')
+        username = serializer.validated_data.get('username', '')
+        role = serializer.validated_data.get('role', 'patient')
+        
+        # Если username не указан, используем email
+        if not username:
+            username = email.split('@')[0]
+        
+        # Создаем пользователя с верификацией
+        user = create_user_with_verification(
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            role=role
+        )
+        
+        # Если был указан username, обновляем его
+        if username and username != user.username:
+            # Проверяем уникальность
+            if not User.objects.filter(username=username).exists():
+                user.username = username
+                user.save()
         
         # Создаем профиль пользователя
         UserProfile.objects.create(user=user)
         
-        # Входим в систему
-        login(request, user)
+        # Отправляем email для верификации
+        verification_url = request.build_absolute_uri(
+            reverse('verify_email', kwargs={'token': user.email_verification_token})
+        )
         
-        return Response({
-            'user': UserSerializer(user).data,
-            'message': 'Пользователь успешно зарегистрирован'
-        }, status=status.HTTP_201_CREATED)
+        email_sent = send_verification_email(user, verification_url)
+        
+        if email_sent:
+            return Response({
+                'message': 'Регистрация успешна! Проверьте ваш email для подтверждения аккаунта.',
+                'email': email,
+                'user_id': user.id
+            }, status=status.HTTP_201_CREATED)
+        else:
+            # Если email не отправлен, удаляем пользователя
+            user.delete()
+            return Response({
+                'error': 'Ошибка отправки email для подтверждения. Попробуйте позже.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LoginView(generics.GenericAPIView):
@@ -51,6 +100,30 @@ class LoginView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
+        
+        # Проверяем, подтвержден ли email (только для не-Google пользователей)
+        # Если пользователь был создан до системы верификации, считаем его верифицированным
+        if not user.google_id and not user.is_verified:
+            # Проверяем, есть ли токен верификации (если нет, значит пользователь старый)
+            if not user.email_verification_token:
+                # Старый пользователь - автоматически верифицируем
+                user.is_verified = True
+                user.is_active = True
+                user.save()
+                print(f"Автоматически верифицирован старый пользователь: {user.email}")
+            else:
+                # Новый пользователь с токеном - требует подтверждения
+                return Response({
+                    'error': 'Пожалуйста, подтвердите ваш email перед входом в систему. Проверьте вашу почту или запросите повторную отправку.',
+                    'needs_verification': True,
+                    'email': user.email
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Проверяем, активен ли пользователь
+        if not user.is_active:
+            return Response({
+                'error': 'Ваш аккаунт неактивен. Обратитесь к администратору.'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Входим в систему
         login(request, user)
@@ -133,32 +206,22 @@ class GoogleAuthView(generics.GenericAPIView):
         """Создает или получает пользователя по Google ID"""
         google_id = google_user_info.get('id')
         email = google_user_info.get('email')
+        first_name = google_user_info.get('given_name', '')
+        last_name = google_user_info.get('family_name', '')
+        avatar = google_user_info.get('picture', '')
         
-        # Ищем пользователя по Google ID или email
-        user = User.objects.filter(
-            models.Q(google_id=google_id) | models.Q(email=email)
-        ).first()
-        
-        if user:
-            # Обновляем Google ID если его не было
-            if not user.google_id:
-                user.google_id = google_id
-                user.save()
-            return user
-        
-        # Создаем нового пользователя
-        user = User.objects.create_user(
-            username=email,
+        # Создаем или получаем пользователя через утилиту
+        user = create_google_user(
             email=email,
-            first_name=google_user_info.get('given_name', ''),
-            last_name=google_user_info.get('family_name', ''),
+            first_name=first_name,
+            last_name=last_name,
             google_id=google_id,
-            is_verified=True,
-            avatar=google_user_info.get('picture', '')
+            avatar=avatar
         )
         
-        # Создаем профиль
-        UserProfile.objects.create(user=user)
+        # Создаем профиль, если его нет
+        if not hasattr(user, 'profile'):
+            UserProfile.objects.create(user=user)
         
         return user
 
@@ -519,6 +582,12 @@ def user_profile(request):
                 'error': 'Пользователь не аутентифицирован',
                 'is_authenticated': False
             }, status=401)
+        
+        # Проверяем, что врач не может редактировать свой профиль
+        if request.user.role == 'doctor':
+            return Response({
+                'error': 'Врачи не могут редактировать свой профиль. Обратитесь к администратору.'
+            }, status=status.HTTP_403_FORBIDDEN)
             
         # Обновляем данные пользователя
         user_data = {}
@@ -587,9 +656,13 @@ def submit_doctor_application(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_doctor_applications(request):
     """Получение списка заявок (только для админов)"""
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
+    
     status_filter = request.query_params.get('status', None)
     
     queryset = DoctorApplication.objects.all()
@@ -600,9 +673,13 @@ def get_doctor_applications(request):
     return Response(serializer.data)
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_doctor_application_detail(request, application_id):
     """Получение детальной информации о заявке (только для админов)"""
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         application = DoctorApplication.objects.get(id=application_id)
         serializer = DoctorApplicationSerializer(application)
@@ -712,6 +789,7 @@ def get_current_user_data(request):
     
     print(f"Получаем данные пользователя: {user.email}")
     print(f"Имя в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
+    print(f"Данные профиля: specialization='{profile.specialization}', experience='{profile.experience}'")
     
     user_data = {
         'id': user.id,
@@ -721,7 +799,28 @@ def get_current_user_data(request):
         'last_name': user.last_name,
         'role': user.role,
         'is_staff': user.is_staff,
-        'is_superuser': user.is_superuser
+        'is_superuser': user.is_superuser,
+        'full_name': user.full_name,
+        'initials': user.initials,
+        'avatar': user.avatar,
+        # Данные профиля
+        'profile': {
+            'phone': profile.phone,
+            'date_of_birth': profile.date_of_birth,
+            'gender': profile.gender,
+            'region': profile.region,
+            'city': profile.city,
+            'district': profile.district,
+            'address': profile.address,
+            'medical_info': profile.medical_info,
+            'emergency_contact': profile.emergency_contact,
+            'specialization': profile.specialization,
+            'experience': profile.experience,
+            'education': profile.education,
+            'license_number': profile.license_number,
+            'languages': profile.languages,
+            'additional_info': profile.additional_info
+        }
     }
     
     print(f"Отправляем данные: {user_data}")
@@ -817,8 +916,9 @@ def get_doctor_profile(request, doctor_id):
 @permission_classes([IsAuthenticated])
 def get_all_users(request):
     """Получение списка всех пользователей (только для админов)"""
-    if not request.user.is_staff:
-        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
     
     try:
         users = User.objects.all().prefetch_related('profile')
@@ -832,8 +932,9 @@ def get_all_users(request):
 @permission_classes([IsAuthenticated])
 def manage_user_profile(request, user_id):
     """Управление профилем пользователя (только для админов)"""
-    if not request.user.is_staff:
-        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
     
     try:
         user = User.objects.get(id=user_id)
@@ -885,8 +986,11 @@ def manage_user_profile(request, user_id):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def update_doctor_name_from_application(request, application_id):
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
     """Принудительное обновление имени врача из заявки (только для админов)"""
     try:
         application = DoctorApplication.objects.get(id=application_id)
@@ -925,8 +1029,11 @@ def update_doctor_name_from_application(request, application_id):
         return Response({'error': 'Заявка не найдена'}, status=404) 
 
 @api_view(['DELETE'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def delete_user(request, user_id):
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
     """Удаление пользователя (только для админов)"""
     try:
         user = User.objects.get(id=user_id)
@@ -950,5 +1057,79 @@ def delete_user(request, user_id):
         
     except User.DoesNotExist:
         return Response({'error': 'Пользователь не найден'}, status=404) 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_email_view(request, token):
+    """Верификация email по токену"""
+    success, message = verify_email_token(token)
+    
+    if success:
+        return Response({
+            'success': True,
+            'message': message
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({
+            'success': False,
+            'error': message
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+def verify_email_html_view(request, token):
+    """HTML страница для подтверждения email"""
+    success, message = verify_email_token(token)
+    
+    context = {
+        'success': success,
+        'error_message': message if not success else None
+    }
+    
+    return render(request, 'authentication/email_verification_success.html', context)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_verification_email(request):
+    """Повторная отправка email для верификации"""
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({
+            'error': 'Email обязателен'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email, is_verified=False)
+        
+        # Генерируем новый токен
+        from .utils import generate_verification_token
+        user.email_verification_token = generate_verification_token()
+        user.email_verification_sent_at = timezone.now()
+        user.save()
+        
+        # Отправляем email
+        verification_url = request.build_absolute_uri(
+            reverse('verify_email', kwargs={'token': user.email_verification_token})
+        )
+        
+        # Заменяем API URL на HTML URL для email
+        html_verification_url = verification_url.replace('/api/auth/verify-email/', '/api/auth/verify-email-html/')
+        
+        email_sent = send_verification_email(user, html_verification_url)
+        
+        if email_sent:
+            return Response({
+                'message': 'Email для подтверждения отправлен повторно'
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'error': 'Ошибка отправки email'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except User.DoesNotExist:
+        return Response({
+            'error': 'Пользователь с таким email не найден или уже подтвержден'
+        }, status=status.HTTP_404_NOT_FOUND) 
 
  

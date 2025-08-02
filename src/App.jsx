@@ -100,7 +100,45 @@ function App() {
       }
     };
 
+    // Обработка верификации email
+    const handleEmailVerification = async () => {
+      const currentUrl = window.location.href;
+      
+      if (currentUrl.includes('verify-email/')) {
+        // Извлекаем токен из URL
+        const tokenMatch = currentUrl.match(/verify-email\/([^\/\?]+)/);
+        if (tokenMatch) {
+          const token = tokenMatch[1];
+          
+          try {
+            const response = await fetch(`http://localhost:8000/api/auth/verify-email/${token}/`, {
+              method: 'GET',
+              credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              alert('Email успешно подтвержден! Теперь вы можете войти в систему.');
+              // Очищаем URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+              alert(`Ошибка подтверждения: ${data.error || 'Неизвестная ошибка'}`);
+              // Очищаем URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+          } catch (err) {
+            console.error('Ошибка соединения с сервером:', err);
+            alert('Ошибка соединения с сервером. Попробуйте позже.');
+            // Очищаем URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+      }
+    };
+
     handleGoogleAuthReturn();
+    handleEmailVerification();
   }, []);
 
   const toggleTheme = () => {
@@ -150,11 +188,12 @@ function App() {
   };
 
   const renderContent = () => {
-    // Если пользователь не авторизован, показываем только главную страницу и о нас
     if (!isAuthenticated) {
       switch (currentPage) {
         case 'about':
           return <About />;
+        case 'services':
+          return <ServicesPage userData={userData} />;
         case 'home':
         default:
           return (
@@ -165,21 +204,19 @@ function App() {
           );
       }
     }
-
-    // Если пользователь авторизован, показываем соответствующий контент
     switch (currentPage) {
+      case 'profile':
+        return <Profile />;
+      case 'admin':
+        return <AdminPanel />;
+      case 'doctor-application':
+        return <DoctorApplication updateUserData={updateUserData} />;
       case 'about':
         return <About />;
       case 'services':
         return <ServicesPage userData={userData} />;
       case 'doctors':
         return <Doctors />;
-      case 'profile':
-        return <Profile userData={userData} />;
-      case 'doctor-application':
-        return <DoctorApplication />;
-      case 'admin-applications':
-        return <AdminPanel updateUserData={updateUserData} />;
       case 'home':
       default:
         return (
