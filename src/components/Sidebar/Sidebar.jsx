@@ -115,8 +115,12 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
     if (isAdmin) {
       // Для администраторов показываем только админские пункты + главная и о нас
       navigationItems = [...navigationItems, ...adminNavigationItems];
+    } else if (isDoctor) {
+      // Для врачей показываем только базовые пункты + профиль (без пункта "Врачи")
+      const doctorNavigationItems = patientNavigationItems.filter(item => item.id !== 'doctors');
+      navigationItems = [...navigationItems, ...doctorNavigationItems];
     } else {
-      // Для обычных пользователей показываем обычные пункты
+      // Для обычных пользователей (пациентов) показываем все пункты включая "Врачи"
       navigationItems = [...navigationItems, ...patientNavigationItems];
     }
   }

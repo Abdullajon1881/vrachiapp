@@ -194,6 +194,17 @@
     &__buttons {
       justify-content: center;
       gap: $spacing-md;
+      flex-direction: column; // Кнопки в столбец на мобильных
+      width: 100%;
+      max-width: 300px; // Ограничиваем ширину
+      margin: 0 auto;
+
+      .btn {
+        width: 100%; // Кнопки занимают всю ширину
+        padding: $spacing-md $spacing-lg; // Уменьшаем padding
+        font-size: $font-size-sm; // Уменьшаем размер шрифта
+        min-height: 48px; // Устанавливаем минимальную высоту
+      }
     }
 
     &__image-container {
@@ -243,6 +254,13 @@
     &__buttons {
       flex-direction: column;
       gap: $spacing-sm;
+      max-width: 280px; // Еще меньше на маленьких экранах
+
+      .btn {
+        padding: $spacing-sm $spacing-md; // Еще меньше padding
+        font-size: $font-size-xs; // Еще меньше шрифт
+        min-height: 44px; // Меньшая высота
+      }
     }
 
     &__image-container {

@@ -729,6 +729,92 @@ def get_current_user_data(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def get_doctors(request):
+    """Получение списка всех врачей (только для пациентов)"""
+    if request.user.role != 'patient':
+        return Response({'error': 'Доступ запрещен. Только пациенты могут просматривать список врачей'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        # Получаем только пользователей с ролью 'doctor'
+        doctors = User.objects.filter(role='doctor').prefetch_related('profile')
+        
+        # Сериализуем данные врачей
+        doctors_data = []
+        for doctor in doctors:
+            profile = getattr(doctor, 'profile', None)
+            doctor_data = {
+                'id': doctor.id,
+                'first_name': doctor.first_name,
+                'last_name': doctor.last_name,
+                'email': doctor.email,
+                'avatar': doctor.avatar,
+                'full_name': doctor.full_name,
+                'initials': doctor.initials,
+                'specialization': profile.specialization if profile else '',
+                'experience': profile.experience if profile else '',
+                'education': profile.education if profile else '',
+                'license_number': profile.license_number if profile else '',
+                'languages': profile.languages if profile else [],
+                'additional_info': profile.additional_info if profile else '',
+                'region': profile.region.name if profile and profile.region else '',
+                'city': profile.city.name if profile and profile.city else '',
+                'district': profile.district.name if profile and profile.district else '',
+                'address': profile.address if profile else '',
+                'phone': profile.phone if profile else '',
+                'created_at': doctor.created_at,
+            }
+            doctors_data.append(doctor_data)
+        
+        return Response(doctors_data)
+    except Exception as e:
+        print(f"Ошибка при получении врачей: {e}")
+        return Response({'error': 'Ошибка сервера'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_doctor_profile(request, doctor_id):
+    """Получение профиля конкретного врача (только для пациентов)"""
+    if request.user.role != 'patient':
+        return Response({'error': 'Доступ запрещен. Только пациенты могут просматривать профили врачей'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+        profile, created = UserProfile.objects.get_or_create(user=doctor)
+        
+        doctor_data = {
+            'id': doctor.id,
+            'first_name': doctor.first_name,
+            'last_name': doctor.last_name,
+            'email': doctor.email,
+            'avatar': doctor.avatar,
+            'full_name': doctor.full_name,
+            'initials': doctor.initials,
+            'specialization': profile.specialization or '',
+            'experience': profile.experience or '',
+            'education': profile.education or '',
+            'license_number': profile.license_number or '',
+            'languages': profile.languages or [],
+            'additional_info': profile.additional_info or '',
+            'region': profile.region.name if profile.region else '',
+            'city': profile.city.name if profile.city else '',
+            'district': profile.district.name if profile.district else '',
+            'address': profile.address or '',
+            'phone': profile.phone or '',
+            'created_at': doctor.created_at,
+            'reviews': []  # Пока пустой массив для отзывов
+        }
+        
+        return Response(doctor_data)
+    except User.DoesNotExist:
+        return Response({'error': 'Врач не найден'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"Ошибка при получении профиля врача: {e}")
+        return Response({'error': 'Ошибка сервера'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_all_users(request):
     """Получение списка всех пользователей (только для админов)"""
     if not request.user.is_staff:

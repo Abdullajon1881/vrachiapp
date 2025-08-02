@@ -7,6 +7,8 @@
 }
 
 html {
+  margin: 0;
+  padding: 0;
   background-color: $white;
   transition: background-color 0.3s ease;
 
@@ -16,6 +18,8 @@ html {
 }
 
 body {
+  margin: 0;
+  padding: 0;
   font-family: $font-family;
   background-color: $white;
   color: $text-dark;
@@ -41,10 +45,11 @@ body {
 // Отступ для основного контента из-за sidebar
 main {
   margin-left: 111px;
+  margin-top: 0; // Убеждаемся, что нет отступа сверху
   transition: margin-left 0.3s ease;
   min-height: 100vh;
   background-color: $white;
-  padding-top: $spacing-xl; // Добавляем отступ сверху
+  padding-top: 0; // Убираем отступ сверху
 
   .app.dark-theme & {
     background-color: $dark-bg;
@@ -315,7 +320,7 @@ p {
 @media (max-width: 768px) {
   main {
     margin-left: 0;
-    padding-top: $spacing-sm; // Небольшой отступ сверху для Header
+    padding-top: 0; // Убираем отступ сверху
     padding-bottom: 100px; // Увеличиваем отступ для нижней навигации
   }
 
@@ -347,7 +352,7 @@ p {
 
 @media (max-width: 480px) {
   main {
-    padding-top: $spacing-xs; // Минимальный отступ на маленьких экранах
+    padding-top: 0; // Убираем отступ сверху
     padding-bottom: 90px; // Увеличиваем отступ для маленьких экранов
   }
 

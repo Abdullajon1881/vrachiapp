@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header/Header';
+import './App.scss';
 import Sidebar from './components/Sidebar/Sidebar';
+import MobileNav from './components/MobileNav/MobileNav';
+import Header from './components/Header/Header';
 import Hero from './components/Hero/Hero';
 import Services from './components/Services/Services';
 import ServicesPage from './components/Services/ServicesPage';
 import About from './components/About/About';
+import Doctors from './components/Doctors/Doctors';
 import Profile from './components/Profile/Profile';
-import DoctorApplication from './components/DoctorApplication/DoctorApplication';
 import AdminPanel from './components/AdminPanel/AdminPanel';
+import AuthModal from './components/AuthModal/AuthModal';
+import DoctorApplication from './components/DoctorApplication/DoctorApplication';
 import Footer from './components/Footer/Footer';
-import MobileNav from './components/MobileNav/MobileNav';
-import './App.scss';
 
 function App() {
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
@@ -142,6 +144,11 @@ function App() {
     setCurrentPage('services');
   };
 
+  // Обработчик для показа врачей
+  const handleShowDoctors = () => {
+    setCurrentPage('doctors');
+  };
+
   const renderContent = () => {
     // Если пользователь не авторизован, показываем только главную страницу и о нас
     if (!isAuthenticated) {
@@ -153,7 +160,7 @@ function App() {
           return (
             <>
               <Hero />
-              <Services onShowAllServices={handleShowAllServices} />
+              <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={userData} />
             </>
           );
       }
@@ -164,7 +171,9 @@ function App() {
       case 'about':
         return <About />;
       case 'services':
-        return <ServicesPage />;
+        return <ServicesPage userData={userData} />;
+      case 'doctors':
+        return <Doctors />;
       case 'profile':
         return <Profile userData={userData} />;
       case 'doctor-application':
@@ -176,7 +185,7 @@ function App() {
         return (
           <>
             <Hero />
-            <Services onShowAllServices={handleShowAllServices} />
+            <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={userData} />
           </>
         );
     }

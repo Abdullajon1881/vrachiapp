@@ -32,6 +32,10 @@ urlpatterns = [
     # Управление пользователями (только для админов)
     path('users/', views.get_all_users, name='get_all_users'),
     path('users/<int:user_id>/delete/', views.delete_user, name='delete_user'),
+    
+    # Врачи (только для пациентов)
+    path('doctors/', views.get_doctors, name='get_doctors'),
+    path('doctors/<int:doctor_id>/', views.get_doctor_profile, name='get_doctor_profile'),
     path('users/<int:user_id>/profile/', views.manage_user_profile, name='manage_user_profile'),
     path('current-user/', views.get_current_user_data, name='get_current_user_data'),
 ] 

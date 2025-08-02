@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './MobileNav.scss';
 
 const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => {
   const [activeItem, setActiveItem] = useState(currentPage);
+
+  // Синхронизируем activeItem с currentPage
+  useEffect(() => {
+    setActiveItem(currentPage);
+  }, [currentPage]);
 
   const handleItemClick = (itemId) => {
     setActiveItem(itemId);
@@ -118,8 +123,12 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => 
     if (isAdmin) {
       // Для администраторов показываем только админские пункты + главная и о нас
       navigationItems = [...navigationItems, ...adminNavigationItems];
+    } else if (isDoctor) {
+      // Для врачей показываем только базовые пункты + профиль (без пункта "Врачи")
+      const doctorNavigationItems = patientNavigationItems.filter(item => item.id !== 'doctors');
+      navigationItems = [...navigationItems, ...doctorNavigationItems];
     } else {
-      // Для обычных пользователей показываем обычные пункты
+      // Для обычных пользователей (пациентов) показываем все пункты включая "Врачи"
       navigationItems = [...navigationItems, ...patientNavigationItems];
     }
   } else {

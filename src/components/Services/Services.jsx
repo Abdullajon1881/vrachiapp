@@ -1,7 +1,7 @@
 import React from 'react';
 import './Services.scss';
 
-const Services = ({ onShowAllServices }) => {
+const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
   const services = [
     // Медицинские услуги
     {
@@ -152,6 +152,12 @@ const Services = ({ onShowAllServices }) => {
     }
   };
 
+  const handleShowDoctors = () => {
+    if (onShowDoctors && userData && userData.role === 'patient') {
+      onShowDoctors();
+    }
+  };
+
   return (
     <section className="services">
       <div className="container">
@@ -166,19 +172,23 @@ const Services = ({ onShowAllServices }) => {
         <div className="services__grid">
           {services.map((service) => (
             <div key={service.id} className="service-card">
-              <div className="service-card__icon">
-                {service.icon}
-              </div>
+              {userData && userData.role !== 'doctor' && (
+                <div className="service-card__icon">
+                  {service.icon}
+                </div>
+              )}
               <div className="service-card__content">
                 <div className="service-card__category">{service.category}</div>
                 <h3 className="service-card__title">{service.title}</h3>
                 <p className="service-card__description">{service.description}</p>
-                <button className="service-card__btn">
-                  Подробнее
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
+                {userData && userData.role !== 'doctor' && (
+                  <button className="service-card__btn">
+                    Подробнее
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -191,19 +201,23 @@ const Services = ({ onShowAllServices }) => {
               <div className="services__carousel-slide">
                 {services.map((service) => (
                   <div key={service.id} className="service-card">
-                    <div className="service-card__icon">
-                      {service.icon}
-                    </div>
+                    {userData && userData.role !== 'doctor' && (
+                      <div className="service-card__icon">
+                        {service.icon}
+                      </div>
+                    )}
                     <div className="service-card__content">
                       <div className="service-card__category">{service.category}</div>
                       <h3 className="service-card__title">{service.title}</h3>
                       <p className="service-card__description">{service.description}</p>
-                      <button className="service-card__btn">
-                        Подробнее
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                          <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
+                      {userData && userData.role !== 'doctor' && (
+                        <button className="service-card__btn">
+                          Подробнее
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -213,12 +227,25 @@ const Services = ({ onShowAllServices }) => {
         </div>
 
         <div className="services__cta">
-          <button className="btn btn--primary" onClick={handleShowAllServices}>
-            Все услуги
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+          {userData && userData.role !== 'doctor' && (
+            <button className="btn btn--primary" onClick={handleShowAllServices}>
+              Все услуги
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+          {userData && userData.role === 'patient' && (
+            <button className="btn btn--secondary" onClick={handleShowDoctors}>
+              Найти врача
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="8.5" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M20 8v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M23 11h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </section>
