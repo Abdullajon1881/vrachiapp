@@ -10,8 +10,8 @@ const Doctors = () => {
   const [selectedSpecialization, setSelectedSpecialization] = useState('all');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDoctor, setSelectedDoctor] = useState(null);
-  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [userData, setUserData] = useState(null);
+
 
   // Услуги для фильтрации
   const services = [
@@ -93,7 +93,34 @@ const Doctors = () => {
   ];
 
   useEffect(() => {
-    fetchDoctors();
+    // Получаем данные пользователя
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUserData(data);
+          
+          // Загружаем врачей только если пользователь - пациент
+          if (data.role === 'patient') {
+            fetchDoctors();
+          } else {
+            setLoading(false);
+            setError('Доступ запрещен. Только пациенты могут просматривать список врачей.');
+          }
+        } else {
+          setLoading(false);
+          setError('Ошибка получения данных пользователя');
+        }
+      } catch (error) {
+        setLoading(false);
+        setError('Ошибка соединения с сервером');
+      }
+    };
+    
+    fetchUserData();
   }, []);
 
   useEffect(() => {
@@ -192,28 +219,7 @@ const Doctors = () => {
     setFilteredDoctors(filtered);
   };
 
-  const openDoctorProfile = async (doctorId) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/auth/doctors/${doctorId}/`, {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const doctorData = await response.json();
-        setSelectedDoctor(doctorData);
-        setShowDoctorModal(true);
-      } else {
-        alert('Ошибка при загрузке профиля врача');
-      }
-    } catch (error) {
-      alert('Ошибка соединения с сервером');
-    }
-  };
 
-  const closeDoctorModal = () => {
-    setShowDoctorModal(false);
-    setSelectedDoctor(null);
-  };
 
   const getSpecializationIcon = (specialization) => {
     const icons = {
@@ -256,11 +262,14 @@ const Doctors = () => {
     return (
       <div className="doctors">
         <div className="doctors__error">
-          <h2>Ошибка</h2>
+          <h2>Доступ ограничен</h2>
           <p>{error}</p>
-          <button onClick={fetchDoctors} className="btn btn--primary">
-            Попробовать снова
-          </button>
+          {userData?.role === 'doctor' && (
+            <p>Врачи не могут просматривать список других врачей.</p>
+          )}
+          {userData?.role === 'admin' && (
+            <p>Администраторы могут управлять врачами через админ панель.</p>
+          )}
         </div>
       </div>
     );
@@ -367,7 +376,9 @@ const Doctors = () => {
                     <img src={doctor.avatar} alt={doctor.full_name} />
                   ) : (
                     <div className="doctor-card__avatar-placeholder">
-                      {doctor.initials}
+                      {doctor.first_name && doctor.last_name 
+                        ? `${doctor.first_name[0]}${doctor.last_name[0]}`.toUpperCase()
+                        : doctor.first_name?.[0]?.toUpperCase() || 'U'}
                     </div>
                   )}
                 </div>
@@ -398,111 +409,12 @@ const Doctors = () => {
                   </p>
                 )}
               </div>
-
-              <div className="doctor-card__actions">
-                <button 
-                  onClick={() => openDoctorProfile(doctor.id)}
-                  className="btn btn--primary btn--small"
-                >
-                  Посмотреть профиль
-                </button>
-              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Модальное окно профиля врача */}
-      {showDoctorModal && selectedDoctor && (
-        <div className="doctor-modal" onClick={closeDoctorModal}>
-          <div className="doctor-modal__content" onClick={(e) => e.stopPropagation()}>
-            <button className="doctor-modal__close" onClick={closeDoctorModal}>
-              ✕
-            </button>
-            
-            <div className="doctor-modal__header">
-              <div className="doctor-modal__avatar">
-                {selectedDoctor.avatar ? (
-                  <img src={selectedDoctor.avatar} alt={selectedDoctor.full_name} />
-                ) : (
-                  <div className="doctor-modal__avatar-placeholder">
-                    {selectedDoctor.initials}
-                  </div>
-                )}
-              </div>
-              <div className="doctor-modal__info">
-                <h2>{selectedDoctor.full_name}</h2>
-                <p className="doctor-modal__specialization">
-                  {getSpecializationIcon(selectedDoctor.specialization)} {selectedDoctor.specialization}
-                </p>
-                {selectedDoctor.license_number && (
-                  <p className="doctor-modal__license">
-                    Лицензия: {selectedDoctor.license_number}
-                  </p>
-                )}
-              </div>
-            </div>
 
-            <div className="doctor-modal__body">
-              {selectedDoctor.region && (
-                <div className="doctor-modal__section">
-                  <h3>📍 Местоположение</h3>
-                  <p>{selectedDoctor.city ? `${selectedDoctor.city}, ${selectedDoctor.region}` : selectedDoctor.region}</p>
-                  {selectedDoctor.address && <p>{selectedDoctor.address}</p>}
-                </div>
-              )}
-
-              {selectedDoctor.experience && (
-                <div className="doctor-modal__section">
-                  <h3>💼 Опыт работы</h3>
-                  <p>{selectedDoctor.experience}</p>
-                </div>
-              )}
-
-              {selectedDoctor.education && (
-                <div className="doctor-modal__section">
-                  <h3>🎓 Образование</h3>
-                  <p>{selectedDoctor.education}</p>
-                </div>
-              )}
-
-              {selectedDoctor.languages && selectedDoctor.languages.length > 0 && (
-                <div className="doctor-modal__section">
-                  <h3>🌍 Языки</h3>
-                  <p>{selectedDoctor.languages.join(', ')}</p>
-                </div>
-              )}
-
-              {selectedDoctor.additional_info && (
-                <div className="doctor-modal__section">
-                  <h3>ℹ️ Дополнительная информация</h3>
-                  <p>{selectedDoctor.additional_info}</p>
-                </div>
-              )}
-
-              {selectedDoctor.phone && (
-                <div className="doctor-modal__section">
-                  <h3>📞 Контакты</h3>
-                  <p>{selectedDoctor.phone}</p>
-                </div>
-              )}
-
-              <div className="doctor-modal__section">
-                <h3>⭐ Отзывы</h3>
-                <div className="doctor-modal__reviews">
-                  <p>Отзывы пока отсутствуют</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="doctor-modal__footer">
-              <button className="btn btn--secondary" onClick={closeDoctorModal}>
-                Закрыть
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

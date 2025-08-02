@@ -91,7 +91,7 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => 
   // Пункты меню для администраторов
   const adminNavigationItems = [
     {
-      id: 'admin-dashboard',
+      id: 'admin',
       label: 'Панель',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -99,18 +99,6 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => 
           <rect x="14" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           <rect x="14" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           <rect x="3" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      )
-    },
-    {
-      id: 'admin-applications',
-      label: 'Заявки',
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="8.5" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M20 8v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M23 11h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )
     }
@@ -139,7 +127,6 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => 
   return (
     <nav className="mobile-nav">
       <div className="mobile-nav__container">
-        {/* Навигационные пункты */}
         {navigationItems.map((item) => (
           <div 
             key={item.id}

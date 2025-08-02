@@ -85,13 +85,19 @@
 
   &__avatar {
     flex-shrink: 0;
+    position: relative;
+    width: 100px;
+    height: 100px;
+    overflow: hidden;
 
     img {
-      width: 100px;
-      height: 100px;
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
       object-fit: cover;
       border: 4px solid $primary-blue;
+      max-width: 100%;
+      max-height: 100%;
     }
   }
 
@@ -107,6 +113,34 @@
     font-size: $font-size-3xl;
     font-weight: 700;
     border: 4px solid rgba($primary-blue, 0.2);
+  }
+
+  &__avatar-edit-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: $primary-blue;
+    border: 2px solid $white;
+    color: $white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: $shadow-medium;
+
+    &:hover {
+      background: darken($primary-blue, 10%);
+      transform: scale(1.1);
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
   }
 
   &__info {
@@ -354,6 +388,117 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+// Модальное окно для редактирования аватарки
+.profile__modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.profile__modal {
+  background: $white;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-large;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  .dark-theme & {
+    background: $dark-card;
+    box-shadow: $shadow-dark-large;
+  }
+}
+
+.profile__modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-xl;
+  border-bottom: 1px solid $border-color;
+
+  .dark-theme & {
+    border-bottom-color: $dark-border;
+  }
+
+  h3 {
+    margin: 0;
+    color: $text-primary;
+    font-size: $font-size-xl;
+
+    .dark-theme & {
+      color: $dark-text;
+    }
+  }
+}
+
+.profile__modal-close {
+  background: none;
+  border: none;
+  font-size: $font-size-xxl;
+  color: $text-secondary;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: $light-gray;
+    color: $text-primary;
+  }
+
+  .dark-theme & {
+    color: $dark-text-secondary;
+
+    &:hover {
+      background: $dark-surface-secondary;
+      color: $dark-text;
+    }
+  }
+}
+
+.profile__modal-content {
+  padding: $spacing-xl;
+
+  .profile__form-group {
+    margin-bottom: $spacing-lg;
+
+    small {
+      display: block;
+      margin-top: $spacing-xs;
+      color: $text-secondary;
+      font-size: $font-size-sm;
+
+      .dark-theme & {
+        color: $dark-text-secondary;
+      }
+    }
+  }
+}
+
+.profile__modal-actions {
+  display: flex;
+  gap: $spacing-md;
+  justify-content: flex-end;
+  margin-top: $spacing-xl;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
 }
 
 // Стили для кнопок

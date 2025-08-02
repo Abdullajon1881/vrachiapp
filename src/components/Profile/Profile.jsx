@@ -11,6 +11,9 @@ const Profile = () => {
   const [regions, setRegions] = useState([]);
   const [cities, setCities] = useState([]);
   const [districts, setDistricts] = useState([]);
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -40,11 +43,12 @@ const Profile = () => {
           medical_info: data.profile?.medical_info || '',
           emergency_contact: data.profile?.emergency_contact || ''
         });
+        setAvatarUrl(data.avatar || '');
         
         // Загружаем города и районы если есть регион
         if (data.profile?.region?.id) {
-          fetchCities(data.profile.region.id);
-          fetchDistricts(data.profile.region.id);
+          await fetchCities(data.profile.region.id);
+          await fetchDistricts(data.profile.region.id);
         }
       } else {
         setError('Ошибка загрузки данных профиля');
@@ -78,6 +82,14 @@ const Profile = () => {
       if (response.ok) {
         const data = await response.json();
         setCities(data);
+        
+        // Если у пользователя есть город, устанавливаем его
+        if (userData?.profile?.city?.id) {
+          setFormData(prev => ({
+            ...prev,
+            city: userData.profile.city.id
+          }));
+        }
       }
     } catch (err) {
       console.error('Ошибка загрузки городов:', err);
@@ -94,6 +106,14 @@ const Profile = () => {
       if (response.ok) {
         const data = await response.json();
         setDistricts(data);
+        
+        // Если у пользователя есть район, устанавливаем его
+        if (userData?.profile?.district?.id) {
+          setFormData(prev => ({
+            ...prev,
+            district: userData.profile.district.id
+          }));
+        }
       }
     } catch (err) {
       console.error('Ошибка загрузки районов:', err);
@@ -153,6 +173,42 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarSubmit = async () => {
+    if (!avatarFile) {
+      setError('Пожалуйста, выберите файл аватарки');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const response = await fetch('http://localhost:8000/api/auth/profile/', {
+        method: 'PUT',
+        credentials: 'include',
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserData(data);
+        setIsEditingAvatar(false);
+        setAvatarFile(null);
+        setError(null);
+        // Обновляем данные в localStorage
+        localStorage.setItem('user', JSON.stringify(data));
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Ошибка сохранения аватарки');
+      }
+    } catch (err) {
+      setError('Ошибка соединения с сервером');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="profile">
@@ -188,8 +244,23 @@ const Profile = () => {
               <img src={userData.avatar} alt="Аватар" />
             ) : (
               <div className="profile__avatar-placeholder">
-                {userData?.initials || 'U'}
+                {userData?.first_name && userData?.last_name 
+                  ? `${userData.first_name[0]}${userData.last_name[0]}`.toUpperCase()
+                  : userData?.first_name?.[0]?.toUpperCase() || 'U'}
               </div>
+            )}
+            {/* Кнопка редактирования аватарки для врачей */}
+            {userData?.role === 'doctor' && (
+              <button 
+                className="profile__avatar-edit-btn"
+                onClick={() => setIsEditingAvatar(true)}
+                title="Изменить аватарку"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             )}
           </div>
           <div className="profile__info">
@@ -232,7 +303,7 @@ const Profile = () => {
             )}
             {userData?.role === 'doctor' && (
               <div className="profile__doctor-notice">
-                <p>Профиль врача может редактировать только администратор</p>
+                <p>Врачи могут изменять только аватарку. Остальные данные может изменить только администратор.</p>
               </div>
             )}
           </div>
@@ -455,6 +526,63 @@ const Profile = () => {
           </form>
         </div>
       </div>
+
+      {/* Модальное окно для редактирования аватарки */}
+      {isEditingAvatar && (
+        <div className="profile__modal-overlay">
+          <div className="profile__modal">
+            <div className="profile__modal-header">
+              <h3>Изменить аватарку</h3>
+              <button 
+                className="profile__modal-close"
+                onClick={() => {
+                  setIsEditingAvatar(false);
+                  setAvatarFile(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="profile__modal-content">
+              <div className="profile__form-group">
+                <label htmlFor="avatar_file">Выберите файл аватарки</label>
+                <input
+                  type="file"
+                  id="avatar_file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setAvatarFile(file);
+                    }
+                  }}
+                />
+                <small>
+                  Выберите изображение (JPG, PNG, GIF). Максимальный размер: 5MB
+                </small>
+              </div>
+              <div className="profile__modal-actions">
+                <button 
+                  className="btn btn--secondary"
+                  onClick={() => {
+                    setIsEditingAvatar(false);
+                    setAvatarFile(null);
+                  }}
+                >
+                  Отмена
+                </button>
+                <button 
+                  className="btn btn--primary"
+                  onClick={handleAvatarSubmit}
+                  disabled={loading}
+                >
+                  {loading ? 'Сохранение...' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -143,6 +143,8 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
         </button>
       </div>
 
+
+
       <nav className="sidebar__nav">
         <ul className="sidebar__nav-list">
           {navigationItems.map((item) => (

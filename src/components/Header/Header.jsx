@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import healzyLogo from '../../assets/images/healzy.svg';
 import AuthModal from '../AuthModal/AuthModal';
 import './Header.scss';
@@ -6,6 +6,30 @@ import './Header.scss';
 const Header = ({ onPageChange, isAuthenticated, userData, onLogout, onAuthSuccess }) => {
   const [currentLanguage, setCurrentLanguage] = useState('RU');
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [currentUserData, setCurrentUserData] = useState(null);
+
+  // Получаем актуальные данные пользователя с сервера
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setCurrentUserData(data);
+          }
+        } catch (error) {
+          console.error('Ошибка получения данных пользователя:', error);
+        }
+      }
+    };
+
+    fetchCurrentUser();
+        
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const handleLogoClick = () => {
     if (onPageChange) {
@@ -35,13 +59,14 @@ const Header = ({ onPageChange, isAuthenticated, userData, onLogout, onAuthSucce
 
   // Определяем роль пользователя
   const getUserRole = () => {
-    if (!userData) return 'Гость';
+    const data = currentUserData || userData;
+    if (!data) return 'Гость';
     
-    if (userData.is_staff || userData.is_superuser) {
+    if (data.is_staff || data.is_superuser) {
       return 'Администратор';
     }
     
-    if (userData.role === 'doctor') {
+    if (data.role === 'doctor') {
       return 'Врач';
     }
     
@@ -95,13 +120,21 @@ const Header = ({ onPageChange, isAuthenticated, userData, onLogout, onAuthSucce
             </div>
 
             {/* Пользовательская секция */}
-            {isAuthenticated && userData ? (
+            {isAuthenticated && (currentUserData || userData) ? (
               <div className="header__user">
                 <div className="header__user-avatar">
-                  {userData.initials || userData.first_name?.[0] || 'U'}
+                  {(currentUserData || userData).avatar ? (
+                    <img src={(currentUserData || userData).avatar} alt="Аватар" />
+                  ) : (
+                    <div className="header__user-avatar-placeholder">
+                      {(currentUserData || userData).first_name && (currentUserData || userData).last_name 
+                        ? `${(currentUserData || userData).first_name[0]}${(currentUserData || userData).last_name[0]}`.toUpperCase()
+                        : (currentUserData || userData).first_name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                  )}
                 </div>
                 <div className="header__user-info">
-                  <div className="header__user-name">{userData.full_name || userData.first_name || userData.username}</div>
+                  <div className="header__user-name">{(currentUserData || userData).full_name || (currentUserData || userData).first_name || (currentUserData || userData).username}</div>
                   <div className="header__user-status">{getUserRole()}</div>
                 </div>
                 <button className="header__logout-btn" onClick={handleLogout} title="Выйти">

@@ -583,11 +583,14 @@ def user_profile(request):
                 'is_authenticated': False
             }, status=401)
         
-        # Проверяем, что врач не может редактировать свой профиль
+        # Проверяем, что врач может редактировать только аватарку
         if request.user.role == 'doctor':
-            return Response({
-                'error': 'Врачи не могут редактировать свой профиль. Обратитесь к администратору.'
-            }, status=status.HTTP_403_FORBIDDEN)
+            # Если врач пытается изменить что-то кроме аватарки
+            allowed_fields = ['avatar']
+            if any(field in request.data for field in request.data if field not in allowed_fields):
+                return Response({
+                    'error': 'Врачи могут изменять только аватарку. Остальные данные может изменить только администратор.'
+                }, status=status.HTTP_403_FORBIDDEN)
             
         # Обновляем данные пользователя
         user_data = {}
@@ -595,6 +598,35 @@ def user_profile(request):
             user_data['first_name'] = request.data['first_name']
         if 'last_name' in request.data:
             user_data['last_name'] = request.data['last_name']
+        
+        # Обрабатываем аватарку (может быть файлом или URL)
+        if 'avatar' in request.FILES:
+            # Если это файл
+            avatar_file = request.FILES['avatar']
+            # Сохраняем файл в media/avatars/
+            import os
+            from django.conf import settings
+            
+            # Создаем директорию если её нет
+            avatar_dir = os.path.join(settings.MEDIA_ROOT, 'avatars')
+            os.makedirs(avatar_dir, exist_ok=True)
+            
+            # Генерируем уникальное имя файла
+            import uuid
+            file_extension = os.path.splitext(avatar_file.name)[1]
+            filename = f"{uuid.uuid4()}{file_extension}"
+            file_path = os.path.join(avatar_dir, filename)
+            
+            # Сохраняем файл
+            with open(file_path, 'wb+') as destination:
+                for chunk in avatar_file.chunks():
+                    destination.write(chunk)
+            
+            # Сохраняем путь к файлу в базе данных
+            user_data['avatar'] = f'http://localhost:8000/media/avatars/{filename}'
+        elif 'avatar' in request.data:
+            # Если это URL
+            user_data['avatar'] = request.data['avatar']
         
         if user_data:
             for field, value in user_data.items():
@@ -617,10 +649,24 @@ def user_profile(request):
         
         if serializer.is_valid():
             serializer.save()
-            return Response({
-                'message': 'Профиль успешно обновлен!',
-                'data': UserProfileReadSerializer(profile).data
-            })
+            
+            # Возвращаем полные данные пользователя, как в get_current_user_data
+            user_data = {
+                'id': request.user.id,
+                'email': request.user.email,
+                'username': request.user.username,
+                'first_name': request.user.first_name,
+                'last_name': request.user.last_name,
+                'role': request.user.role,
+                'is_staff': request.user.is_staff,
+                'is_superuser': request.user.is_superuser,
+                'full_name': request.user.full_name,
+                'initials': request.user.initials,
+                'avatar': request.user.avatar,
+                'profile': UserProfileReadSerializer(profile).data
+            }
+            
+            return Response(user_data)
         else:
             return Response(serializer.errors, status=400) 
 

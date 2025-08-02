@@ -33,6 +33,7 @@ function App() {
         setUserData(parsedUser);
         setIsAuthenticated(true);
       } catch (error) {
+        console.error('Ошибка парсинга данных пользователя:', error);
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setUserData(null);
@@ -164,7 +165,6 @@ function App() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Обновляем данные пользователя:', data);
         
         // Обновляем userData с новыми данными
         setUserData(data);
