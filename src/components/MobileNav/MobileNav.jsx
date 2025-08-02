@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './MobileNav.scss';
 
 const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => {
+  const [activeItem, setActiveItem] = useState(currentPage);
+
   const handleItemClick = (itemId) => {
+    setActiveItem(itemId);
     onPageChange(itemId);
   };
 
@@ -131,13 +134,15 @@ const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => 
         {navigationItems.map((item) => (
           <div 
             key={item.id}
-            className={`mobile-nav__item ${currentPage === item.id ? 'mobile-nav__item--active' : ''}`}
+            className={`mobile-nav__item ${activeItem === item.id ? 'mobile-nav__item--active' : ''}`}
             onClick={() => handleItemClick(item.id)}
           >
             <div className="mobile-nav__icon">
               {item.icon}
             </div>
-            <span className="mobile-nav__text">{item.label}</span>
+            {activeItem === item.id && (
+              <span className="mobile-nav__text">{item.label}</span>
+            )}
           </div>
         ))}
       </div>

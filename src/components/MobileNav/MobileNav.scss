@@ -36,16 +36,18 @@
 
   &__item {
     display: flex;
-    flex-direction: column;
+    flex-direction: row; // Изменяем на row для горизонтального расположения
     justify-content: center;
     align-items: center;
-    gap: $spacing-sm;
+    gap: $spacing-xs; // Уменьшаем gap между элементами
     padding: 0 $spacing-sm;
     border-radius: 28px;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); // Улучшенная анимация
     cursor: pointer;
     flex: 1;
     min-height: 60px;
+    position: relative; // Добавляем для анимации
+    overflow: hidden; // Скрываем выходящий за границы контент
 
     &:hover {
       background: rgba($primary-blue, 0.05);
@@ -58,6 +60,8 @@
     &--active {
       background: $primary-blue;
       color: $white;
+      padding: 0 $spacing-lg; // Увеличиваем отступы для текста
+      transform: scale(1.02); // Легкое увеличение активной кнопки
 
       .dark-theme & {
         background: $primary-blue;
@@ -66,16 +70,23 @@
 
       .mobile-nav__icon {
         color: $white;
+        transform: scale(1.1); // Легкое увеличение иконки
       }
 
       .mobile-nav__text {
         color: $white;
         font-weight: 500;
+        opacity: 1;
+        transform: translateX(0);
+        width: auto;
+        max-width: 200px; // Максимальная ширина для текста
+        margin-left: $spacing-xs; // Уменьшаем отступ между иконкой и текстом
       }
 
       &:hover {
         background: $primary-blue;
         color: $white;
+        transform: scale(1.05); // Больше увеличение при hover
 
         .dark-theme & {
           background: $primary-blue;
@@ -92,7 +103,8 @@
     width: 24px;
     height: 24px;
     color: $text-light;
-    transition: color 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); // Улучшенная анимация
+    flex-shrink: 0; // Предотвращаем сжатие иконки
 
     .dark-theme & {
       color: $dark-text-secondary;
@@ -101,6 +113,7 @@
     svg {
       width: 24px;
       height: 24px;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
   }
 
@@ -109,7 +122,13 @@
     font-weight: 400;
     color: $text-light;
     line-height: 1.37;
-    transition: color 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); // Улучшенная анимация
+    opacity: 0;
+    transform: translateX(-20px); // Начинаем дальше слева
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 0; // Добавляем max-width для лучшей анимации
 
     .dark-theme & {
       color: $dark-text-secondary;
