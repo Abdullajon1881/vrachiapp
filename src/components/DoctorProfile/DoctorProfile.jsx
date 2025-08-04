@@ -8,6 +8,7 @@ const DoctorProfile = () => {
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
   useEffect(() => {
     const fetchDoctorProfile = async () => {
@@ -60,6 +61,14 @@ const DoctorProfile = () => {
     };
     
     return icons[specialization] || '👨‍⚕️';
+  };
+
+  const handleAppointment = () => {
+    setShowAppointmentModal(true);
+  };
+
+  const closeAppointmentModal = () => {
+    setShowAppointmentModal(false);
   };
 
   if (loading) {
@@ -219,16 +228,48 @@ const DoctorProfile = () => {
 
             <div className="doctor-profile__action-card">
               <h3>Записаться на прием</h3>
-              <p>Для записи на прием свяжитесь с врачом по указанным контактам</p>
+              <p>Выберите удобный способ связи с врачом</p>
+              <div className="doctor-profile__action-buttons">
+                {doctor.phone && (
+                  <a href={`tel:${doctor.phone}`} className="doctor-profile__call-btn">
+                    📞 Позвонить
+                  </a>
+                )}
+                <button 
+                  onClick={handleAppointment}
+                  className="doctor-profile__appointment-btn"
+                >
+                  📅 Записаться онлайн
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Модальное окно записи на прием */}
+      {showAppointmentModal && (
+        <div className="appointment-modal">
+          <div className="appointment-modal__overlay" onClick={closeAppointmentModal}></div>
+          <div className="appointment-modal__content">
+            <div className="appointment-modal__header">
+              <h3>Запись на прием</h3>
+              <button onClick={closeAppointmentModal} className="appointment-modal__close">
+                ✕
+              </button>
+            </div>
+            <div className="appointment-modal__body">
+              <p>Функция записи на прием будет доступна в ближайшее время.</p>
+              <p>Для записи на прием свяжитесь с врачом по телефону или email.</p>
               {doctor.phone && (
-                <a href={`tel:${doctor.phone}`} className="doctor-profile__call-btn">
-                  📞 Позвонить
+                <a href={`tel:${doctor.phone}`} className="appointment-modal__phone-btn">
+                  📞 Позвонить {doctor.phone}
                 </a>
               )}
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

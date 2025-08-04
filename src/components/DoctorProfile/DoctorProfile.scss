@@ -344,6 +344,12 @@
     }
   }
 
+  &__action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
   &__call-btn {
     display: inline-block;
     background: $gradient-primary;
@@ -355,6 +361,160 @@
     text-decoration: none;
     transition: all 0.3s ease;
     box-shadow: $shadow-medium;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-large;
+    }
+  }
+
+  &__appointment-btn {
+    display: inline-block;
+    background: $white;
+    color: $primary-blue;
+    border: 2px solid $primary-blue;
+    padding: $spacing-lg $spacing-2xl;
+    border-radius: $border-radius-lg;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: $shadow-light;
+
+    .dark-theme & {
+      background: $dark-surface;
+      color: $primary-blue;
+      border-color: $primary-blue;
+    }
+
+    &:hover {
+      background: $primary-blue;
+      color: $white;
+      transform: translateY(-2px);
+      box-shadow: $shadow-medium;
+
+      .dark-theme & {
+        background: $primary-blue;
+        color: $white;
+      }
+    }
+  }
+}
+
+// Модальное окно записи на прием
+.appointment-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
+
+  &__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+  }
+
+  &__content {
+    position: relative;
+    background: $white;
+    border-radius: $border-radius-xl;
+    padding: 0;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: $shadow-large;
+    overflow: hidden;
+
+    .dark-theme & {
+      background: $dark-surface;
+      box-shadow: $shadow-dark-large;
+    }
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-2xl;
+    border-bottom: 1px solid $border-color;
+
+    .dark-theme & {
+      border-bottom-color: $dark-border;
+    }
+
+    h3 {
+      font-size: $font-size-2xl;
+      font-weight: $font-weight-bold;
+      margin: 0;
+      color: $text-primary;
+
+      .dark-theme & {
+        color: $dark-text;
+      }
+    }
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    font-size: $font-size-2xl;
+    color: $text-secondary;
+    cursor: pointer;
+    padding: $spacing-sm;
+    border-radius: $border-radius-sm;
+    transition: all 0.3s ease;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+
+    &:hover {
+      background: $light-gray;
+      color: $text-primary;
+
+      .dark-theme & {
+        background: $dark-hover;
+        color: $dark-text;
+      }
+    }
+  }
+
+  &__body {
+    padding: $spacing-2xl;
+
+    p {
+      font-size: $font-size-base;
+      color: $text-secondary;
+      margin: 0 0 $spacing-md 0;
+      line-height: 1.6;
+
+      .dark-theme & {
+        color: $dark-text-secondary;
+      }
+    }
+  }
+
+  &__phone-btn {
+    display: inline-block;
+    background: $gradient-primary;
+    color: $white;
+    padding: $spacing-lg $spacing-2xl;
+    border-radius: $border-radius-lg;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: $shadow-medium;
+    margin-top: $spacing-lg;
 
     &:hover {
       transform: translateY(-2px);
