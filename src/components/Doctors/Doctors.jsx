@@ -11,6 +11,8 @@ const Doctors = () => {
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [userData, setUserData] = useState(null);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
 
 
   // Услуги для фильтрации
@@ -64,7 +66,8 @@ const Doctors = () => {
       'Массажист'
     ],
     'Психологические консультации': [
-      'Психолог'
+      'Психолог',
+      'Психиатр'
     ],
     'Уход за пожилыми': [
       'Гериатр'
@@ -150,6 +153,16 @@ const Doctors = () => {
     setSearchQuery('');
   };
 
+  const openDoctorModal = (doctor) => {
+    setSelectedDoctor(doctor);
+    setShowDoctorModal(true);
+  };
+
+  const closeDoctorModal = () => {
+    setSelectedDoctor(null);
+    setShowDoctorModal(false);
+  };
+
   const fetchDoctors = async () => {
     setLoading(true);
     setError(null);
@@ -184,7 +197,7 @@ const Doctors = () => {
         filtered = filtered.filter(doctor => 
           doctor.specialization && 
           serviceSpecializations.some(spec => 
-            doctor.specialization.toLowerCase().includes(spec.toLowerCase())
+            doctor.specialization.toLowerCase() === spec.toLowerCase()
           )
         );
       }
@@ -194,7 +207,7 @@ const Doctors = () => {
     if (selectedSpecialization !== 'all') {
       filtered = filtered.filter(doctor => 
         doctor.specialization && 
-        doctor.specialization.toLowerCase().includes(selectedSpecialization.toLowerCase())
+        doctor.specialization.toLowerCase() === selectedSpecialization.toLowerCase()
       );
     }
 
@@ -439,7 +452,12 @@ const Doctors = () => {
       ) : (
         <div className="doctors__grid">
           {filteredDoctors.map(doctor => (
-            <div key={doctor.id} className="doctor-card">
+            <div 
+              key={doctor.id} 
+              className="doctor-card"
+              onClick={() => openDoctorModal(doctor)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="doctor-card__header">
                 <div className="doctor-card__avatar">
                   {doctor.avatar ? (
@@ -481,6 +499,92 @@ const Doctors = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Модальное окно профиля врача */}
+      {showDoctorModal && selectedDoctor && (
+        <div className="doctor-modal-overlay" onClick={closeDoctorModal}>
+          <div className="doctor-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="doctor-modal__header">
+              <h2>Профиль врача</h2>
+              <button className="doctor-modal__close" onClick={closeDoctorModal}>
+                ✕
+              </button>
+            </div>
+            
+            <div className="doctor-modal__content">
+              <div className="doctor-modal__avatar-section">
+                <div className="doctor-modal__avatar">
+                  {selectedDoctor.avatar ? (
+                    <img src={selectedDoctor.avatar} alt={selectedDoctor.full_name} />
+                  ) : (
+                    <div className="doctor-modal__avatar-placeholder">
+                      {selectedDoctor.first_name && selectedDoctor.last_name 
+                        ? `${selectedDoctor.first_name[0]}${selectedDoctor.last_name[0]}`.toUpperCase()
+                        : selectedDoctor.first_name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                </div>
+                <div className="doctor-modal__basic-info">
+                  <h3>{selectedDoctor.full_name}</h3>
+                  <p className="doctor-modal__specialization">
+                    {getSpecializationIcon(selectedDoctor.specialization)} {selectedDoctor.specialization}
+                  </p>
+                  {selectedDoctor.region && (
+                    <p className="doctor-modal__location">
+                      📍 {selectedDoctor.city ? `${selectedDoctor.city}, ${selectedDoctor.region}` : selectedDoctor.region}
+                      {selectedDoctor.district && `, ${selectedDoctor.district}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="doctor-modal__details">
+                {selectedDoctor.experience && (
+                  <div className="doctor-modal__section">
+                    <h4>💼 Опыт работы</h4>
+                    <p>{selectedDoctor.experience}</p>
+                  </div>
+                )}
+
+                {selectedDoctor.education && (
+                  <div className="doctor-modal__section">
+                    <h4>🎓 Образование</h4>
+                    <p>{selectedDoctor.education}</p>
+                  </div>
+                )}
+
+                {selectedDoctor.languages && selectedDoctor.languages.length > 0 && (
+                  <div className="doctor-modal__section">
+                    <h4>🌍 Языки</h4>
+                    <p>{selectedDoctor.languages.join(', ')}</p>
+                  </div>
+                )}
+
+                {selectedDoctor.license_number && (
+                  <div className="doctor-modal__section">
+                    <h4>📋 Лицензия</h4>
+                    <p>{selectedDoctor.license_number}</p>
+                  </div>
+                )}
+
+                {selectedDoctor.additional_info && (
+                  <div className="doctor-modal__section">
+                    <h4>ℹ️ Дополнительная информация</h4>
+                    <p>{selectedDoctor.additional_info}</p>
+                  </div>
+                )}
+
+                {selectedDoctor.phone && (
+                  <div className="doctor-modal__section">
+                    <h4>📞 Контакты</h4>
+                    <p>{selectedDoctor.phone}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
