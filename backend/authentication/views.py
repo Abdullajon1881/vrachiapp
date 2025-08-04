@@ -781,6 +781,7 @@ def update_doctor_application(request, application_id):
             print(f"Одобряем заявку для пользователя {user.email}")
             print(f"Данные из заявки: specialization={application.specialization}, experience={application.experience}")
             print(f"Имя из заявки: first_name='{application.first_name}', last_name='{application.last_name}'")
+            print(f"Адресные данные из заявки: region={application.region}, city={application.city}, district={application.district}")
             
             # Копируем все поля из заявки в профиль
             profile.specialization = application.specialization
@@ -804,10 +805,19 @@ def update_doctor_application(request, application_id):
             if application.emergency_contact:
                 profile.emergency_contact = application.emergency_contact
             
+            # Копируем адресные данные из заявки
+            if application.region:
+                profile.region = application.region
+            if application.city:
+                profile.city = application.city
+            if application.district:
+                profile.district = application.district
+            
             profile.save()
             
             print(f"Профиль сохранен: specialization={profile.specialization}, experience={profile.experience}")
             print(f"Имя пользователя: {user.first_name} {user.last_name}")
+            print(f"Адресные данные профиля: region={profile.region}, city={profile.city}, district={profile.district}")
         
         # Возвращаем обновленную заявку
         full_serializer = DoctorApplicationSerializer(application)
