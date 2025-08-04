@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.scss';
 import Sidebar from './components/Sidebar/Sidebar';
 import MobileNav from './components/MobileNav/MobileNav';
@@ -8,6 +9,7 @@ import Services from './components/Services/Services';
 import ServicesPage from './components/Services/ServicesPage';
 import About from './components/About/About';
 import Doctors from './components/Doctors/Doctors';
+import DoctorProfile from './components/DoctorProfile/DoctorProfile';
 import Profile from './components/Profile/Profile';
 import AdminPanel from './components/AdminPanel/AdminPanel';
 import AuthModal from './components/AuthModal/AuthModal';
@@ -187,75 +189,85 @@ function App() {
     setCurrentPage('doctors');
   };
 
-  const renderContent = () => {
+  // Компонент для главной страницы
+  const HomePage = () => (
+    <>
+      <Hero />
+      <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={userData} />
+    </>
+  );
+
+  // Компонент для страницы врачей (только для авторизованных пациентов)
+  const DoctorsPage = () => {
     if (!isAuthenticated) {
-      switch (currentPage) {
-        case 'about':
-          return <About />;
-        case 'services':
-          return <ServicesPage userData={userData} />;
-        case 'home':
-        default:
-          return (
-            <>
-              <Hero />
-              <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={userData} />
-            </>
-          );
-      }
+      return <Navigate to="/" replace />;
     }
-    switch (currentPage) {
-      case 'profile':
-        return <Profile />;
-      case 'admin':
-        return <AdminPanel />;
-      case 'doctor-application':
-        return <DoctorApplication updateUserData={updateUserData} />;
-      case 'about':
-        return <About />;
-      case 'services':
-        return <ServicesPage userData={userData} />;
-      case 'doctors':
-        return <Doctors />;
-      case 'home':
-      default:
-        return (
-          <>
-            <Hero />
-            <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={userData} />
-          </>
-        );
+    return <Doctors />;
+  };
+
+  // Компонент для профиля врача (доступен всем)
+  const DoctorProfilePage = () => {
+    return <DoctorProfile />;
+  };
+
+  // Компонент для профиля пользователя (только для авторизованных)
+  const ProfilePage = () => {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace />;
     }
+    return <Profile />;
+  };
+
+  // Компонент для админ панели (только для админов)
+  const AdminPanelPage = () => {
+    if (!isAuthenticated || userData?.role !== 'admin') {
+      return <Navigate to="/" replace />;
+    }
+    return <AdminPanel />;
+  };
+
+  // Компонент для заявки врача (только для авторизованных)
+  const DoctorApplicationPage = () => {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace />;
+    }
+    return <DoctorApplication updateUserData={updateUserData} />;
   };
 
   return (
-    <div className="app">
-      <Header 
-        onPageChange={setCurrentPage} 
-        isAuthenticated={isAuthenticated}
-        userData={userData}
-        onLogout={handleLogout}
-        onAuthSuccess={updateAuthState}
-      />
-      <Sidebar 
-        toggleTheme={toggleTheme} 
-        isDarkTheme={isDarkTheme} 
-        onPageChange={setCurrentPage} 
-        currentPage={currentPage}
-        isAuthenticated={isAuthenticated}
-        userData={userData}
-      />
-      <main className="main">
-        {renderContent()}
-      </main>
-      <Footer />
-      <MobileNav 
-        currentPage={currentPage}
-        onPageChange={setCurrentPage}
-        isAuthenticated={isAuthenticated}
-        userData={userData}
-      />
-    </div>
+    <Router>
+      <div className="app">
+        <Header 
+          isAuthenticated={isAuthenticated}
+          userData={userData}
+          onLogout={handleLogout}
+          onAuthSuccess={updateAuthState}
+        />
+        <Sidebar 
+          toggleTheme={toggleTheme} 
+          isDarkTheme={isDarkTheme} 
+          isAuthenticated={isAuthenticated}
+          userData={userData}
+        />
+        <main className="main">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/services" element={<ServicesPage userData={userData} />} />
+            <Route path="/doctors" element={<DoctorsPage />} />
+            <Route path="/doctors/:id" element={<DoctorProfilePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/admin" element={<AdminPanelPage />} />
+            <Route path="/doctor-application" element={<DoctorApplicationPage />} />
+          </Routes>
+        </main>
+        <Footer />
+        <MobileNav 
+          isAuthenticated={isAuthenticated}
+          userData={userData}
+        />
+      </div>
+    </Router>
   );
 }
 

@@ -1,10 +1,54 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.scss';
 
-const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthenticated, userData }) => {
+const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const handleItemClick = (itemId) => {
-    onPageChange(itemId);
+    switch (itemId) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'about':
+        navigate('/about');
+        break;
+      case 'doctors':
+        navigate('/doctors');
+        break;
+      case 'services':
+        navigate('/services');
+        break;
+      case 'profile':
+        navigate('/profile');
+        break;
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'doctor-application':
+        navigate('/doctor-application');
+        break;
+      default:
+        navigate('/');
+    }
   };
+
+  // Определяем текущую страницу на основе URL
+  const getCurrentPage = () => {
+    const path = location.pathname;
+    if (path === '/') return 'home';
+    if (path === '/about') return 'about';
+    if (path === '/doctors') return 'doctors';
+    if (path.startsWith('/doctors/')) return 'doctors';
+    if (path === '/services') return 'services';
+    if (path === '/profile') return 'profile';
+    if (path === '/admin') return 'admin';
+    if (path === '/doctor-application') return 'doctor-application';
+    return 'home';
+  };
+
+  const currentPage = getCurrentPage();
 
   // Определяем роль пользователя
   const isAdmin = userData && (userData.role === 'admin' || userData.is_staff || userData.is_superuser);
@@ -142,8 +186,6 @@ const Sidebar = ({ toggleTheme, isDarkTheme, onPageChange, currentPage, isAuthen
           )}
         </button>
       </div>
-
-
 
       <nav className="sidebar__nav">
         <ul className="sidebar__nav-list">

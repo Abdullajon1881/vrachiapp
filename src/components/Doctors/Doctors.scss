@@ -299,6 +299,9 @@
   box-shadow: $shadow-medium;
   transition: all 0.3s ease;
   border: 1px solid $border-color;
+  text-decoration: none;
+  color: inherit;
+  display: block;
 
   .dark-theme & {
     background: $dark-card;

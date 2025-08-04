@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import './Doctors.scss';
 
 const Doctors = () => {
@@ -443,8 +444,9 @@ const Doctors = () => {
       ) : (
         <div className="doctors__grid">
           {filteredDoctors.map(doctor => (
-            <div 
+            <Link 
               key={doctor.id} 
+              to={`/doctors/${doctor.id}`}
               className="doctor-card"
             >
               <div className="doctor-card__header">
@@ -486,7 +488,7 @@ const Doctors = () => {
                   </p>
                 )}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

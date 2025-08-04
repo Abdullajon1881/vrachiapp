@@ -1,17 +1,58 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './MobileNav.scss';
 
-const MobileNav = ({ currentPage, onPageChange, isAuthenticated, userData }) => {
-  const [activeItem, setActiveItem] = useState(currentPage);
+const MobileNav = ({ isAuthenticated, userData }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [activeItem, setActiveItem] = useState('home');
 
-  // Синхронизируем activeItem с currentPage
+  // Определяем текущую страницу на основе URL
+  const getCurrentPage = () => {
+    const path = location.pathname;
+    if (path === '/') return 'home';
+    if (path === '/about') return 'about';
+    if (path === '/doctors') return 'doctors';
+    if (path.startsWith('/doctors/')) return 'doctors';
+    if (path === '/services') return 'services';
+    if (path === '/profile') return 'profile';
+    if (path === '/admin') return 'admin';
+    if (path === '/doctor-application') return 'doctor-application';
+    return 'home';
+  };
+
+  // Синхронизируем activeItem с текущей страницей
   useEffect(() => {
-    setActiveItem(currentPage);
-  }, [currentPage]);
+    setActiveItem(getCurrentPage());
+  }, [location.pathname]);
 
   const handleItemClick = (itemId) => {
     setActiveItem(itemId);
-    onPageChange(itemId);
+    switch (itemId) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'about':
+        navigate('/about');
+        break;
+      case 'doctors':
+        navigate('/doctors');
+        break;
+      case 'services':
+        navigate('/services');
+        break;
+      case 'profile':
+        navigate('/profile');
+        break;
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'doctor-application':
+        navigate('/doctor-application');
+        break;
+      default:
+        navigate('/');
+    }
   };
 
   // Определяем роль пользователя

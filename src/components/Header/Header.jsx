@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import healzyLogo from '../../assets/images/healzy.svg';
 import AuthModal from '../AuthModal/AuthModal';
 import './Header.scss';
 
-const Header = ({ onPageChange, isAuthenticated, userData, onLogout, onAuthSuccess }) => {
+const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess }) => {
+  const navigate = useNavigate();
   const [currentLanguage, setCurrentLanguage] = useState('RU');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
@@ -30,9 +32,7 @@ const Header = ({ onPageChange, isAuthenticated, userData, onLogout, onAuthSucce
   }, [isAuthenticated]);
 
   const handleLogoClick = () => {
-    if (onPageChange) {
-      onPageChange('home');
-    }
+    navigate('/');
   };
 
   const languages = [
