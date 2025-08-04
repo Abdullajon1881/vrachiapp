@@ -154,6 +154,7 @@ const Doctors = () => {
   };
 
   const openDoctorModal = (doctor) => {
+    console.log('Открываем модальное окно для врача:', doctor);
     setSelectedDoctor(doctor);
     setShowDoctorModal(true);
   };
