@@ -26,11 +26,16 @@ const AdminPanel = ({ updateUserData }) => {
   }, []);
 
   useEffect(() => {
-    console.log('AdminPanel: useEffect triggered, activeSection:', activeSection);
-    if (hasAdminAccess && activeSection === 'applications') {
-      fetchApplications();
-    } else if (hasAdminAccess && activeSection === 'users') {
-      fetchUsers();
+    console.log('AdminPanel: useEffect triggered, activeSection:', activeSection, 'hasAdminAccess:', hasAdminAccess);
+    try {
+      if (hasAdminAccess && activeSection === 'applications') {
+        fetchApplications();
+      } else if (hasAdminAccess && activeSection === 'users') {
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error('Ошибка в useEffect AdminPanel:', error);
+      setError('Ошибка загрузки данных');
     }
   }, [activeSection, activeTab, hasAdminAccess]);
 
@@ -42,16 +47,19 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Данные пользователя в админке:', data);
         setUserData(data);
         
         // Проверяем, есть ли у пользователя права администратора
         const isAdmin = data.is_staff || data.is_superuser || data.role === 'admin';
+        console.log('Права администратора:', isAdmin);
         setHasAdminAccess(isAdmin);
         
         if (!isAdmin) {
           setError('У вас нет прав для доступа к панели администратора');
         }
       } else {
+        console.error('Ошибка проверки прав доступа:', response.status);
         setError('Ошибка проверки прав доступа');
         setHasAdminAccess(false);
       }
@@ -161,7 +169,7 @@ const AdminPanel = ({ updateUserData }) => {
 
   const loadCities = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/cities/?region=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
@@ -173,14 +181,48 @@ const AdminPanel = ({ updateUserData }) => {
 
   const loadDistricts = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
+      console.log('Загружаем районы для региона ID:', regionId);
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?region=${regionId}`);
+      console.log('Ответ от API районов:', response.status, response.ok);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Загруженные районы:', data);
         setDistricts(data);
+      } else {
+        console.error('Ошибка API районов:', response.status);
+        const errorText = await response.text();
+        console.error('Текст ошибки:', errorText);
       }
     } catch (error) {
       console.error('Ошибка загрузки районов:', error);
     }
+  };
+
+  // Функция для фильтрации районов по городу
+  const getFilteredDistricts = (cityId) => {
+    if (!cityId || !districts.length) return [];
+    
+    // Получаем информацию о выбранном городе
+    const selectedCity = cities.find(city => city.id == cityId);
+    if (!selectedCity) return districts;
+    
+    console.log('Выбранный город:', selectedCity);
+    console.log('Все районы:', districts);
+    
+    // Фильтруем районы по городу, используя поле city в модели District
+    const filteredDistricts = districts.filter(district => {
+      // Если у района есть связанный город, проверяем совпадение
+      if (district.city && district.city.id == cityId) {
+        return true;
+      }
+      // Если у района нет связанного города, показываем все районы региона
+      // (для обратной совместимости)
+      return !district.city;
+    });
+    
+    console.log('Отфильтрованные районы для города', selectedCity.name, ':', filteredDistricts);
+    return filteredDistricts;
   };
 
   const openApplicationModal = async (application) => {
@@ -200,6 +242,7 @@ const AdminPanel = ({ updateUserData }) => {
   };
 
   const openUserModal = async (user) => {
+    console.log('openUserModal вызвана для пользователя:', user);
     try {
       const response = await fetch(`http://localhost:8000/api/auth/users/${user.id}/profile/`, {
         credentials: 'include'
@@ -207,6 +250,10 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const userData = await response.json();
+        console.log('Данные пользователя из API:', userData);
+        console.log('Регион:', userData.region, 'Город:', userData.city, 'Район:', userData.district);
+        console.log('Названия:', userData.region_name, userData.city_name, userData.district_name);
+        
         setSelectedUser(userData);
         setEditingUser({ ...userData });
         setShowUserModal(true);
@@ -217,8 +264,12 @@ const AdminPanel = ({ updateUserData }) => {
         
         // Если есть регион, загружаем города и районы
         if (userData.region) {
+          console.log('Загружаем города и районы для региона:', userData.region);
           await loadCities(userData.region);
           await loadDistricts(userData.region);
+        } else {
+          console.log('Регион не указан, города и районы будут загружены при выборе региона');
+          // Не очищаем города и районы, они загрузятся при выборе региона
         }
       } else {
         alert('Ошибка при загрузке профиля пользователя');
@@ -331,6 +382,8 @@ const AdminPanel = ({ updateUserData }) => {
 
   const handleRegionChange = (e) => {
     const regionId = e.target.value;
+    console.log('Выбран регион ID:', regionId);
+    
     setEditingUser(prev => ({
       ...prev,
       region: regionId,
@@ -339,16 +392,32 @@ const AdminPanel = ({ updateUserData }) => {
     }));
     
     if (regionId) {
+      console.log('Загружаем города и районы для региона:', regionId);
       loadCities(regionId);
       loadDistricts(regionId);
     } else {
+      console.log('Регион не выбран, очищаем города и районы');
       setCities([]);
       setDistricts([]);
     }
   };
 
+  const handleCityChange = (e) => {
+    const cityId = e.target.value;
+    setEditingUser(prev => ({
+      ...prev,
+      city: cityId,
+      district: null
+    }));
+    
+    // Районы уже загружены по региону, просто фильтруем их
+    // Дополнительная загрузка не нужна
+  };
+
   const handleSaveUser = async () => {
     try {
+      console.log('Отправляем данные для сохранения:', editingUser);
+      
       const response = await fetch(`http://localhost:8000/api/auth/users/${selectedUser.user.id}/profile/`, {
         method: 'PUT',
         headers: {
@@ -360,6 +429,7 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Ответ от сервера после сохранения:', data);
         alert('Профиль пользователя успешно обновлен!');
         setSelectedUser(data.profile);
         setEditingUser({ ...data.profile });
@@ -421,7 +491,15 @@ const AdminPanel = ({ updateUserData }) => {
     return 'Пациент';
   };
 
-  console.log('AdminPanel render:', { activeSection, loading, error, usersCount: users.length, applicationsCount: applications.length, hasAdminAccess });
+  console.log('AdminPanel render:', { 
+    activeSection, 
+    loading, 
+    error, 
+    usersCount: users?.length || 0, 
+    applicationsCount: applications?.length || 0, 
+    hasAdminAccess,
+    userData: userData ? 'exists' : 'null'
+  });
 
   // Если у пользователя нет прав администратора, показываем сообщение об ошибке
   if (!hasAdminAccess) {
@@ -578,7 +656,10 @@ const AdminPanel = ({ updateUserData }) => {
                 <div className="admin-panel__user-actions">
                   <button 
                     className="admin-panel__view-btn"
-                    onClick={() => openUserModal(user)}
+                    onClick={() => {
+                      console.log('Нажата кнопка "Управлять профилем" для пользователя:', user);
+                      openUserModal(user);
+                    }}
                   >
                     Управлять профилем
                   </button>
@@ -829,7 +910,7 @@ const AdminPanel = ({ updateUserData }) => {
                         <select
                           name="city"
                           value={editingUser.city || ''}
-                          onChange={handleInputChange}
+                          onChange={handleCityChange}
                           className="admin-panel__select"
                           disabled={!editingUser.region}
                         >
@@ -841,6 +922,23 @@ const AdminPanel = ({ updateUserData }) => {
                           ))}
                         </select>
                       </div>
+                    </div>
+                    <div className="admin-panel__form-group">
+                      <label>Район</label>
+                      <select
+                        name="district"
+                        value={editingUser.district || ''}
+                        onChange={handleInputChange}
+                        className="admin-panel__select"
+                        disabled={!editingUser.city}
+                      >
+                        <option value="">Выберите район</option>
+                        {getFilteredDistricts(editingUser.city).map(district => (
+                          <option key={district.id} value={district.id}>
+                            {district.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="admin-panel__form-group">
                       <label>Адрес</label>
@@ -856,6 +954,9 @@ const AdminPanel = ({ updateUserData }) => {
                 ) : (
                   <div className="admin-panel__info">
                     <p><strong>Телефон:</strong> {selectedUser.phone || 'Не указан'}</p>
+                    <p><strong>Регион:</strong> {selectedUser.region_name || selectedUser.region || 'Не указан'}</p>
+                    <p><strong>Город:</strong> {selectedUser.city_name || selectedUser.city || 'Не указан'}</p>
+                    <p><strong>Район:</strong> {selectedUser.district_name || selectedUser.district || 'Не указан'}</p>
                     <p><strong>Адрес:</strong> {selectedUser.address || 'Не указан'}</p>
                   </div>
                 )}

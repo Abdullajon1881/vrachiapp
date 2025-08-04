@@ -88,9 +88,12 @@ class District(models.Model):
     """Районы Узбекистана"""
     name = models.CharField(max_length=100)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='districts')
+    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name='districts', null=True, blank=True)
     name_uz = models.CharField(max_length=100, blank=True, null=True)
     
     def __str__(self):
+        if self.city:
+            return f"{self.name}, {self.city.name}"
         return f"{self.name}, {self.region.name}"
     
     class Meta:

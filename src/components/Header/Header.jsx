@@ -27,8 +27,6 @@ const Header = ({ onPageChange, isAuthenticated, userData, onLogout, onAuthSucce
     };
 
     fetchCurrentUser();
-        
-    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   const handleLogoClick = () => {

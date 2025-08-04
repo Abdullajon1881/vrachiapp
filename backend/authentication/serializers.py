@@ -34,10 +34,11 @@ class CitySerializer(serializers.ModelSerializer):
 class DistrictSerializer(serializers.ModelSerializer):
     """Сериализатор для районов"""
     region = RegionSerializer(read_only=True)
+    city = CitySerializer(read_only=True)
     
     class Meta:
         model = District
-        fields = ['id', 'name', 'name_uz', 'region']
+        fields = ['id', 'name', 'name_uz', 'region', 'city']
 
 
 class UserProfileReadSerializer(serializers.ModelSerializer):
@@ -105,18 +106,27 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # Обновляем связи
         if region_id is not None:
             try:
+                # Если передали объект, берем его ID
+                if hasattr(region_id, 'id'):
+                    region_id = region_id.id
                 instance.region = Region.objects.get(id=region_id)
             except Region.DoesNotExist:
                 instance.region = None
         
         if city_id is not None:
             try:
+                # Если передали объект, берем его ID
+                if hasattr(city_id, 'id'):
+                    city_id = city_id.id
                 instance.city = City.objects.get(id=city_id)
             except City.DoesNotExist:
                 instance.city = None
         
         if district_id is not None:
             try:
+                # Если передали объект, берем его ID
+                if hasattr(district_id, 'id'):
+                    district_id = district_id.id
                 instance.district = District.objects.get(id=district_id)
             except District.DoesNotExist:
                 instance.district = None

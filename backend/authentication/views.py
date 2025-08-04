@@ -291,7 +291,7 @@ def get_regions(request):
 @permission_classes([AllowAny])
 def get_cities(request):
     """Получение списка городов по региону"""
-    region_id = request.GET.get('region_id')
+    region_id = request.GET.get('region') or request.GET.get('region_id')
     if region_id:
         cities = City.objects.filter(region_id=region_id)
     else:
@@ -302,12 +302,20 @@ def get_cities(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_districts(request):
-    """Получение списка районов по региону"""
-    region_id = request.GET.get('region_id')
-    if region_id:
+    """Получение списка районов по региону или городу"""
+    region_id = request.GET.get('region') or request.GET.get('region_id')
+    city_id = request.GET.get('city') or request.GET.get('city_id')
+    
+    if city_id:
+        # Если указан город, получаем районы этого города
+        districts = District.objects.filter(city_id=city_id)
+    elif region_id:
+        # Если указан регион, получаем все районы региона
         districts = District.objects.filter(region_id=region_id)
     else:
+        # Если ничего не указано, возвращаем все районы
         districts = District.objects.all()
+    
     return Response(DistrictSerializer(districts, many=True).data)
 
 @api_view(['POST'])
@@ -637,14 +645,6 @@ def user_profile(request):
         profile_data = {k: v for k, v in request.data.items() 
                        if k not in ['first_name', 'last_name', 'email', 'username']}
         
-        # Преобразуем названия полей для сериализатора
-        if 'region' in profile_data:
-            profile_data['region_id'] = profile_data.pop('region')
-        if 'city' in profile_data:
-            profile_data['city_id'] = profile_data.pop('city')
-        if 'district' in profile_data:
-            profile_data['district_id'] = profile_data.pop('district')
-        
         serializer = UserProfileSerializer(profile, data=profile_data, partial=True)
         
         if serializer.is_valid():
@@ -837,6 +837,11 @@ def get_current_user_data(request):
     print(f"Имя в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
     print(f"Данные профиля: specialization='{profile.specialization}', experience='{profile.experience}'")
     
+    # Сериализуем профиль с помощью сериализатора
+    from .serializers import UserProfileReadSerializer
+    profile_serializer = UserProfileReadSerializer(profile)
+    profile_data = profile_serializer.data
+    
     user_data = {
         'id': user.id,
         'email': user.email,
@@ -850,23 +855,7 @@ def get_current_user_data(request):
         'initials': user.initials,
         'avatar': user.avatar,
         # Данные профиля
-        'profile': {
-            'phone': profile.phone,
-            'date_of_birth': profile.date_of_birth,
-            'gender': profile.gender,
-            'region': profile.region,
-            'city': profile.city,
-            'district': profile.district,
-            'address': profile.address,
-            'medical_info': profile.medical_info,
-            'emergency_contact': profile.emergency_contact,
-            'specialization': profile.specialization,
-            'experience': profile.experience,
-            'education': profile.education,
-            'license_number': profile.license_number,
-            'languages': profile.languages,
-            'additional_info': profile.additional_info
-        }
+        'profile': profile_data
     }
     
     print(f"Отправляем данные: {user_data}")
@@ -880,8 +869,28 @@ def get_doctors(request):
         return Response({'error': 'Доступ запрещен. Только пациенты могут просматривать список врачей'}, status=status.HTTP_403_FORBIDDEN)
     
     try:
+        # Получаем параметры фильтрации
+        region_filter = request.GET.get('region')
+        city_filter = request.GET.get('city')
+        specialization_filter = request.GET.get('specialization')
+        
         # Получаем только пользователей с ролью 'doctor'
         doctors = User.objects.filter(role='doctor').prefetch_related('profile')
+        
+        # Применяем фильтры
+        if region_filter:
+            # Ищем врачей по региону или по городам в этом регионе
+            from django.db.models import Q
+            doctors = doctors.filter(
+                Q(profile__region__name__icontains=region_filter) |
+                Q(profile__city__region__name__icontains=region_filter)
+            )
+        
+        if city_filter:
+            doctors = doctors.filter(profile__city__name__icontains=city_filter)
+        
+        if specialization_filter:
+            doctors = doctors.filter(profile__specialization__icontains=specialization_filter)
         
         # Сериализуем данные врачей
         doctors_data = []
@@ -1013,13 +1022,13 @@ def manage_user_profile(request, user_id):
         profile_data = {k: v for k, v in request.data.items() 
                        if k not in ['first_name', 'last_name', 'email', 'username', 'role']}
         
-        # Преобразуем названия полей для сериализатора
-        if 'region' in profile_data:
-            profile_data['region_id'] = profile_data.pop('region')
-        if 'city' in profile_data:
-            profile_data['city_id'] = profile_data.pop('city')
-        if 'district' in profile_data:
-            profile_data['district_id'] = profile_data.pop('district')
+        # Обрабатываем поля region, city, district - извлекаем ID если передали объекты
+        if 'region' in profile_data and hasattr(profile_data['region'], 'id'):
+            profile_data['region'] = profile_data['region'].id
+        if 'city' in profile_data and hasattr(profile_data['city'], 'id'):
+            profile_data['city'] = profile_data['city'].id
+        if 'district' in profile_data and hasattr(profile_data['district'], 'id'):
+            profile_data['district'] = profile_data['district'].id
         
         serializer = UserProfileSerializer(profile, data=profile_data, partial=True)
         if serializer.is_valid():

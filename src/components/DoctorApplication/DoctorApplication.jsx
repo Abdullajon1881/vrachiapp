@@ -85,7 +85,7 @@ const DoctorApplication = () => {
 
   const loadCities = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/cities/?region=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
@@ -97,7 +97,7 @@ const DoctorApplication = () => {
 
   const loadDistricts = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?region=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setDistricts(data);

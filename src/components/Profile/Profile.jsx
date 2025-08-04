@@ -120,6 +120,22 @@ const Profile = () => {
     }
   };
 
+  const fetchDistrictsByCity = async (cityId) => {
+    if (!cityId) {
+      setDistricts([]);
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?city=${cityId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDistricts(data);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки районов по городу:', err);
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -130,6 +146,7 @@ const Profile = () => {
     // Загружаем города при изменении региона
     if (name === 'region') {
       fetchCities(value);
+      fetchDistricts(value);
       setFormData(prev => ({
         ...prev,
         city: '',
@@ -137,9 +154,13 @@ const Profile = () => {
       }));
     }
 
-    // Загружаем районы при изменении региона
-    if (name === 'region') {
-      fetchDistricts(value);
+    // Загружаем районы при изменении города
+    if (name === 'city') {
+      fetchDistrictsByCity(value);
+      setFormData(prev => ({
+        ...prev,
+        district: ''
+      }));
     }
   };
 

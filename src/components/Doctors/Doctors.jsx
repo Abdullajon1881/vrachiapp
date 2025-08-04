@@ -200,20 +200,90 @@ const Doctors = () => {
 
     // Фильтр по региону (третий уровень)
     if (selectedRegion !== 'all') {
-      filtered = filtered.filter(doctor => 
-        doctor.region && 
-        doctor.region.toLowerCase().includes(selectedRegion.toLowerCase())
-      );
+      filtered = filtered.filter(doctor => {
+        // Проверяем, совпадает ли регион врача с выбранным регионом
+        if (doctor.region && doctor.region.toLowerCase().includes(selectedRegion.toLowerCase())) {
+          return true;
+        }
+        
+        // Проверяем, находится ли город врача в выбранном регионе
+        if (doctor.city) {
+          const cityRegionMap = {
+            'Фергана': 'Ферганская область',
+            'Андижан': 'Андижанская область',
+            'Наманган': 'Наманганская область',
+            'Ташкент': 'Город Ташкент',
+            'Самарканд': 'Город Самарканд',
+            'Бухара': 'Город Бухара',
+            'Карши': 'Кашкадарьинская область',
+            'Термез': 'Сурхандарьинская область',
+            'Гулистан': 'Сырдарьинская область',
+            'Джизак': 'Джизакская область',
+            'Навои': 'Навоийская область',
+            'Ургенч': 'Хорезмская область',
+            'Нукус': 'Республика Каракалпакстан'
+          };
+          
+          const cityRegion = cityRegionMap[doctor.city];
+          if (cityRegion && cityRegion.toLowerCase().includes(selectedRegion.toLowerCase())) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
     }
 
     // Поиск по имени (работает независимо от фильтров)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(doctor => 
-        doctor.full_name.toLowerCase().includes(query) ||
-        doctor.specialization.toLowerCase().includes(query) ||
-        (doctor.city && doctor.city.toLowerCase().includes(query))
-      );
+      filtered = filtered.filter(doctor => {
+        // Поиск по имени
+        if (doctor.full_name.toLowerCase().includes(query)) {
+          return true;
+        }
+        
+        // Поиск по специализации
+        if (doctor.specialization && doctor.specialization.toLowerCase().includes(query)) {
+          return true;
+        }
+        
+        // Поиск по городу
+        if (doctor.city && doctor.city.toLowerCase().includes(query)) {
+          return true;
+        }
+        
+        // Поиск по региону
+        if (doctor.region && doctor.region.toLowerCase().includes(query)) {
+          return true;
+        }
+        
+        // Поиск по региону через город
+        if (doctor.city) {
+          const cityRegionMap = {
+            'Фергана': 'Ферганская область',
+            'Андижан': 'Андижанская область',
+            'Наманган': 'Наманганская область',
+            'Ташкент': 'Город Ташкент',
+            'Самарканд': 'Город Самарканд',
+            'Бухара': 'Город Бухара',
+            'Карши': 'Кашкадарьинская область',
+            'Термез': 'Сурхандарьинская область',
+            'Гулистан': 'Сырдарьинская область',
+            'Джизак': 'Джизакская область',
+            'Навои': 'Навоийская область',
+            'Ургенч': 'Хорезмская область',
+            'Нукус': 'Республика Каракалпакстан'
+          };
+          
+          const cityRegion = cityRegionMap[doctor.city];
+          if (cityRegion && cityRegion.toLowerCase().includes(query)) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
     }
 
     setFilteredDoctors(filtered);
