@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import User, UserProfile, Region, City, District, DoctorApplication
+from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message
 import json
+from django.utils import timezone
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -98,44 +99,23 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return attrs
     
     def update(self, instance, validated_data):
-        # Обрабатываем ID для связей
-        region_id = validated_data.pop('region', None)
-        city_id = validated_data.pop('city', None)
-        district_id = validated_data.pop('district', None)
+        # Обновляем поля пользователя
+        user_data = {}
+        if 'user' in validated_data:
+            user_data = validated_data.pop('user')
         
-        # Обновляем связи
-        if region_id is not None:
-            try:
-                # Если передали объект, берем его ID
-                if hasattr(region_id, 'id'):
-                    region_id = region_id.id
-                instance.region = Region.objects.get(id=region_id)
-            except Region.DoesNotExist:
-                instance.region = None
-        
-        if city_id is not None:
-            try:
-                # Если передали объект, берем его ID
-                if hasattr(city_id, 'id'):
-                    city_id = city_id.id
-                instance.city = City.objects.get(id=city_id)
-            except City.DoesNotExist:
-                instance.city = None
-        
-        if district_id is not None:
-            try:
-                # Если передали объект, берем его ID
-                if hasattr(district_id, 'id'):
-                    district_id = district_id.id
-                instance.district = District.objects.get(id=district_id)
-            except District.DoesNotExist:
-                instance.district = None
-        
-        # Обновляем остальные поля
+        # Обновляем поля профиля
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
         instance.save()
+        
+        # Обновляем поля пользователя
+        if user_data:
+            user = instance.user
+            for attr, value in user_data.items():
+                setattr(user, attr, value)
+            user.save()
+        
         return instance
 
 
@@ -151,19 +131,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Пароли не совпадают")
-        
-        # Проверяем уникальность username
-        username = attrs.get('username')
-        if username:
-            if User.objects.filter(username=username).exists():
-                raise serializers.ValidationError("Пользователь с таким именем уже существует")
-        
-        # Проверяем уникальность email
-        email = attrs.get('email')
-        if email:
-            if User.objects.filter(email=email).exists():
-                raise serializers.ValidationError("Пользователь с таким email уже существует")
-        
         return attrs
     
     def create(self, validated_data):
@@ -186,15 +153,12 @@ class LoginSerializer(serializers.Serializer):
             if not user:
                 raise serializers.ValidationError('Неверные учетные данные')
             if not user.is_active:
-                raise serializers.ValidationError('Аккаунт заблокирован')
+                raise serializers.ValidationError('Аккаунт не активирован')
             attrs['user'] = user
         else:
             raise serializers.ValidationError('Необходимо указать email и пароль')
         
         return attrs
-
-
-
 
 
 class PasswordResetSerializer(serializers.Serializer):
@@ -220,7 +184,8 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Пароли не совпадают")
-        return attrs 
+        return attrs
+
 
 class DoctorApplicationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -245,6 +210,7 @@ class DoctorApplicationSerializer(serializers.ModelSerializer):
     
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
+
 
 class DoctorApplicationCreateSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(max_length=100, required=True)
@@ -301,7 +267,123 @@ class DoctorApplicationCreateSerializer(serializers.ModelSerializer):
         application.save()
         return application
 
+
 class DoctorApplicationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorApplication
-        fields = ['status', 'rejection_reason'] 
+        fields = ['status', 'rejection_reason']
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    """Сериализатор для сообщений"""
+    sender = UserSerializer(read_only=True)
+    sender_name = serializers.CharField(source='sender.full_name', read_only=True)
+    sender_initials = serializers.CharField(source='sender.initials', read_only=True)
+    
+    class Meta:
+        model = Message
+        fields = ['id', 'consultation', 'sender', 'sender_name', 'sender_initials', 'content', 'created_at', 'is_read']
+        read_only_fields = ['id', 'sender', 'created_at', 'is_read']
+
+
+class ConsultationSerializer(serializers.ModelSerializer):
+    """Сериализатор для консультаций"""
+    patient = UserSerializer(read_only=True)
+    doctor = UserSerializer(read_only=True)
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    doctor_name = serializers.CharField(source='doctor.full_name', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    messages_count = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    can_patient_write = serializers.BooleanField(read_only=True)
+    can_doctor_write = serializers.BooleanField(read_only=True)
+    
+    class Meta:
+        model = Consultation
+        fields = [
+            'id', 'patient', 'doctor', 'patient_name', 'doctor_name', 'status', 'status_display',
+            'title', 'description', 'created_at', 'updated_at', 'started_at', 'completed_at',
+            'messages_count', 'last_message', 'can_patient_write', 'can_doctor_write'
+        ]
+        read_only_fields = ['id', 'patient', 'doctor', 'created_at', 'updated_at', 'started_at', 'completed_at']
+    
+    def get_messages_count(self, obj):
+        return obj.messages.count()
+    
+    def get_last_message(self, obj):
+        last_message = obj.messages.last()
+        if last_message:
+            return {
+                'id': last_message.id,
+                'content': last_message.content[:100] + '...' if len(last_message.content) > 100 else last_message.content,
+                'created_at': last_message.created_at,
+                'sender_name': last_message.sender.full_name
+            }
+        return None
+
+
+class ConsultationCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания консультации"""
+    doctor_id = serializers.IntegerField(write_only=True)
+    
+    class Meta:
+        model = Consultation
+        fields = ['doctor_id', 'title', 'description']
+    
+    def validate_doctor_id(self, value):
+        try:
+            doctor = User.objects.get(id=value, role='doctor')
+            return value
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Врач не найден")
+    
+    def create(self, validated_data):
+        doctor_id = validated_data.pop('doctor_id')
+        doctor = User.objects.get(id=doctor_id)
+        patient = self.context['request'].user
+        
+        # Проверяем, что пользователь является пациентом
+        if patient.role != 'patient':
+            raise serializers.ValidationError("Только пациенты могут создавать консультации")
+        
+        # Проверяем, что нет активной консультации с этим врачом
+        existing_consultation = Consultation.objects.filter(
+            patient=patient,
+            doctor=doctor,
+            status__in=['pending', 'active']
+        ).first()
+        
+        if existing_consultation:
+            raise serializers.ValidationError("У вас уже есть активная консультация с этим врачом")
+        
+        consultation = Consultation.objects.create(
+            patient=patient,
+            doctor=doctor,
+            **validated_data
+        )
+        return consultation
+
+
+class ConsultationUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для обновления консультации"""
+    
+    class Meta:
+        model = Consultation
+        fields = ['status', 'title', 'description']
+    
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if request and request.user:
+            # Только врач может изменять статус консультации
+            if 'status' in attrs and request.user.role != 'doctor':
+                raise serializers.ValidationError("Только врач может изменять статус консультации")
+            
+            # При активации консультации устанавливаем started_at
+            if attrs.get('status') == 'active' and self.instance.status != 'active':
+                attrs['started_at'] = timezone.now()
+            
+            # При завершении консультации устанавливаем completed_at
+            if attrs.get('status') == 'completed' and self.instance.status != 'completed':
+                attrs['completed_at'] = timezone.now()
+        
+        return attrs 

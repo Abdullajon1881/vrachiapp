@@ -193,4 +193,68 @@ class DoctorApplication(models.Model):
         verbose_name_plural = 'Заявки на роль врача'
     
     def __str__(self):
-        return f"Заявка от {self.first_name} {self.last_name} - {self.get_status_display()}" 
+        return f"Заявка от {self.first_name} {self.last_name} - {self.get_status_display()}"
+
+
+class Consultation(models.Model):
+    """Модель консультации между пациентом и врачом"""
+    STATUS_CHOICES = [
+        ('pending', 'Ожидание'),
+        ('active', 'Активна'),
+        ('completed', 'Завершена'),
+        ('cancelled', 'Отменена'),
+    ]
+    
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='patient_consultations')
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_consultations')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    title = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Консультация'
+        verbose_name_plural = 'Консультации'
+    
+    def __str__(self):
+        return f"Консультация {self.patient.full_name} - {self.doctor.full_name} ({self.get_status_display()})"
+    
+    @property
+    def is_active(self):
+        return self.status == 'active'
+    
+    @property
+    def can_patient_write(self):
+        return self.status == 'active'
+    
+    @property
+    def can_doctor_write(self):
+        return self.status in ['active', 'pending']
+
+
+class Message(models.Model):
+    """Модель сообщения в чате консультации"""
+    consultation = models.ForeignKey(Consultation, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Сообщение'
+        verbose_name_plural = 'Сообщения'
+    
+    def __str__(self):
+        return f"Сообщение от {self.sender.full_name} в {self.consultation}"
+    
+    def mark_as_read(self):
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save() 

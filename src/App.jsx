@@ -14,6 +14,8 @@ import Profile from './components/Profile/Profile';
 import AdminPanel from './components/AdminPanel/AdminPanel';
 import AuthModal from './components/AuthModal/AuthModal';
 import DoctorApplication from './components/DoctorApplication/DoctorApplication';
+import Consultations from './components/Consultations/Consultations';
+import Chat from './components/Chat/Chat';
 import Footer from './components/Footer/Footer';
 
 function App() {
@@ -103,16 +105,18 @@ function App() {
       }
     };
 
-    // Обработка верификации email
+    handleGoogleAuthReturn();
+  }, []);
+
+  // Обработка верификации email
+  useEffect(() => {
     const handleEmailVerification = async () => {
       const currentUrl = window.location.href;
       
       if (currentUrl.includes('verify-email/')) {
-        // Извлекаем токен из URL
-        const tokenMatch = currentUrl.match(/verify-email\/([^\/\?]+)/);
-        if (tokenMatch) {
-          const token = tokenMatch[1];
-          
+        const token = currentUrl.split('verify-email/')[1];
+        
+        if (token) {
           try {
             const response = await fetch(`http://localhost:8000/api/auth/verify-email/${token}/`, {
               method: 'GET',
@@ -121,26 +125,24 @@ function App() {
 
             const data = await response.json();
 
-            if (response.ok && data.success) {
+            if (response.ok) {
+              // Показываем сообщение об успешной верификации
               alert('Email успешно подтвержден! Теперь вы можете войти в систему.');
-              // Очищаем URL
-              window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-              alert(`Ошибка подтверждения: ${data.error || 'Неизвестная ошибка'}`);
-              // Очищаем URL
-              window.history.replaceState({}, document.title, window.location.pathname);
+              alert('Ошибка подтверждения email: ' + (data.error || 'Неизвестная ошибка'));
             }
+            
+            // Перенаправляем на главную страницу
+            window.location.href = '/';
           } catch (err) {
-            console.error('Ошибка соединения с сервером:', err);
-            alert('Ошибка соединения с сервером. Попробуйте позже.');
-            // Очищаем URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+            console.error('Ошибка верификации email:', err);
+            alert('Ошибка соединения с сервером');
+            window.location.href = '/';
           }
         }
       }
     };
 
-    handleGoogleAuthReturn();
     handleEmailVerification();
   }, []);
 
@@ -148,17 +150,14 @@ function App() {
     setIsDarkTheme(!isDarkTheme);
   };
 
-  // Обработчик выхода из системы
   const handleLogout = () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     setIsAuthenticated(false);
     setUserData(null);
-    setCurrentPage('home'); // Возвращаемся на главную страницу
+    // Перенаправляем на главную страницу
+    window.location.href = '/';
   };
 
-  // Функция для обновления данных пользователя
   const updateUserData = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/auth/current-user/', {
@@ -167,26 +166,22 @@ function App() {
       
       if (response.ok) {
         const data = await response.json();
-        
-        // Обновляем userData с новыми данными
         setUserData(data);
         localStorage.setItem('user', JSON.stringify(data));
-      } else {
-        console.error('Ошибка получения данных пользователя');
       }
     } catch (error) {
       console.error('Ошибка обновления данных пользователя:', error);
     }
   };
 
-  // Обработчик для показа всех услуг
   const handleShowAllServices = () => {
     setCurrentPage('services');
+    window.location.href = '/services';
   };
 
-  // Обработчик для показа врачей
   const handleShowDoctors = () => {
     setCurrentPage('doctors');
+    window.location.href = '/doctors';
   };
 
   // Компонент для главной страницы
@@ -234,6 +229,22 @@ function App() {
     return <DoctorApplication updateUserData={updateUserData} />;
   };
 
+  // Компонент для консультаций (только для авторизованных)
+  const ConsultationsPage = () => {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace />;
+    }
+    return <Consultations />;
+  };
+
+  // Компонент для чата (только для авторизованных)
+  const ChatPage = () => {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace />;
+    }
+    return <Chat />;
+  };
+
   return (
     <Router>
       <div className="app">
@@ -259,10 +270,14 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/admin" element={<AdminPanelPage />} />
             <Route path="/doctor-application" element={<DoctorApplicationPage />} />
+            <Route path="/consultations" element={<ConsultationsPage />} />
+            <Route path="/consultations/:consultationId" element={<ChatPage />} />
           </Routes>
         </main>
         <Footer />
         <MobileNav 
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
           isAuthenticated={isAuthenticated}
           userData={userData}
         />

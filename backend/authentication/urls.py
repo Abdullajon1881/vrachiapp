@@ -43,4 +43,14 @@ urlpatterns = [
     path('doctors/<int:doctor_id>/', views.get_doctor_profile, name='get_doctor_profile'),
     path('users/<int:user_id>/profile/', views.manage_user_profile, name='manage_user_profile'),
     path('current-user/', views.get_current_user_data, name='get_current_user_data'),
+    
+    # Консультации и чаты
+    path('consultations/', views.get_consultations, name='get_consultations'),
+    path('consultations/create/', views.create_consultation, name='create_consultation'),
+    path('consultations/<int:consultation_id>/', views.get_consultation_detail, name='get_consultation_detail'),
+    path('consultations/<int:consultation_id>/update/', views.update_consultation, name='update_consultation'),
+    path('consultations/<int:consultation_id>/accept/', views.accept_consultation, name='accept_consultation'),
+    path('consultations/<int:consultation_id>/complete/', views.complete_consultation, name='complete_consultation'),
+    path('consultations/<int:consultation_id>/messages/', views.get_messages, name='get_messages'),
+    path('consultations/<int:consultation_id>/messages/send/', views.send_message, name='send_message'),
 ] 

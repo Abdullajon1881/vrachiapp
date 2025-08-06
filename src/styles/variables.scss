@@ -44,6 +44,10 @@ $dark-secondary: #242938;
 $gradient-primary: linear-gradient(135deg, $primary-blue 0%, $secondary-blue 100%);
 $gradient-light: linear-gradient(135deg, $light-blue 0%, $white 100%);
 $gradient-dark: linear-gradient(135deg, $dark-surface 0%, $dark-card 100%);
+$gradient-success: linear-gradient(135deg, $success 0%, darken($success, 10%) 100%);
+$gradient-danger: linear-gradient(135deg, $error 0%, darken($error, 10%) 100%);
+$gradient-warning: linear-gradient(135deg, $warning 0%, darken($warning, 10%) 100%);
+$gradient-info: linear-gradient(135deg, $info 0%, darken($info, 10%) 100%);
 
 // Тени
 $shadow-light: 0 2px 8px rgba(9, 88, 128, 0.1);

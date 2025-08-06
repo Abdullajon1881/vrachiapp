@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'channels',
     'authentication',
 ]
 
@@ -54,6 +55,16 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'authentication.middleware.DisableCSRFMiddleware',
 ]
+
+# Channels configuration
+ASGI_APPLICATION = 'vrachiapp_backend.asgi.application'
+
+# Channel layers for WebSocket support
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 # CORS настройки
 CORS_ALLOWED_ORIGINS = [

@@ -13,12 +13,13 @@ from django.urls import reverse
 from django.shortcuts import render
 from django.http import HttpResponse
 
-from .models import User, UserProfile, Region, City, District, DoctorApplication
+from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer, 
     GoogleAuthSerializer, PasswordResetSerializer, UserProfileSerializer, UserProfileReadSerializer,
     RegionSerializer, CitySerializer, DistrictSerializer,
-    DoctorApplicationSerializer, DoctorApplicationCreateSerializer, DoctorApplicationUpdateSerializer
+    DoctorApplicationSerializer, DoctorApplicationCreateSerializer, DoctorApplicationUpdateSerializer,
+    ConsultationSerializer, ConsultationCreateSerializer, ConsultationUpdateSerializer, MessageSerializer
 )
 from .utils import create_user_with_verification, send_verification_email, verify_email_token, create_google_user
 
@@ -98,39 +99,19 @@ class LoginView(generics.GenericAPIView):
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
         user = serializer.validated_data['user']
-        
-        # Проверяем, подтвержден ли email (только для не-Google пользователей)
-        # Если пользователь был создан до системы верификации, считаем его верифицированным
-        if not user.google_id and not user.is_verified:
-            # Проверяем, есть ли токен верификации (если нет, значит пользователь старый)
-            if not user.email_verification_token:
-                # Старый пользователь - автоматически верифицируем
-                user.is_verified = True
-                user.is_active = True
-                user.save()
-                print(f"Автоматически верифицирован старый пользователь: {user.email}")
-            else:
-                # Новый пользователь с токеном - требует подтверждения
-                return Response({
-                    'error': 'Пожалуйста, подтвердите ваш email перед входом в систему. Проверьте вашу почту или запросите повторную отправку.',
-                    'needs_verification': True,
-                    'email': user.email
-                }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Проверяем, активен ли пользователь
-        if not user.is_active:
-            return Response({
-                'error': 'Ваш аккаунт неактивен. Обратитесь к администратору.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Входим в систему
         login(request, user)
         
+        # Получаем данные пользователя
+        user_data = UserSerializer(user).data
+        
         return Response({
-            'user': UserSerializer(user).data,
-            'message': 'Успешный вход'
+            'message': 'Вход выполнен успешно',
+            'user': user_data
         })
 
 
@@ -140,10 +121,7 @@ class LogoutView(generics.GenericAPIView):
 
     def post(self, request):
         logout(request)
-        return Response({'message': 'Успешный выход'})
-
-
-
+        return Response({'message': 'Выход выполнен успешно'})
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
@@ -155,10 +133,6 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-
-@method_decorator(csrf_exempt, name='dispatch')
 class GoogleAuthView(generics.GenericAPIView):
     """Google OAuth аутентификация"""
     permission_classes = (AllowAny,)
@@ -166,28 +140,45 @@ class GoogleAuthView(generics.GenericAPIView):
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
         access_token = serializer.validated_data['access_token']
         
-        # Получаем информацию о пользователе от Google
-        google_user_info = self.get_google_user_info(access_token)
-        
-        if not google_user_info:
-            return Response(
-                {'error': 'Не удалось получить информацию от Google'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Создаем или получаем пользователя
-        user = self.get_or_create_google_user(google_user_info)
-        
-        # Входим в систему
-        login(request, user)
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'message': 'Успешная аутентификация через Google'
-        })
+        try:
+            # Получаем информацию о пользователе от Google
+            google_user_info = self.get_google_user_info(access_token)
+            
+            if not google_user_info:
+                return Response({
+                    'error': 'Не удалось получить информацию о пользователе от Google'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Создаем или получаем пользователя
+            user = self.get_or_create_google_user(google_user_info)
+            
+            if not user.is_active:
+                return Response({
+                    'error': 'Аккаунт не активирован'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Входим в систему
+            login(request, user)
+            
+            # Получаем данные пользователя
+            user_data = UserSerializer(user).data
+            
+            return Response({
+                'message': 'Вход через Google выполнен успешно',
+                'user': user_data
+            })
+            
+        except Exception as e:
+            print(f"Google auth error: {e}")
+            return Response({
+                'error': 'Ошибка аутентификации через Google'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     def get_google_user_info(self, access_token):
         """Получает информацию о пользователе от Google"""
@@ -196,32 +187,43 @@ class GoogleAuthView(generics.GenericAPIView):
                 'https://www.googleapis.com/oauth2/v2/userinfo',
                 headers={'Authorization': f'Bearer {access_token}'}
             )
+            
             if response.status_code == 200:
                 return response.json()
+            else:
+                print(f"Google API error: {response.status_code} - {response.text}")
+                return None
         except Exception as e:
-            print(f"Ошибка при получении данных от Google: {e}")
-        return None
+            print(f"Error getting Google user info: {e}")
+            return None
 
     def get_or_create_google_user(self, google_user_info):
-        """Создает или получает пользователя по Google ID"""
-        google_id = google_user_info.get('id')
+        """Создает или получает пользователя на основе Google данных"""
         email = google_user_info.get('email')
-        first_name = google_user_info.get('given_name', '')
-        last_name = google_user_info.get('family_name', '')
-        avatar = google_user_info.get('picture', '')
+        google_id = google_user_info.get('id')
         
-        # Создаем или получаем пользователя через утилиту
-        user = create_google_user(
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            google_id=google_id,
-            avatar=avatar
-        )
+        if not email:
+            raise ValueError("Email не найден в данных Google")
         
-        # Создаем профиль, если его нет
-        if not hasattr(user, 'profile'):
-            UserProfile.objects.create(user=user)
+        # Пытаемся найти пользователя по email или google_id
+        user = None
+        
+        if google_id:
+            try:
+                user = User.objects.get(google_id=google_id)
+            except User.DoesNotExist:
+                pass
+        
+        if not user:
+            try:
+                user = User.objects.get(email=email)
+                # Если пользователь найден по email, но у него нет google_id, добавляем его
+                if not user.google_id and google_id:
+                    user.google_id = google_id
+                    user.save()
+            except User.DoesNotExist:
+                # Создаем нового пользователя
+                user = create_google_user(google_user_info)
         
         return user
 
@@ -233,18 +235,21 @@ class PasswordResetView(generics.GenericAPIView):
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
         email = serializer.validated_data['email']
         
         try:
             user = User.objects.get(email=email)
-            # Здесь будет отправка email для сброса пароля
+            # Здесь должна быть логика отправки email для сброса пароля
             return Response({
-                'message': 'Инструкции по сбросу пароля отправлены на email'
+                'message': 'Инструкции по сбросу пароля отправлены на ваш email'
             })
         except User.DoesNotExist:
             return Response({
-                'message': 'Инструкции по сбросу пароля отправлены на email'
+                'message': 'Если пользователь с таким email существует, инструкции по сбросу пароля отправлены'
             })
 
 
@@ -252,12 +257,17 @@ class PasswordResetView(generics.GenericAPIView):
 @permission_classes([AllowAny])
 def check_auth(request):
     """Проверка аутентификации"""
-    return Response({
-        'user': UserSerializer(request.user).data if request.user.is_authenticated else None,
-        'is_authenticated': request.user.is_authenticated,
-        'session_id': request.session.session_key,
-        'user_id': request.session.get('_auth_user_id')
-    })
+    if request.user.is_authenticated:
+        user_data = UserSerializer(request.user).data
+        return Response({
+            'authenticated': True,
+            'user': user_data
+        })
+    else:
+        return Response({
+            'authenticated': False,
+            'user': None
+        })
 
 
 @api_view(['GET'])
@@ -271,12 +281,10 @@ def get_csrf_token(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_users(request):
-    """Список всех пользователей (только для разработки)"""
+    """Список пользователей (только для отладки)"""
     users = User.objects.all()
-    return Response({
-        'users': UserSerializer(users, many=True).data,
-        'count': users.count()
-    })
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['GET'])
@@ -284,399 +292,262 @@ def list_users(request):
 def get_regions(request):
     """Получение списка регионов"""
     regions = Region.objects.all()
-    return Response(RegionSerializer(regions, many=True).data)
+    serializer = RegionSerializer(regions, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_cities(request):
-    """Получение списка городов по региону"""
-    region_id = request.GET.get('region') or request.GET.get('region_id')
+    """Получение списка городов"""
+    region_id = request.GET.get('region_id')
     if region_id:
         cities = City.objects.filter(region_id=region_id)
     else:
         cities = City.objects.all()
-    return Response(CitySerializer(cities, many=True).data)
+    serializer = CitySerializer(cities, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_districts(request):
-    """Получение списка районов по региону или городу"""
-    region_id = request.GET.get('region') or request.GET.get('region_id')
-    city_id = request.GET.get('city') or request.GET.get('city_id')
+    """Получение списка районов"""
+    region_id = request.GET.get('region_id')
+    city_id = request.GET.get('city_id')
+    
+    districts = District.objects.all()
+    
+    if region_id:
+        districts = districts.filter(region_id=region_id)
     
     if city_id:
-        # Если указан город, получаем районы этого города
-        districts = District.objects.filter(city_id=city_id)
-    elif region_id:
-        # Если указан регион, получаем все районы региона
-        districts = District.objects.filter(region_id=region_id)
-    else:
-        # Если ничего не указано, возвращаем все районы
-        districts = District.objects.all()
+        districts = districts.filter(city_id=city_id)
     
-    return Response(DistrictSerializer(districts, many=True).data)
+    serializer = DistrictSerializer(districts, many=True)
+    return Response(serializer.data)
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def detect_location(request):
-    """Определение местоположения по координатам"""
-    
-    import requests
-    
+    """Определение местоположения по IP"""
     try:
-        lat = float(request.data.get('latitude'))
-        lng = float(request.data.get('longitude'))
+        # Получаем IP адрес
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
         
-
+        # Используем несколько сервисов для определения местоположения
+        location_data = None
         
-        # Функции для извлечения адресов из разных API
-        def extract_nominatim_address(data):
-            """Извлекает детальный адрес из Nominatim API"""
-            address = data.get('address', {})
-            display_name = data.get('display_name', '')
-            
-            # Пытаемся собрать детальный адрес
-            parts = []
-            
-            # Улица
-            if address.get('road'):
-                parts.append(f"ул. {address['road']}")
-            
-            # Номер дома
-            if address.get('house_number'):
-                parts.append(address['house_number'])
-            
-            # Район/микрорайон
-            if address.get('suburb'):
-                parts.append(address['suburb'])
-            
-            # Город
-            if address.get('city'):
-                parts.append(address['city'])
-            elif address.get('town'):
-                parts.append(address['town'])
-            
-            # Если собрали детальный адрес
-            if parts:
-                return ", ".join(parts)
-            
-            # Если нет деталей, используем display_name но убираем дублирование
-            if display_name:
-                # Убираем дублирование "Ташкент, Ташкент"
-                parts = display_name.split(', ')
-                unique_parts = []
-                for part in parts:
-                    if part not in unique_parts:
-                        unique_parts.append(part)
-                return ', '.join(unique_parts)
-            
-            return display_name
-        
-        def extract_bigdatacloud_address(data):
-            """Извлекает детальный адрес из BigDataCloud API"""
-            parts = []
-            
-            # Улица
-            if data.get('street'):
-                parts.append(f"ул. {data['street']}")
-            
-            # Номер дома
-            if data.get('houseNumber'):
-                parts.append(data['houseNumber'])
-            
-            # Район
-            if data.get('locality'):
-                parts.append(data['locality'])
-            
-            # Город
-            if data.get('city'):
-                parts.append(data['city'])
-            
-            # Область
-            if data.get('principalSubdivision'):
-                parts.append(data['principalSubdivision'])
-            
-            if parts:
-                return ", ".join(parts)
-            
-            # Fallback
-            return f"{data.get('locality', '')}, {data.get('city', '')}, {data.get('countryName', '')}".strip(', ')
-        
-        def extract_locationiq_address(data):
-            """Извлекает детальный адрес из LocationIQ API"""
-            address = data.get('address', {})
-            display_name = data.get('display_name', '')
-            
-            parts = []
-            
-            # Улица
-            if address.get('road'):
-                parts.append(f"ул. {address['road']}")
-            
-            # Номер дома
-            if address.get('house_number'):
-                parts.append(address['house_number'])
-            
-            # Район
-            if address.get('suburb'):
-                parts.append(address['suburb'])
-            
-            # Город
-            if address.get('city'):
-                parts.append(address['city'])
-            
-            if parts:
-                return ", ".join(parts)
-            
-            return display_name
-        
-        # Пытаемся получить реальный адрес через геокодирование
-        real_address = None
+        # Попытка 1: Nominatim (OpenStreetMap)
         try:
-            # Используем несколько надежных API для геокодирования
-            apis_to_try = [
-                # OpenStreetMap Nominatim с более точными параметрами
-                {
-                    'url': f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}&zoom=16&addressdetails=1&accept-language=ru",
-                    'extract': lambda data: extract_nominatim_address(data)
-                },
-                # BigDataCloud API с дополнительными параметрами
-                {
-                    'url': f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=ru",
-                    'extract': lambda data: extract_bigdatacloud_address(data)
-                }
-            ]
-            
-            for api_config in apis_to_try:
-                try:
-                    response = requests.get(api_config['url'], timeout=5)
-                    if response.status_code == 200:
-                        data = response.json()
-                        real_address = api_config['extract'](data)
-                        
-                        if real_address and len(real_address) > 10:  # Проверяем что адрес достаточно детальный
-                            break
-                except Exception as e:
-                    continue
-            
-            # Если ни один API не сработал, используем координаты
-            if not real_address or len(real_address) <= 10:
-                real_address = f"Координаты: {lat:.6f}, {lng:.6f}"
-                
-        except Exception as e:
-            real_address = f"Координаты: {lat:.6f}, {lng:.6f}"
+            response = requests.get(f'http://ip-api.com/json/{ip}', timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    location_data = self.extract_nominatim_address(data)
+        except:
+            pass
         
-        # Проверяем что координаты в пределах Узбекистана
-        if not (37.0 <= lat <= 45.0 and 56.0 <= lng <= 73.0):
-            return Response({
-                'success': False,
-                'message': 'Координаты находятся за пределами Узбекистана'
-            }, status=400)
+        # Попытка 2: BigDataCloud
+        if not location_data:
+            try:
+                response = requests.get(f'https://api.bigdatacloud.net/data/ip-geolocation?ip={ip}&key=free', timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    location_data = self.extract_bigdatacloud_address(data)
+            except:
+                pass
         
-        # Определяем регион по координатам через геокодирование
-        region_name = None
+        # Попытка 3: LocationIQ (если есть API ключ)
+        if not location_data:
+            try:
+                # Здесь можно добавить LocationIQ API ключ
+                # response = requests.get(f'https://us1.locationiq.com/v1/ip.php?key=YOUR_API_KEY&ip={ip}', timeout=5)
+                # if response.status_code == 200:
+                #     data = response.json()
+                #     location_data = self.extract_locationiq_address(data)
+                pass
+            except:
+                pass
         
-        # Пытаемся определить регион из полученного адреса
-        if real_address and "Ташкент" in real_address:
-            region_name = "Город Ташкент"
-        elif real_address and "Самарканд" in real_address:
-            region_name = "Город Самарканд"
-        elif real_address and "Бухара" in real_address:
-            region_name = "Город Бухара"
-        elif real_address and "Андижан" in real_address:
-            region_name = "Город Андижан"
-        elif real_address and "Наманган" in real_address:
-            region_name = "Город Наманган"
-        elif real_address and "Фергана" in real_address:
-            region_name = "Город Фергана"
-        elif real_address and "Карши" in real_address:
-            region_name = "Город Карши"
-        elif real_address and "Нукус" in real_address:
-            region_name = "Город Нукус"
-        elif real_address and "Термез" in real_address:
-            region_name = "Город Термез"
-        elif real_address and "Ургенч" in real_address:
-            region_name = "Город Ургенч"
-        elif real_address and "Навои" in real_address:
-            region_name = "Город Навои"
-        elif real_address and "Джизак" in real_address:
-            region_name = "Город Джизак"
-        elif real_address and "Гулистан" in real_address:
-            region_name = "Город Гулистан"
-        else:
-            # Если не удалось определить по адресу, используем координаты
-            if 41.0 <= lat <= 42.0 and 69.0 <= lng <= 70.0:
-                region_name = "Ташкентская область"
-            elif 39.0 <= lat <= 40.0 and 66.0 <= lng <= 68.0:
-                region_name = "Самаркандская область"
-            elif 39.0 <= lat <= 40.0 and 64.0 <= lng <= 66.0:
-                region_name = "Бухарская область"
-            elif 40.0 <= lat <= 41.0 and 71.0 <= lng <= 73.0:
-                region_name = "Ферганская область"
-            elif 40.5 <= lat <= 41.5 and 71.0 <= lng <= 72.5:
-                region_name = "Андижанская область"
-            elif 40.5 <= lat <= 41.5 and 71.0 <= lng <= 72.0:
-                region_name = "Наманганская область"
-            elif 38.0 <= lat <= 39.0 and 65.0 <= lng <= 67.0:
-                region_name = "Кашкадарьинская область"
-            elif 37.0 <= lat <= 38.0 and 67.0 <= lng <= 68.0:
-                region_name = "Сурхандарьинская область"
-            elif 40.0 <= lat <= 41.0 and 68.0 <= lng <= 69.0:
-                region_name = "Сырдарьинская область"
-            elif 40.0 <= lat <= 41.0 and 67.0 <= lng <= 69.0:
-                region_name = "Джизакская область"
-            elif 40.0 <= lat <= 41.0 and 65.0 <= lng <= 66.0:
-                region_name = "Навоийская область"
-            elif 41.0 <= lat <= 42.0 and 60.0 <= lng <= 62.0:
-                region_name = "Хорезмская область"
-            elif 42.0 <= lat <= 44.0 and 58.0 <= lng <= 61.0:
-                region_name = "Республика Каракалпакстан"
-            else:
-                region_name = "Ташкентская область"  # По умолчанию
-        
-        region = Region.objects.filter(name=region_name).first()
-        
-        if region:
-            # Определяем только регион, остальные поля пользователь заполнит вручную
-            message = f'Определен регион: {region.name}'
-            
-            return Response({
-                'success': True,
-                'region': RegionSerializer(region).data,
-                'message': message
-            })
+        if location_data:
+            return Response(location_data)
         else:
             return Response({
-                'success': False,
-                'message': 'Регион не найден в базе данных'
-            }, status=400)
+                'error': 'Не удалось определить местоположение'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
     except Exception as e:
+        print(f"Location detection error: {e}")
         return Response({
-            'success': False,
-            'message': f'Ошибка при определении местоположения: {str(e)}'
-        }, status=500)
+            'error': 'Ошибка определения местоположения'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def extract_nominatim_address(self, data):
+        """Извлекает адрес из ответа Nominatim"""
+        try:
+            country = data.get('country', '')
+            region = data.get('regionName', '')
+            city = data.get('city', '')
+            
+            # Ищем регион в базе данных
+            region_obj = None
+            if region:
+                try:
+                    region_obj = Region.objects.filter(name__icontains=region).first()
+                except:
+                    pass
+            
+            # Ищем город в базе данных
+            city_obj = None
+            if city and region_obj:
+                try:
+                    city_obj = City.objects.filter(
+                        name__icontains=city,
+                        region=region_obj
+                    ).first()
+                except:
+                    pass
+            
+            return {
+                'country': country,
+                'region': region,
+                'city': city,
+                'region_id': region_obj.id if region_obj else None,
+                'city_id': city_obj.id if city_obj else None,
+                'ip': data.get('query', '')
+            }
+        except Exception as e:
+            print(f"Error extracting Nominatim address: {e}")
+            return None
+
+    def extract_bigdatacloud_address(self, data):
+        """Извлекает адрес из ответа BigDataCloud"""
+        try:
+            location = data.get('location', {})
+            country = location.get('country', {}).get('name', '')
+            region = location.get('region', {}).get('name', '')
+            city = location.get('city', {}).get('name', '')
+            
+            # Ищем регион в базе данных
+            region_obj = None
+            if region:
+                try:
+                    region_obj = Region.objects.filter(name__icontains=region).first()
+                except:
+                    pass
+            
+            # Ищем город в базе данных
+            city_obj = None
+            if city and region_obj:
+                try:
+                    city_obj = City.objects.filter(
+                        name__icontains=city,
+                        region=region_obj
+                    ).first()
+                except:
+                    pass
+            
+            return {
+                'country': country,
+                'region': region,
+                'city': city,
+                'region_id': region_obj.id if region_obj else None,
+                'city_id': city_obj.id if city_obj else None,
+                'ip': data.get('ip', '')
+            }
+        except Exception as e:
+            print(f"Error extracting BigDataCloud address: {e}")
+            return None
+
+    def extract_locationiq_address(self, data):
+        """Извлекает адрес из ответа LocationIQ"""
+        try:
+            country = data.get('country', '')
+            region = data.get('region', '')
+            city = data.get('city', '')
+            
+            # Ищем регион в базе данных
+            region_obj = None
+            if region:
+                try:
+                    region_obj = Region.objects.filter(name__icontains=region).first()
+                except:
+                    pass
+            
+            # Ищем город в базе данных
+            city_obj = None
+            if city and region_obj:
+                try:
+                    city_obj = City.objects.filter(
+                        name__icontains=city,
+                        region=region_obj
+                    ).first()
+                except:
+                    pass
+            
+            return {
+                'country': country,
+                'region': region,
+                'city': city,
+                'region_id': region_obj.id if region_obj else None,
+                'city_id': city_obj.id if city_obj else None,
+                'ip': data.get('ip', '')
+            }
+        except Exception as e:
+            print(f"Error extracting LocationIQ address: {e}")
+            return None
 
 
 @api_view(['GET', 'PUT'])
 @permission_classes([AllowAny])
 def user_profile(request):
     """Профиль пользователя"""
-    if not request.user.is_authenticated:
-        return Response({
-            'error': 'Пользователь не аутентифицирован',
-            'is_authenticated': False,
-            'session_id': request.session.session_key,
-            'user_id': request.session.get('_auth_user_id')
-        }, status=401)
-    
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
-    
     if request.method == 'GET':
-        print(f"Получаем профиль для пользователя {request.user.email}")
-        print(f"Роль пользователя: {request.user.role}")
-        print(f"Имя пользователя: first_name='{request.user.first_name}', last_name='{request.user.last_name}'")
-        
-        data = UserProfileReadSerializer(profile).data
-        print(f"Данные профиля: specialization={data.get('specialization')}, experience={data.get('experience')}")
-        print(f"Имя в данных: first_name='{data.get('first_name')}', last_name='{data.get('last_name')}'")
-        
-        return Response(data)
+        if request.user.is_authenticated:
+            try:
+                profile = UserProfile.objects.get(user=request.user)
+                serializer = UserProfileReadSerializer(profile)
+                return Response(serializer.data)
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'error': 'Профиль не найден'
+                }, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({
+                'error': 'Пользователь не авторизован'
+            }, status=status.HTTP_401_UNAUTHORIZED)
     
     elif request.method == 'PUT':
-        if not request.user.is_authenticated:
-            return Response({
-                'error': 'Пользователь не аутентифицирован',
-                'is_authenticated': False
-            }, status=401)
-        
-        # Проверяем, что врач может редактировать только аватарку
-        if request.user.role == 'doctor':
-            # Если врач пытается изменить что-то кроме аватарки
-            allowed_fields = ['avatar']
-            if any(field in request.data for field in request.data if field not in allowed_fields):
+        if request.user.is_authenticated:
+            try:
+                profile = UserProfile.objects.get(user=request.user)
+                serializer = UserProfileSerializer(profile, data=request.data, partial=True, context={'request': request})
+                
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except UserProfile.DoesNotExist:
                 return Response({
-                    'error': 'Врачи могут изменять только аватарку. Остальные данные может изменить только администратор.'
-                }, status=status.HTTP_403_FORBIDDEN)
-            
-        # Обновляем данные пользователя
-        user_data = {}
-        if 'first_name' in request.data:
-            user_data['first_name'] = request.data['first_name']
-        if 'last_name' in request.data:
-            user_data['last_name'] = request.data['last_name']
-        
-        # Обрабатываем аватарку (может быть файлом или URL)
-        if 'avatar' in request.FILES:
-            # Если это файл
-            avatar_file = request.FILES['avatar']
-            # Сохраняем файл в media/avatars/
-            import os
-            from django.conf import settings
-            
-            # Создаем директорию если её нет
-            avatar_dir = os.path.join(settings.MEDIA_ROOT, 'avatars')
-            os.makedirs(avatar_dir, exist_ok=True)
-            
-            # Генерируем уникальное имя файла
-            import uuid
-            file_extension = os.path.splitext(avatar_file.name)[1]
-            filename = f"{uuid.uuid4()}{file_extension}"
-            file_path = os.path.join(avatar_dir, filename)
-            
-            # Сохраняем файл
-            with open(file_path, 'wb+') as destination:
-                for chunk in avatar_file.chunks():
-                    destination.write(chunk)
-            
-            # Сохраняем путь к файлу в базе данных
-            user_data['avatar'] = f'http://localhost:8000/media/avatars/{filename}'
-        elif 'avatar' in request.data:
-            # Если это URL
-            user_data['avatar'] = request.data['avatar']
-        
-        if user_data:
-            for field, value in user_data.items():
-                setattr(request.user, field, value)
-            request.user.save()
-        
-        # Обновляем данные профиля
-        profile_data = {k: v for k, v in request.data.items() 
-                       if k not in ['first_name', 'last_name', 'email', 'username']}
-        
-        serializer = UserProfileSerializer(profile, data=profile_data, partial=True)
-        
-        if serializer.is_valid():
-            serializer.save()
-            
-            # Возвращаем полные данные пользователя, как в get_current_user_data
-            user_data = {
-                'id': request.user.id,
-                'email': request.user.email,
-                'username': request.user.username,
-                'first_name': request.user.first_name,
-                'last_name': request.user.last_name,
-                'role': request.user.role,
-                'is_staff': request.user.is_staff,
-                'is_superuser': request.user.is_superuser,
-                'full_name': request.user.full_name,
-                'initials': request.user.initials,
-                'avatar': request.user.avatar,
-                'profile': UserProfileReadSerializer(profile).data
-            }
-            
-            return Response(user_data)
+                    'error': 'Профиль не найден'
+                }, status=status.HTTP_404_NOT_FOUND)
         else:
-            return Response(serializer.errors, status=400) 
+            return Response({
+                'error': 'Пользователь не авторизован'
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def submit_doctor_application(request):
     """Подача заявки на роль врача"""
-    print(f"=== ПОДАЧА ЗАЯВКИ ВРАЧА ===")
-    print(f"Пользователь: {request.user.email}")
     print(f"Данные запроса: {request.data}")
     print(f"Файлы: {request.FILES}")
     print(f"Тип данных: {type(request.data)}")
@@ -701,31 +572,24 @@ def submit_doctor_application(request):
         print(f"Ошибки валидации: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_doctor_applications(request):
     """Получение списка заявок (только для админов)"""
     # Проверяем, что пользователь является администратором
     if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
-        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'error': 'Доступ запрещен. Требуются права администратора.'}, status=status.HTTP_403_FORBIDDEN)
     
-    status_filter = request.query_params.get('status', None)
-    
-    queryset = DoctorApplication.objects.all()
-    if status_filter:
-        queryset = queryset.filter(status=status_filter)
-    
-    serializer = DoctorApplicationSerializer(queryset, many=True)
+    applications = DoctorApplication.objects.all()
+    serializer = DoctorApplicationSerializer(applications, many=True)
     return Response(serializer.data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_doctor_application_detail(request, application_id):
-    """Получение детальной информации о заявке (только для админов)"""
-    # Проверяем, что пользователь является администратором
-    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
-        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
-    
+    """Получение детальной информации о заявке"""
     try:
         application = DoctorApplication.objects.get(id=application_id)
         serializer = DoctorApplicationSerializer(application)
@@ -733,10 +597,15 @@ def get_doctor_application_detail(request, application_id):
     except DoctorApplication.DoesNotExist:
         return Response({'error': 'Заявка не найдена'}, status=status.HTTP_404_NOT_FOUND)
 
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_doctor_application(request, application_id):
-    """Обновление статуса заявки на роль врача (одобрение/отклонение)"""
+    """Обновление заявки (только для админов)"""
+    # Проверяем, что пользователь является администратором
+    if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
+        return Response({'error': 'Доступ запрещен. Требуются права администратора.'}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         application = DoctorApplication.objects.get(id=application_id)
     except DoctorApplication.DoesNotExist:
@@ -744,22 +613,12 @@ def update_doctor_application(request, application_id):
     
     serializer = DoctorApplicationUpdateSerializer(application, data=request.data, partial=True)
     if serializer.is_valid():
-        # Обновляем заявку
-        application = serializer.save(
-            reviewed_by=request.user,
-            reviewed_at=timezone.now()
-        )
-        
         # Если заявка одобрена, обновляем профиль пользователя
-        if application.status == 'approved':
-            print(f"=== ОДОБРЕНИЕ ЗАЯВКИ ===")
+        if serializer.validated_data.get('status') == 'approved':
             user = application.user
-            print(f"Пользователь: {user.email}")
-            print(f"Текущее имя: first_name='{user.first_name}', last_name='{user.last_name}'")
-            
             user.role = 'doctor'
             
-            # Копируем имя из заявки
+            # Обновляем имя пользователя из заявки
             if application.first_name:
                 user.first_name = application.first_name
                 print(f"Установлено first_name: '{user.first_name}'")
@@ -805,7 +664,7 @@ def update_doctor_application(request, application_id):
             if application.emergency_contact:
                 profile.emergency_contact = application.emergency_contact
             
-            # Копируем адресные данные из заявки
+            # Копируем адресные данные
             if application.region:
                 profile.region = application.region
             if application.city:
@@ -814,19 +673,20 @@ def update_doctor_application(request, application_id):
                 profile.district = application.district
             
             profile.save()
-            
-            print(f"Профиль сохранен: specialization={profile.specialization}, experience={profile.experience}")
-            print(f"Имя пользователя: {user.first_name} {user.last_name}")
-            print(f"Адресные данные профиля: region={profile.region}, city={profile.city}, district={profile.district}")
+            print(f"Профиль обновлен: {profile}")
+        
+        # Обновляем заявку
+        serializer.save(reviewed_by=request.user, reviewed_at=timezone.now())
         
         # Возвращаем обновленную заявку
         full_serializer = DoctorApplicationSerializer(application)
         return Response({
-            'message': f'Заявка успешно {application.get_status_display().lower()}!',
+            'message': 'Заявка успешно обновлена',
             'application': full_serializer.data
-        }, status=status.HTTP_200_OK)
+        })
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -834,323 +694,270 @@ def get_user_applications(request):
     """Получение заявок текущего пользователя"""
     applications = DoctorApplication.objects.filter(user=request.user)
     serializer = DoctorApplicationSerializer(applications, many=True)
-    return Response(serializer.data) 
+    return Response(serializer.data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_current_user_data(request):
-    """Получение актуальных данных текущего пользователя"""
-    user = request.user
-    profile, created = UserProfile.objects.get_or_create(user=user)
+    """Получение данных текущего пользователя"""
+    user_data = UserSerializer(request.user).data
     
-    print(f"Получаем данные пользователя: {user.email}")
-    print(f"Имя в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
-    print(f"Данные профиля: specialization='{profile.specialization}', experience='{profile.experience}'")
+    # Добавляем информацию о профиле
+    try:
+        profile = UserProfile.objects.get(user=request.user)
+        profile_data = UserProfileReadSerializer(profile).data
+        user_data['profile'] = profile_data
+    except UserProfile.DoesNotExist:
+        user_data['profile'] = None
     
-    # Сериализуем профиль с помощью сериализатора
-    from .serializers import UserProfileReadSerializer
-    profile_serializer = UserProfileReadSerializer(profile)
-    profile_data = profile_serializer.data
+    # Добавляем информацию о заявках (если есть)
+    if request.user.role == 'patient':
+        applications = DoctorApplication.objects.filter(user=request.user)
+        applications_data = DoctorApplicationSerializer(applications, many=True).data
+        user_data['applications'] = applications_data
+    else:
+        user_data['applications'] = []
     
-    user_data = {
-        'id': user.id,
-        'email': user.email,
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'role': user.role,
-        'is_staff': user.is_staff,
-        'is_superuser': user.is_superuser,
-        'full_name': user.full_name,
-        'initials': user.initials,
-        'avatar': user.avatar,
-        # Данные профиля
-        'profile': profile_data
-    }
-    
-    print(f"Отправляем данные: {user_data}")
     return Response(user_data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_doctors(request):
-    """Получение списка всех врачей (только для пациентов)"""
-    if request.user.role != 'patient':
-        return Response({'error': 'Доступ запрещен. Только пациенты могут просматривать список врачей'}, status=status.HTTP_403_FORBIDDEN)
+    """Получение списка врачей"""
+    # Получаем всех пользователей с ролью врача
+    doctors = User.objects.filter(role='doctor', is_active=True)
     
-    try:
-        # Получаем параметры фильтрации
-        region_filter = request.GET.get('region')
-        city_filter = request.GET.get('city')
-        specialization_filter = request.GET.get('specialization')
-        
-        # Получаем только пользователей с ролью 'doctor'
-        doctors = User.objects.filter(role='doctor').prefetch_related('profile')
-        
-        # Применяем фильтры
-        if region_filter:
-            # Ищем врачей по региону или по городам в этом регионе
-            from django.db.models import Q
-            doctors = doctors.filter(
-                Q(profile__region__name__icontains=region_filter) |
-                Q(profile__city__region__name__icontains=region_filter)
-            )
-        
-        if city_filter:
-            doctors = doctors.filter(profile__city__name__icontains=city_filter)
-        
-        if specialization_filter:
-            doctors = doctors.filter(profile__specialization__icontains=specialization_filter)
-        
-        # Сериализуем данные врачей
-        doctors_data = []
-        for doctor in doctors:
-            profile = getattr(doctor, 'profile', None)
+    # Фильтры
+    specialization = request.GET.get('specialization')
+    region_id = request.GET.get('region_id')
+    city_id = request.GET.get('city_id')
+    search = request.GET.get('search')
+    
+    if specialization:
+        doctors = doctors.filter(profile__specialization__icontains=specialization)
+    
+    if region_id:
+        doctors = doctors.filter(profile__region_id=region_id)
+    
+    if city_id:
+        doctors = doctors.filter(profile__city_id=city_id)
+    
+    if search:
+        doctors = doctors.filter(
+            models.Q(first_name__icontains=search) |
+            models.Q(last_name__icontains=search) |
+            models.Q(profile__specialization__icontains=search)
+        )
+    
+    # Получаем данные профилей
+    doctors_data = []
+    for doctor in doctors:
+        try:
+            profile = UserProfile.objects.get(user=doctor)
             doctor_data = {
                 'id': doctor.id,
+                'email': doctor.email,
                 'first_name': doctor.first_name,
                 'last_name': doctor.last_name,
-                'email': doctor.email,
-                'avatar': doctor.avatar,
                 'full_name': doctor.full_name,
                 'initials': doctor.initials,
-                'specialization': profile.specialization if profile else '',
-                'experience': profile.experience if profile else '',
-                'education': profile.education if profile else '',
-                'license_number': profile.license_number if profile else '',
-                'languages': profile.languages if profile else [],
-                'additional_info': profile.additional_info if profile else '',
-                'region': profile.region.name if profile and profile.region else '',
-                'city': profile.city.name if profile and profile.city else '',
-                'district': profile.district.name if profile and profile.district else '',
-                'address': profile.address if profile else '',
-                'phone': profile.phone if profile else '',
-                'created_at': doctor.created_at,
+                'avatar': doctor.avatar,
+                'specialization': profile.specialization,
+                'experience': profile.experience,
+                'education': profile.education,
+                'license_number': profile.license_number,
+                'languages': profile.languages,
+                'additional_info': profile.additional_info,
+                'region': profile.region.name if profile.region else None,
+                'city': profile.city.name if profile.city else None,
+                'district': profile.district.name if profile.district else None,
+                'phone': profile.phone,
+                'address': profile.address,
             }
             doctors_data.append(doctor_data)
-        
-        return Response(doctors_data)
-    except Exception as e:
-        print(f"Ошибка при получении врачей: {e}")
-        return Response({'error': 'Ошибка сервера'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except UserProfile.DoesNotExist:
+            continue
+    
+    return Response(doctors_data)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_doctor_profile(request, doctor_id):
-    """Получение профиля конкретного врача (только для пациентов)"""
-    if request.user.role != 'patient':
-        return Response({'error': 'Доступ запрещен. Только пациенты могут просматривать профили врачей'}, status=status.HTTP_403_FORBIDDEN)
-    
+    """Получение профиля врача"""
     try:
-        doctor = User.objects.get(id=doctor_id, role='doctor')
-        profile, created = UserProfile.objects.get_or_create(user=doctor)
+        doctor = User.objects.get(id=doctor_id, role='doctor', is_active=True)
+        profile = UserProfile.objects.get(user=doctor)
         
         doctor_data = {
             'id': doctor.id,
+            'email': doctor.email,
             'first_name': doctor.first_name,
             'last_name': doctor.last_name,
-            'email': doctor.email,
-            'avatar': doctor.avatar,
             'full_name': doctor.full_name,
             'initials': doctor.initials,
-            'specialization': profile.specialization or '',
-            'experience': profile.experience or '',
-            'education': profile.education or '',
-            'license_number': profile.license_number or '',
-            'languages': profile.languages or [],
-            'additional_info': profile.additional_info or '',
-            'region': profile.region.name if profile.region else '',
-            'city': profile.city.name if profile.city else '',
-            'district': profile.district.name if profile.district else '',
-            'address': profile.address or '',
-            'phone': profile.phone or '',
-            'created_at': doctor.created_at,
-            'reviews': []  # Пока пустой массив для отзывов
+            'avatar': doctor.avatar,
+            'specialization': profile.specialization,
+            'experience': profile.experience,
+            'education': profile.education,
+            'license_number': profile.license_number,
+            'languages': profile.languages,
+            'additional_info': profile.additional_info,
+            'region': profile.region.name if profile.region else None,
+            'city': profile.city.name if profile.city else None,
+            'district': profile.district.name if profile.district else None,
+            'phone': profile.phone,
+            'address': profile.address,
         }
         
         return Response(doctor_data)
-    except User.DoesNotExist:
+    except (User.DoesNotExist, UserProfile.DoesNotExist):
         return Response({'error': 'Врач не найден'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        print(f"Ошибка при получении профиля врача: {e}")
-        return Response({'error': 'Ошибка сервера'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_users(request):
-    """Получение списка всех пользователей (только для админов)"""
-    # Проверяем, что пользователь является администратором
+    """Получение всех пользователей (только для админов)"""
     if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
-        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
     
-    try:
-        users = User.objects.all().prefetch_related('profile')
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-    except Exception as e:
-        print(f"Ошибка при получении пользователей: {e}")
-        return Response({'error': 'Ошибка сервера'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
+
 
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def manage_user_profile(request, user_id):
     """Управление профилем пользователя (только для админов)"""
-    # Проверяем, что пользователь является администратором
     if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
-        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
     
     try:
         user = User.objects.get(id=user_id)
-        profile, created = UserProfile.objects.get_or_create(user=user)
     except User.DoesNotExist:
         return Response({'error': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
     
     if request.method == 'GET':
-        serializer = UserProfileSerializer(profile)
-        return Response(serializer.data)
+        try:
+            profile = UserProfile.objects.get(user=user)
+            serializer = UserProfileSerializer(profile)
+            return Response(serializer.data)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Профиль не найден'}, status=status.HTTP_404_NOT_FOUND)
     
     elif request.method == 'PUT':
-        # Обновляем данные пользователя (включая роль)
-        user_data = {}
-        if 'first_name' in request.data:
-            user_data['first_name'] = request.data['first_name']
-        if 'last_name' in request.data:
-            user_data['last_name'] = request.data['last_name']
-        if 'role' in request.data:
-            user_data['role'] = request.data['role']
-        
-        # Обновляем пользователя
-        if user_data:
-            for field, value in user_data.items():
-                setattr(user, field, value)
-            user.save()
-            print(f"Обновлен пользователь {user.email}: {user_data}")
-        
-        # Обновляем профиль
-        profile_data = {k: v for k, v in request.data.items() 
-                       if k not in ['first_name', 'last_name', 'email', 'username', 'role']}
-        
-        # Обрабатываем поля region, city, district - извлекаем ID если передали объекты
-        if 'region' in profile_data and hasattr(profile_data['region'], 'id'):
-            profile_data['region'] = profile_data['region'].id
-        if 'city' in profile_data and hasattr(profile_data['city'], 'id'):
-            profile_data['city'] = profile_data['city'].id
-        if 'district' in profile_data and hasattr(profile_data['district'], 'id'):
-            profile_data['district'] = profile_data['district'].id
-        
-        serializer = UserProfileSerializer(profile, data=profile_data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'message': 'Профиль пользователя успешно обновлен!',
-                'profile': UserProfileSerializer(profile).data
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            profile = UserProfile.objects.get(user=user)
+            serializer = UserProfileSerializer(profile, data=request.data, partial=True, context={'request': request})
+            
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Профиль не найден'}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def update_doctor_name_from_application(request, application_id):
     # Проверяем, что пользователь является администратором
     if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
-        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
-    """Принудительное обновление имени врача из заявки (только для админов)"""
+        return Response({'error': 'Доступ запрещен. Требуются права администратора.'}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         application = DoctorApplication.objects.get(id=application_id)
-        
-        if application.status != 'approved':
-            return Response({'error': 'Заявка не одобрена'}, status=400)
-        
-        user = application.user
-        print(f"=== ОБНОВЛЕНИЕ ИМЕНИ ВРАЧА ===")
-        print(f"Пользователь: {user.email}")
-        print(f"Текущее имя: first_name='{user.first_name}', last_name='{user.last_name}'")
-        print(f"Имя из заявки: first_name='{application.first_name}', last_name='{application.last_name}'")
-        
-        # Копируем имя из заявки
-        if application.first_name:
-            user.first_name = application.first_name
-            print(f"Установлено first_name: '{user.first_name}'")
-        
-        if application.last_name:
-            user.last_name = application.last_name
-            print(f"Установлено last_name: '{user.last_name}'")
-        
-        user.save()
-        print(f"Сохранено в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
-        
-        # Проверяем, что сохранилось
-        user.refresh_from_db()
-        print(f"После refresh: first_name='{user.first_name}', last_name='{user.last_name}'")
-        
-        return Response({
-            'message': 'Имя врача успешно обновлено из заявки!',
-            'new_name': f"{user.first_name} {user.last_name}".strip()
-        })
-            
     except DoctorApplication.DoesNotExist:
-        return Response({'error': 'Заявка не найдена'}, status=404) 
+        return Response({'error': 'Заявка не найдена'}, status=status.HTTP_404_NOT_FOUND)
+    
+    user = application.user
+    
+    # Обновляем имя пользователя из заявки
+    if application.first_name:
+        user.first_name = application.first_name
+        print(f"Установлено first_name: '{user.first_name}'")
+    
+    if application.last_name:
+        user.last_name = application.last_name
+        print(f"Установлено last_name: '{user.last_name}'")
+    
+    user.save()
+    print(f"Сохранено в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
+    
+    # Проверяем, что сохранилось
+    user.refresh_from_db()
+    print(f"После refresh: first_name='{user.first_name}', last_name='{user.last_name}'")
+    
+    return Response({
+        'message': 'Имя пользователя обновлено',
+        'user': UserSerializer(user).data
+    })
+
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_user(request, user_id):
     # Проверяем, что пользователь является администратором
     if not (request.user.is_staff or request.user.is_superuser or request.user.role == 'admin'):
-        return Response({'error': 'Доступ запрещен. Требуются права администратора'}, status=status.HTTP_403_FORBIDDEN)
-    """Удаление пользователя (только для админов)"""
+        return Response({'error': 'Доступ запрещен. Требуются права администратора.'}, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         user = User.objects.get(id=user_id)
-        
-        # Проверяем, что админ не удаляет сам себя
-        if user.id == request.user.id:
-            return Response({'error': 'Нельзя удалить свой собственный аккаунт'}, status=400)
-        
-        # Проверяем, что не удаляем суперпользователя
-        if user.is_superuser:
-            return Response({'error': 'Нельзя удалить суперпользователя'}, status=400)
-        
-        print(f"Удаляем пользователя: {user.email} (ID: {user.id})")
-        
-        # Удаляем пользователя (это также удалит связанные профили и заявки)
-        user.delete()
-        
-        return Response({
-            'message': f'Пользователь {user.email} успешно удален!'
-        })
-        
     except User.DoesNotExist:
-        return Response({'error': 'Пользователь не найден'}, status=404) 
+        return Response({'error': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Не позволяем удалять самого себя
+    if user == request.user:
+        return Response({'error': 'Нельзя удалить самого себя'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Удаляем пользователя
+    user.delete()
+    
+    return Response({'message': 'Пользователь успешно удален'})
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def verify_email_view(request, token):
     """Верификация email по токену"""
-    success, message = verify_email_token(token)
-    
-    if success:
+    try:
+        user = verify_email_token(token)
+        if user:
+            return Response({
+                'message': 'Email успешно подтвержден! Теперь вы можете войти в систему.',
+                'user_id': user.id
+            })
+        else:
+            return Response({
+                'error': 'Недействительный или истекший токен верификации'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
         return Response({
-            'success': True,
-            'message': message
-        }, status=status.HTTP_200_OK)
-    else:
-        return Response({
-            'success': False,
-            'error': message
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'error': 'Ошибка верификации email'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def verify_email_html_view(request, token):
-    """HTML страница для подтверждения email"""
-    success, message = verify_email_token(token)
-    
-    context = {
-        'success': success,
-        'error_message': message if not success else None
-    }
-    
-    return render(request, 'authentication/email_verification_success.html', context)
+    """HTML страница для верификации email"""
+    try:
+        user = verify_email_token(token)
+        if user:
+            return render(request, 'authentication/email_verification_success.html', {
+                'user': user
+            })
+        else:
+            return render(request, 'authentication/email_verification.html', {
+                'error': 'Недействительный или истекший токен верификации'
+            })
+    except Exception as e:
+        return render(request, 'authentication/email_verification.html', {
+            'error': 'Ошибка верификации email'
+        })
 
 
 @api_view(['POST'])
@@ -1158,18 +965,16 @@ def verify_email_html_view(request, token):
 def resend_verification_email(request):
     """Повторная отправка email для верификации"""
     email = request.data.get('email')
-    
     if not email:
-        return Response({
-            'error': 'Email обязателен'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email обязателен'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        user = User.objects.get(email=email, is_verified=False)
+        user = User.objects.get(email=email)
+        if user.is_verified:
+            return Response({'error': 'Email уже подтвержден'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Генерируем новый токен
-        from .utils import generate_verification_token
-        user.email_verification_token = generate_verification_token()
+        # Создаем новый токен верификации
+        user.email_verification_token = uuid.uuid4()
         user.email_verification_sent_at = timezone.now()
         user.save()
         
@@ -1178,15 +983,12 @@ def resend_verification_email(request):
             reverse('verify_email', kwargs={'token': user.email_verification_token})
         )
         
-        # Заменяем API URL на HTML URL для email
-        html_verification_url = verification_url.replace('/api/auth/verify-email/', '/api/auth/verify-email-html/')
-        
-        email_sent = send_verification_email(user, html_verification_url)
+        email_sent = send_verification_email(user, verification_url)
         
         if email_sent:
             return Response({
-                'message': 'Email для подтверждения отправлен повторно'
-            }, status=status.HTTP_200_OK)
+                'message': 'Email для подтверждения отправлен повторно. Проверьте вашу почту.'
+            })
         else:
             return Response({
                 'error': 'Ошибка отправки email'
@@ -1194,7 +996,197 @@ def resend_verification_email(request):
             
     except User.DoesNotExist:
         return Response({
-            'error': 'Пользователь с таким email не найден или уже подтвержден'
-        }, status=status.HTTP_404_NOT_FOUND) 
+            'error': 'Пользователь с таким email не найден'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+# Views для консультаций и чатов
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_consultations(request):
+    """Получение списка консультаций пользователя"""
+    user = request.user
+    
+    if user.role == 'patient':
+        consultations = Consultation.objects.filter(patient=user)
+    elif user.role == 'doctor':
+        consultations = Consultation.objects.filter(doctor=user)
+    else:
+        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = ConsultationSerializer(consultations, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_consultation(request):
+    """Создание новой консультации"""
+    serializer = ConsultationCreateSerializer(data=request.data, context={'request': request})
+    
+    if serializer.is_valid():
+        consultation = serializer.save()
+        full_serializer = ConsultationSerializer(consultation)
+        return Response({
+            'message': 'Консультация успешно создана',
+            'consultation': full_serializer.data
+        }, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_consultation_detail(request, consultation_id):
+    """Получение детальной информации о консультации"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+        
+        # Проверяем доступ
+        if request.user not in [consultation.patient, consultation.doctor]:
+            return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = ConsultationSerializer(consultation)
+        return Response(serializer.data)
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_consultation(request, consultation_id):
+    """Обновление консультации"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+        
+        # Проверяем доступ
+        if request.user not in [consultation.patient, consultation.doctor]:
+            return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = ConsultationUpdateSerializer(consultation, data=request.data, partial=True, context={'request': request})
+        
+        if serializer.is_valid():
+            serializer.save()
+            full_serializer = ConsultationSerializer(consultation)
+            return Response({
+                'message': 'Консультация успешно обновлена',
+                'consultation': full_serializer.data
+            })
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_messages(request, consultation_id):
+    """Получение сообщений консультации"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+        
+        # Проверяем доступ
+        if request.user not in [consultation.patient, consultation.doctor]:
+            return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+        
+        messages = consultation.messages.all()
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_message(request, consultation_id):
+    """Отправка сообщения в консультацию"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+        
+        # Проверяем доступ
+        if request.user not in [consultation.patient, consultation.doctor]:
+            return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Проверяем, может ли пользователь писать
+        if request.user == consultation.patient and not consultation.can_patient_write:
+            return Response({'error': 'Нельзя писать в завершенной консультации'}, status=status.HTTP_400_BAD_REQUEST)
+        elif request.user == consultation.doctor and not consultation.can_doctor_write:
+            return Response({'error': 'Нельзя писать в завершенной консультации'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        content = request.data.get('content')
+        if not content:
+            return Response({'error': 'Содержание сообщения обязательно'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        message = Message.objects.create(
+            consultation=consultation,
+            sender=request.user,
+            content=content
+        )
+        
+        serializer = MessageSerializer(message)
+        return Response({
+            'message': 'Сообщение отправлено',
+            'message_data': serializer.data
+        }, status=status.HTTP_201_CREATED)
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def accept_consultation(request, consultation_id):
+    """Принятие консультации врачом"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+        
+        # Проверяем, что пользователь является врачом этой консультации
+        if request.user != consultation.doctor:
+            return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Проверяем, что консультация в статусе ожидания
+        if consultation.status != 'pending':
+            return Response({'error': 'Консультация уже не в статусе ожидания'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Принимаем консультацию
+        consultation.status = 'active'
+        consultation.started_at = timezone.now()
+        consultation.save()
+        
+        serializer = ConsultationSerializer(consultation)
+        return Response({
+            'message': 'Консультация успешно принята',
+            'consultation': serializer.data
+        })
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def complete_consultation(request, consultation_id):
+    """Завершение консультации врачом"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+        
+        # Проверяем, что пользователь является врачом этой консультации
+        if request.user != consultation.doctor:
+            return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Проверяем, что консультация активна
+        if consultation.status != 'active':
+            return Response({'error': 'Консультация не активна'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Завершаем консультацию
+        consultation.status = 'completed'
+        consultation.completed_at = timezone.now()
+        consultation.save()
+        
+        serializer = ConsultationSerializer(consultation)
+        return Response({
+            'message': 'Консультация успешно завершена',
+            'consultation': serializer.data
+        })
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND) 
 
  

@@ -9,6 +9,12 @@ const DoctorProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showConsultationModal, setShowConsultationModal] = useState(false);
+  const [consultationData, setConsultationData] = useState({
+    title: '',
+    description: ''
+  });
+  const [creatingConsultation, setCreatingConsultation] = useState(false);
 
   useEffect(() => {
     const fetchDoctorProfile = async () => {
@@ -69,6 +75,57 @@ const DoctorProfile = () => {
 
   const closeAppointmentModal = () => {
     setShowAppointmentModal(false);
+  };
+
+  const handleConsultation = () => {
+    setShowConsultationModal(true);
+  };
+
+  const closeConsultationModal = () => {
+    setShowConsultationModal(false);
+    setConsultationData({ title: '', description: '' });
+  };
+
+  const handleCreateConsultation = async (e) => {
+    e.preventDefault();
+    
+    if (!consultationData.title.trim()) {
+      alert('Пожалуйста, укажите тему консультации');
+      return;
+    }
+
+    setCreatingConsultation(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/consultations/create/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          doctor_id: parseInt(id),
+          title: consultationData.title,
+          description: consultationData.description
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Консультация успешно создана!');
+        closeConsultationModal();
+        // Перенаправляем на страницу консультаций
+        navigate('/consultations');
+      } else {
+        alert(data.error || 'Ошибка создания консультации');
+      }
+    } catch (error) {
+      console.error('Ошибка при создании консультации:', error);
+      alert('Ошибка соединения с сервером');
+    } finally {
+      setCreatingConsultation(false);
+    }
   };
 
   if (loading) {
@@ -236,6 +293,12 @@ const DoctorProfile = () => {
                   </a>
                 )}
                 <button 
+                  onClick={handleConsultation}
+                  className="doctor-profile__consultation-btn"
+                >
+                  💬 Начать консультацию
+                </button>
+                <button 
                   onClick={handleAppointment}
                   className="doctor-profile__appointment-btn"
                 >
@@ -266,6 +329,68 @@ const DoctorProfile = () => {
                   📞 Позвонить {doctor.phone}
                 </a>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно создания консультации */}
+      {showConsultationModal && (
+        <div className="consultation-modal">
+          <div className="consultation-modal__overlay" onClick={closeConsultationModal}></div>
+          <div className="consultation-modal__content">
+            <div className="consultation-modal__header">
+              <h3>Создать консультацию</h3>
+              <button onClick={closeConsultationModal} className="consultation-modal__close">
+                ✕
+              </button>
+            </div>
+            <div className="consultation-modal__body">
+              <form onSubmit={handleCreateConsultation}>
+                <div className="consultation-modal__form-group">
+                  <label htmlFor="title" className="consultation-modal__label">
+                    Тема консультации *
+                  </label>
+                  <input
+                    type="text"
+                    id="title"
+                    value={consultationData.title}
+                    onChange={(e) => setConsultationData({...consultationData, title: e.target.value})}
+                    className="consultation-modal__input"
+                    placeholder="Например: Консультация по здоровью"
+                    required
+                  />
+                </div>
+                <div className="consultation-modal__form-group">
+                  <label htmlFor="description" className="consultation-modal__label">
+                    Описание (необязательно)
+                  </label>
+                  <textarea
+                    id="description"
+                    value={consultationData.description}
+                    onChange={(e) => setConsultationData({...consultationData, description: e.target.value})}
+                    className="consultation-modal__textarea"
+                    placeholder="Опишите вашу проблему или вопрос..."
+                    rows="4"
+                  />
+                </div>
+                <div className="consultation-modal__actions">
+                  <button 
+                    type="button" 
+                    onClick={closeConsultationModal}
+                    className="consultation-modal__cancel-btn"
+                  >
+                    Отмена
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="consultation-modal__submit-btn"
+                    disabled={creatingConsultation}
+                  >
+                    {creatingConsultation ? 'Создание...' : 'Создать консультацию'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
