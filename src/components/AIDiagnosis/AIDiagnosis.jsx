@@ -12,10 +12,10 @@ const AIDiagnosis = () => {
   ]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isVideoMode, setIsVideoMode] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [recordedChunks, setRecordedChunks] = useState([]);
+  const [isListening, setIsListening] = useState(false); // Голосовое прослушивание
+  const [isSpeaking, setIsSpeaking] = useState(false); // AI говорит
+  const [speechRecognition, setSpeechRecognition] = useState(null); // Распознавание речи
+  const [isSupported, setIsSupported] = useState(false); // Поддержка Speech API
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -26,9 +26,246 @@ const AIDiagnosis = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Инициализация Speech Recognition API
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    // Проверяем поддержку Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+      console.log('✅ Speech Recognition поддерживается!');
+      setIsSupported(true);
+      
+      const recognition = new SpeechRecognition();
+      
+      // Настройки распознавания
+      recognition.continuous = true; // Непрерывное распознавание
+      recognition.interimResults = true; // Промежуточные результаты
+      recognition.lang = 'ru-RU'; // Русский язык
+      recognition.maxAlternatives = 1;
+      
+      setSpeechRecognition(recognition);
+      
+      // Обработчики событий
+      recognition.onstart = () => {
+        console.log('🎤 Распознавание речи началось');
+        setIsListening(true);
+      };
+      
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          }
+        }
+        
+        if (finalTranscript.trim()) {
+          console.log('🗣️ Распознанная речь:', finalTranscript);
+          handleVoiceInput(finalTranscript.trim());
+        }
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('❌ Ошибка распознавания речи:', event.error);
+        setIsListening(false);
+        
+        if (event.error === 'not-allowed') {
+          alert('Разрешите доступ к микрофону в настройках браузера');
+        }
+      };
+      
+      recognition.onend = () => {
+        console.log('🔇 Распознавание речи завершено');
+        setIsListening(false);
+      };
+      
+    } else {
+      console.log('❌ Speech Recognition не поддерживается');
+      setIsSupported(false);
+    }
+    
+    // Инициализация голосов для синтеза
+    if ('speechSynthesis' in window) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          console.log('🎵 Голоса загружены:', voices.length);
+        }
+      };
+      
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  // Новая система: Speech Recognition API (как в ChatGPT Voice)
+  const startSmartListening = () => {
+    if (!isSupported) {
+      alert('Speech Recognition не поддерживается в этом браузере. Попробуйте Chrome.');
+      return;
+    }
+    
+    if (isListening) {
+      console.log('🔴 Останавливаем голосовое прослушивание...');
+      speechRecognition.stop();
+      setIsListening(false);
+      return;
+    }
+
+    console.log('🎤 Запускаем Speech Recognition...');
+    
+    try {
+      speechRecognition.start();
+    } catch (error) {
+      console.error('❌ Ошибка запуска распознавания:', error);
+      alert('Не удалось запустить распознавание речи. Убедитесь что микрофон доступен.');
+    }
+  };
+
+  // Обработка голосового ввода от Speech Recognition
+  const handleVoiceInput = async (transcript) => {
+    console.log('💬 Обрабатываю голосовой ввод:', transcript);
+    
+    // Добавляем сообщение пользователя в чат
+    const userMessage = {
+      id: Date.now(),
+      type: 'user', 
+      content: `🎤 ${transcript}`,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/ai/diagnosis/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          message: transcript,
+          type: 'text'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: data.response,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiMessage]);
+        
+        // Озвучиваем ответ AI
+        speakText(data.response);
+        
+      } else {
+        throw new Error('Ошибка сервера');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при отправке голосового сообщения:', error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: 'Извините, не удалось обработать голосовое сообщение. Попробуйте ещё раз.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      speakText('Извините, произошла ошибка. Попробуйте ещё раз.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Убрал сложную систему анализа аудио - теперь все через Speech Recognition API
+
+  // Озвучиваем текст с помощью Web Speech API
+  const speakText = (text) => {
+    if (!('speechSynthesis' in window)) {
+      console.log('❌ Speech Synthesis не поддерживается в этом браузере');
+      return;
+    }
+
+    console.log('🗣️ Озвучиваю текст:', text.substring(0, 50) + '...');
+
+    // Останавливаем текущую речь
+    window.speechSynthesis.cancel();
+    
+          // Приостанавливаем прослушивание во время речи AI
+    const wasListening = isListening;
+    if (wasListening) {
+      console.log('⏸️ Приостанавливаю прослушивание для речи AI');
+      speechRecognition.stop();
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Настройки голоса
+    utterance.rate = 0.9; // Скорость речи
+    utterance.pitch = 1; // Высота голоса
+    utterance.volume = 0.8; // Громкость
+    utterance.lang = 'ru-RU'; // Устанавливаем русский язык
+    
+    // Попытка найти русский голос
+    const voices = window.speechSynthesis.getVoices();
+    console.log('🎵 Доступные голоса:', voices.map(v => `${v.name} (${v.lang})`));
+    
+    const russianVoice = voices.find(voice => 
+      voice.lang.includes('ru') || voice.name.toLowerCase().includes('russian')
+    );
+    
+    if (russianVoice) {
+      utterance.voice = russianVoice;
+      console.log('✅ Выбран русский голос:', russianVoice.name);
+    } else {
+      console.log('⚠️ Русский голос не найден, используем голос по умолчанию');
+    }
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      console.log('🗣️ AI начала говорить');
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      console.log('🔇 AI закончила говорить');
+      
+      // Возобновляем прослушивание после речи AI
+      if (wasListening) {
+        console.log('▶️ Возобновляю прослушивание через 0.5 сек...');
+        setTimeout(() => {
+          if (speechRecognition) {
+            speechRecognition.start();
+          }
+        }, 500); // Небольшая пауза перед возобновлением
+      }
+    };
+
+    utterance.onerror = (event) => {
+      setIsSpeaking(false);
+      console.error('❌ Ошибка синтеза речи:', event);
+    };
+
+    try {
+      window.speechSynthesis.speak(utterance);
+      console.log('🎤 Запустил синтез речи');
+    } catch (error) {
+      console.error('❌ Ошибка при запуске синтеза речи:', error);
+      setIsSpeaking(false);
+    }
+  };
+
+  // Тестирование голосового синтеза
+  const testVoiceSynthesis = () => {
+    speakText('Привет! Это тест голосового синтеза. Я Healzy AI и готова помочь!');
+  };
 
   // Отправка текстового сообщения
   const handleSendMessage = async () => {
@@ -68,6 +305,12 @@ const AIDiagnosis = () => {
           timestamp: new Date()
         };
         setMessages(prev => [...prev, aiMessage]);
+        
+        // Если активно прослушивание, озвучиваем ответ
+        if (isListening) {
+          speakText(data.response);
+        }
+        
       } else {
         throw new Error(data.error || 'Ошибка при получении ответа');
       }
@@ -281,15 +524,21 @@ const AIDiagnosis = () => {
             </div>
           ))}
           
-          {isLoading && (
+          {(isLoading || isSpeaking) && (
             <div className="ai-diagnosis__message ai-diagnosis__message--ai">
               <div className="ai-diagnosis__message-avatar">🤖</div>
               <div className="ai-diagnosis__message-content">
-                <div className="ai-diagnosis__loading">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
+                {isLoading ? (
+                  <div className="ai-diagnosis__loading">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                ) : (
+                  <div className="ai-diagnosis__speaking">
+                    🗣️ Говорю...
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -308,11 +557,21 @@ const AIDiagnosis = () => {
             </button>
             
             <button
-              className={`ai-diagnosis__action-btn ${isRecording ? 'ai-diagnosis__action-btn--recording' : ''}`}
-              onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
-              title={isRecording ? 'Остановить запись' : 'Записать голосовое сообщение'}
+              className={`ai-diagnosis__action-btn ${isListening ? 'ai-diagnosis__action-btn--listening' : ''}`}
+              onClick={startSmartListening}
+              disabled={!isSupported}
+              title={isListening ? 'Голосовое прослушивание активно - говорите! (нажмите для остановки)' : 'Начать голосовой диалог с AI'}
             >
-              {isRecording ? '⏹️' : '🎤'}
+              {isListening ? '🛑' : '🎤'}
+            </button>
+
+            <button
+              className="ai-diagnosis__action-btn"
+              onClick={testVoiceSynthesis}
+              disabled={isSpeaking}
+              title="Тест голосового синтеза"
+            >
+              🔊
             </button>
           </div>
 
@@ -349,6 +608,12 @@ const AIDiagnosis = () => {
         <div className="ai-diagnosis__disclaimer">
           ⚠️ Внимание: AI диагностика не заменяет консультацию врача. 
           При серьезных симптомах обратитесь к специалисту.
+          <br />
+          {isSupported ? (
+            <>🎤 Для голосового диалога: нажмите микрофон и говорите! 🔊 Тест голоса справа.</>
+          ) : (
+            <>❌ Голосовые функции недоступны в этом браузере. Попробуйте Chrome.</>
+          )}
         </div>
       </div>
     </div>

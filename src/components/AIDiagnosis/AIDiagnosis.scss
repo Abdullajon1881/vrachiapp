@@ -213,9 +213,15 @@
     }
 
     &--recording {
-      background: $error;
+      background: #ff4444;
       color: $white;
       animation: pulse 1s infinite;
+    }
+
+    &--listening {
+      background: #4CAF50;
+      color: $white;
+      animation: breathe 2s infinite;
     }
 
     .dark-theme & {
@@ -224,6 +230,38 @@
       &:hover {
         background: $primary-blue;
       }
+    }
+  }
+
+  // Анимация пульсации для записи голоса
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+    }
+    50% {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 10px rgba(255, 68, 68, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
+    }
+  }
+
+  // Анимация дыхания для прослушивания
+  @keyframes breathe {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.5);
+    }
+    50% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 8px rgba(76, 175, 80, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
     }
   }
 
@@ -335,14 +373,23 @@
   }
 }
 
-@keyframes loading {
-  0%, 80%, 100% {
-    transform: scale(0);
+  @keyframes loading {
+    0%, 80%, 100% {
+      transform: scale(0);
+    }
+    40% {
+      transform: scale(1);
+    }
   }
-  40% {
-    transform: scale(1);
+
+  @keyframes pulse-text {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
   }
-}
 
 // Мобильная адаптивность
 @media (max-width: 768px) {
