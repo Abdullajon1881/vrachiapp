@@ -74,7 +74,7 @@ def verify_email_token(token):
         
         # Проверяем, не истек ли токен
         if is_verification_token_expired(user):
-            return False, "Срок действия ссылки истек. Зарегистрируйтесь заново."
+            return None
         
         # Активируем пользователя
         user.is_verified = True
@@ -83,12 +83,12 @@ def verify_email_token(token):
         user.email_verification_sent_at = None
         user.save()
         
-        return True, "Email успешно подтвержден!"
+        return user
         
     except User.DoesNotExist:
-        return False, "Неверная ссылка для подтверждения."
+        return None
     except Exception as e:
-        return False, f"Ошибка при подтверждении email: {str(e)}"
+        return None
 
 
 def create_user_with_verification(email, password, first_name, last_name, role='patient'):
@@ -131,9 +131,19 @@ def create_user_with_verification(email, password, first_name, last_name, role='
     return user
 
 
-def create_google_user(email, first_name, last_name, google_id, avatar=None):
+def create_google_user(google_user_info):
     """Создает пользователя через Google OAuth (автоматически подтвержденного)"""
-    from .models import User
+    from .models import User, UserProfile
+    
+    # Извлекаем данные из Google OAuth
+    email = google_user_info.get('email')
+    first_name = google_user_info.get('given_name', '')
+    last_name = google_user_info.get('family_name', '')
+    google_id = google_user_info.get('id')
+    avatar = google_user_info.get('picture')
+    
+    if not email:
+        raise ValueError("Email обязателен для создания пользователя через Google")
     
     # Проверяем, существует ли уже пользователь с таким email
     existing_user = User.objects.filter(email=email).first()
@@ -143,6 +153,8 @@ def create_google_user(email, first_name, last_name, google_id, avatar=None):
             existing_user.google_id = google_id
             existing_user.is_verified = True
             existing_user.is_active = True
+            if avatar:
+                existing_user.avatar = avatar
             existing_user.save()
         return existing_user
     
@@ -168,5 +180,8 @@ def create_google_user(email, first_name, last_name, google_id, avatar=None):
         is_verified=True,  # Подтвержден сразу
         role='patient'
     )
+    
+    # Создаем профиль пользователя
+    UserProfile.objects.create(user=user)
     
     return user 

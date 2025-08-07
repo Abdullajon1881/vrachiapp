@@ -84,6 +84,23 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'date_of_birth': {'required': False, 'allow_null': True},
+            'gender': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'phone': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'region': {'required': False, 'allow_null': True},
+            'city': {'required': False, 'allow_null': True},
+            'district': {'required': False, 'allow_null': True},
+            'address': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'medical_info': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'emergency_contact': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'specialization': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'experience': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'education': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'license_number': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'languages': {'required': False, 'allow_null': True},
+            'additional_info': {'required': False, 'allow_null': True, 'allow_blank': True},
+        }
     
     def validate(self, attrs):
         # Проверяем, является ли пользователь врачом
@@ -93,8 +110,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
             if request.user.role == 'doctor':
                 doctor_fields = ['specialization', 'experience', 'education', 'license_number', 'languages', 'additional_info']
                 for field in doctor_fields:
-                    if field in attrs:
-                        raise serializers.ValidationError(f"Поле '{field}' не может быть изменено врачом. Обратитесь к администратору.")
+                    if field in attrs and attrs[field] is not None:
+                        # Только блокируем если пытаются изменить существующее значение
+                        current_value = getattr(self.instance, field, None)
+                        if current_value != attrs[field]:
+                            raise serializers.ValidationError({field: f"Поле '{field}' не может быть изменено врачом. Обратитесь к администратору."})
+        
+        # Очищаем пустые строки и пустые FK поля
+        for field, value in list(attrs.items()):
+            if isinstance(value, str) and value.strip() == '':
+                attrs[field] = None
+            elif field in ['region', 'city', 'district'] and (value == '' or value == 'null' or value == 0):
+                attrs[field] = None
         
         return attrs
     

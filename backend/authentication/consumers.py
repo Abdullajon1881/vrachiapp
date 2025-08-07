@@ -1,42 +1,58 @@
 import json
 import asyncio
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from .models import Consultation, Message
 from django.utils import timezone
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.consultation_id = self.scope['url_route']['kwargs']['consultation_id']
-        self.room_group_name = f'chat_{self.consultation_id}'
-        
-        # Проверяем, что пользователь авторизован
-        if not self.scope['user'].is_authenticated:
-            await self.close()
-            return
-        
-        # Проверяем, что пользователь имеет доступ к этой консультации
-        if not await self.can_access_consultation():
-            await self.close()
-            return
-        
-        # Присоединяемся к группе чата
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-        
-        await self.accept()
-        
-        # Отправляем информацию о подключении
-        await self.send(text_data=json.dumps({
-            'type': 'connection_established',
-            'message': 'Подключение к чату установлено'
-        }))
+        try:
+            self.consultation_id = self.scope['url_route']['kwargs']['consultation_id']
+            self.room_group_name = f'chat_{self.consultation_id}'
+            
+            logger.info(f"WebSocket connect attempt for consultation {self.consultation_id}")
+            logger.info(f"User: {self.scope['user']}, authenticated: {self.scope['user'].is_authenticated}")
+            
+            # Проверяем, что пользователь авторизован
+            if not self.scope['user'].is_authenticated:
+                logger.warning(f"Unauthenticated user tried to connect to consultation {self.consultation_id}")
+                await self.close(code=4001)
+                return
+            
+            # Проверяем, что пользователь имеет доступ к этой консультации
+            access_granted = await self.can_access_consultation()
+            if not access_granted:
+                logger.warning(f"User {self.scope['user'].id} denied access to consultation {self.consultation_id}")
+                await self.close(code=4003)
+                return
+            
+            # Присоединяемся к группе чата
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            
+            await self.accept()
+            
+            logger.info(f"User {self.scope['user'].id} connected to consultation {self.consultation_id}")
+            
+            # Отправляем информацию о подключении
+            await self.send(text_data=json.dumps({
+                'type': 'connection_established',
+                'message': 'Подключение к чату установлено',
+                'consultation_id': self.consultation_id
+            }))
+            
+        except Exception as e:
+            logger.error(f"Error in WebSocket connect: {e}")
+            await self.close(code=4000)
 
     async def disconnect(self, close_code):
         # Покидаем группу чата
@@ -46,36 +62,73 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message_type = text_data_json.get('type', 'chat_message')
-        
-        if message_type == 'chat_message':
-            message = text_data_json['message']
-            sender_id = self.scope['user'].id
-            
-            # Сохраняем сообщение в базе данных
-            saved_message = await self.save_message(message, sender_id)
-            
-            if saved_message:
-                # Отправляем сообщение в группу
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'chat_message',
-                        'message': message,
-                        'sender_id': sender_id,
-                        'sender_name': self.scope['user'].full_name,
-                        'sender_initials': self.scope['user'].initials,
-                        'timestamp': saved_message.created_at.isoformat(),
-                        'message_id': saved_message.id
-                    }
-                )
-            else:
-                # Отправляем ошибку отправителю
+        try:
+            if not self.scope['user'].is_authenticated:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
-                    'message': 'Не удалось отправить сообщение'
+                    'message': 'Необходима аутентификация'
                 }))
+                return
+                
+            text_data_json = json.loads(text_data)
+            message_type = text_data_json.get('type', 'chat_message')
+            
+            if message_type == 'chat_message':
+                message_content = text_data_json.get('message', '').strip()
+                
+                if not message_content:
+                    await self.send(text_data=json.dumps({
+                        'type': 'error',
+                        'message': 'Сообщение не может быть пустым'
+                    }))
+                    return
+                
+                sender_id = self.scope['user'].id
+                
+                # Сохраняем сообщение в базе данных
+                saved_message = await self.save_message(message_content, sender_id)
+                
+                if saved_message:
+                    logger.info(f"Message saved: {saved_message.id} from user {sender_id}")
+                    
+                    # Отправляем сообщение в группу
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'chat_message',
+                            'message': message_content,
+                            'sender_id': sender_id,
+                            'sender_name': self.scope['user'].full_name,
+                            'sender_initials': self.scope['user'].initials,
+                            'timestamp': saved_message.created_at.isoformat(),
+                            'message_id': saved_message.id
+                        }
+                    )
+                else:
+                    # Отправляем ошибку отправителю
+                    await self.send(text_data=json.dumps({
+                        'type': 'error',
+                        'message': 'Не удалось отправить сообщение. Проверьте права доступа.'
+                    }))
+                    
+            elif message_type == 'ping':
+                # Отвечаем на ping для поддержания соединения
+                await self.send(text_data=json.dumps({
+                    'type': 'pong',
+                    'timestamp': timezone.now().isoformat()
+                }))
+                
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Неверный формат данных'
+            }))
+        except Exception as e:
+            logger.error(f"Error in receive: {e}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Произошла ошибка при обработке сообщения'
+            }))
 
     async def chat_message(self, event):
         # Отправляем сообщение в WebSocket
@@ -108,10 +161,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             consultation = Consultation.objects.get(id=self.consultation_id)
             sender = User.objects.get(id=sender_id)
             
+            logger.info(f"Attempting to save message from user {sender_id} to consultation {self.consultation_id}")
+            logger.info(f"Consultation status: {consultation.status}")
+            logger.info(f"Can patient write: {consultation.can_patient_write}")
+            logger.info(f"Can doctor write: {consultation.can_doctor_write}")
+            
             # Проверяем, может ли пользователь писать в этой консультации
             if sender == consultation.patient and not consultation.can_patient_write:
+                logger.warning(f"Patient {sender_id} cannot write to consultation {self.consultation_id}")
                 return None
             elif sender == consultation.doctor and not consultation.can_doctor_write:
+                logger.warning(f"Doctor {sender_id} cannot write to consultation {self.consultation_id}")
                 return None
             
             # Создаем сообщение
@@ -121,8 +181,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 content=content
             )
             
+            logger.info(f"Message created successfully: {message.id}")
             return message
-        except (Consultation.DoesNotExist, User.DoesNotExist):
+            
+        except Consultation.DoesNotExist:
+            logger.error(f"Consultation {self.consultation_id} not found")
+            return None
+        except User.DoesNotExist:
+            logger.error(f"User {sender_id} not found")
+            return None
+        except Exception as e:
+            logger.error(f"Error saving message: {e}")
             return None
 
 

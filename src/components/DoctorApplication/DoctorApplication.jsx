@@ -85,7 +85,7 @@ const DoctorApplication = () => {
 
   const loadCities = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
@@ -97,13 +97,38 @@ const DoctorApplication = () => {
 
   const loadDistricts = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setDistricts(data);
       }
     } catch (error) {
       console.error('Ошибка загрузки районов:', error);
+    }
+  };
+
+  const loadDistrictsByCity = async (cityId) => {
+    try {
+      // Сначала пытаемся найти районы конкретного города
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?city_id=${cityId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          // Если у города есть свои районы, показываем их
+          setDistricts(data);
+        } else {
+          // Если у города нет своих районов, показываем районы региона
+          if (formData.region) {
+            loadDistricts(formData.region);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки районов по городу:', error);
+      // В случае ошибки показываем районы региона
+      if (formData.region) {
+        loadDistricts(formData.region);
+      }
     }
   };
 
@@ -122,6 +147,16 @@ const DoctorApplication = () => {
       setFormData(prev => ({
         ...prev,
         city: '',
+        district: ''
+      }));
+    }
+    
+    // Если изменился город, загружаем районы для этого города
+    if (name === 'city' && value) {
+      loadDistrictsByCity(value);
+      // Очищаем выбранный район
+      setFormData(prev => ({
+        ...prev,
         district: ''
       }));
     }

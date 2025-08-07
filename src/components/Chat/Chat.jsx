@@ -79,6 +79,8 @@ const Chat = () => {
     
     console.log('Подключение к WebSocket:', wsUrl);
     
+    // WebSocket не поддерживает передачу заголовков, но браузер автоматически передает куки
+    // для того же домена, если они httpOnly
     const websocket = new WebSocket(wsUrl);
 
     websocket.onopen = () => {
@@ -113,6 +115,11 @@ const Chat = () => {
           });
         } else if (data.type === 'connection_established') {
           console.log('WebSocket соединение подтверждено');
+        } else if (data.type === 'error') {
+          console.error('WebSocket ошибка:', data.message);
+          setError(data.message);
+        } else if (data.type === 'pong') {
+          console.log('WebSocket pong получен');
         }
       } catch (error) {
         console.error('Ошибка парсинга WebSocket сообщения:', error);
@@ -127,7 +134,19 @@ const Chat = () => {
     websocket.onclose = (event) => {
       console.log('WebSocket соединение закрыто:', event.code, event.reason);
       setWsConnected(false);
-      // Попытка переподключения через 3 секунды
+      
+      // Проверяем код закрытия для понимания причины
+      if (event.code === 4001) {
+        console.error('WebSocket: Ошибка аутентификации');
+        setError('Ошибка аутентификации. Перезайдите в систему.');
+        return;
+      } else if (event.code === 4003) {
+        console.error('WebSocket: Нет доступа к консультации');
+        setError('У вас нет доступа к этой консультации.');
+        return;
+      }
+      
+      // Попытка переподключения через 3 секунды для других ошибок
       setTimeout(() => {
         if (!wsConnected) {
           console.log('Попытка переподключения к WebSocket...');
@@ -146,27 +165,18 @@ const Chat = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || sending) return;
+    if (!newMessage.trim() || sending || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     setSending(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/consultations/${consultationId}/messages/send/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ content: newMessage })
-      });
-
-      if (response.ok) {
-        setNewMessage('');
-        // Сообщение будет добавлено через WebSocket
-      } else {
-        const error = await response.json();
-        setError(error.error || 'Ошибка отправки сообщения');
-      }
+      // Отправляем сообщение через WebSocket
+      ws.send(JSON.stringify({
+        type: 'chat_message',
+        message: newMessage.trim()
+      }));
+      
+      setNewMessage('');
     } catch (error) {
       console.error('Ошибка при отправке сообщения:', error);
       setError('Ошибка соединения с сервером');
@@ -373,14 +383,45 @@ const Chat = () => {
               </svg>
             </div>
             <p>Сообщений пока нет</p>
-            {consultation.status === 'pending' && (
-              <p className="chat__waiting">
-                {isDoctor() 
-                  ? 'Примите консультацию, чтобы начать общение'
-                  : 'Ожидайте, пока врач примет вашу консультацию'
-                }
-              </p>
-            )}
+                      {consultation.status === 'pending' && (
+            <div className="chat__status-info chat__status-info--pending">
+              <div className="chat__status-icon">⏳</div>
+              <div className="chat__status-content">
+                <h3>
+                  {isDoctor() 
+                    ? 'Ожидает вашего принятия'
+                    : 'Ожидает принятия врачом'
+                  }
+                </h3>
+                <p>
+                  {isDoctor() 
+                    ? 'Примите консультацию, чтобы начать общение с пациентом'
+                    : 'Врач рассмотрит вашу заявку и примет консультацию. После этого вы сможете общаться в чате.'
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {consultation.status === 'completed' && (
+            <div className="chat__status-info chat__status-info--completed">
+              <div className="chat__status-icon">✅</div>
+              <div className="chat__status-content">
+                <h3>Консультация завершена</h3>
+                <p>Этот чат заархивирован. Вы можете просматривать историю сообщений, но не можете отправлять новые.</p>
+              </div>
+            </div>
+          )}
+          
+          {consultation.status === 'cancelled' && (
+            <div className="chat__status-info chat__status-info--cancelled">
+              <div className="chat__status-icon">❌</div>
+              <div className="chat__status-content">
+                <h3>Консультация отменена</h3>
+                <p>Эта консультация была отменена и недоступна для общения.</p>
+              </div>
+            </div>
+          )}
           </div>
         ) : (
           <div className="chat__messages-list">
@@ -433,16 +474,32 @@ const Chat = () => {
           </div>
         </form>
       ) : (
-        <div className="chat__disabled">
-          <p>
-            {consultation.status === 'pending' 
-              ? (isDoctor() 
-                  ? 'Примите консультацию, чтобы начать общение'
-                  : 'Ожидайте, пока врач примет вашу консультацию'
-                )
-              : 'Консультация завершена. Новые сообщения недоступны'
-            }
-          </p>
+        <div className={`chat__disabled chat__disabled--${consultation.status}`}>
+          <div className="chat__disabled-content">
+            {consultation.status === 'pending' && (
+              <>
+                <span className="chat__disabled-icon">🔒</span>
+                <p>
+                  {isDoctor() 
+                    ? 'Примите консультацию выше, чтобы разблокировать чат'
+                    : 'Чат будет разблокирован после принятия консультации врачом'
+                  }
+                </p>
+              </>
+            )}
+            {consultation.status === 'completed' && (
+              <>
+                <span className="chat__disabled-icon">🔐</span>
+                <p>Консультация завершена. Чат заархивирован.</p>
+              </>
+            )}
+            {consultation.status === 'cancelled' && (
+              <>
+                <span className="chat__disabled-icon">⛔</span>
+                <p>Консультация отменена. Чат недоступен.</p>
+              </>
+            )}
+          </div>
         </div>
       )}
 

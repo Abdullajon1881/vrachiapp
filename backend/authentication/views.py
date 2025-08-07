@@ -533,6 +533,9 @@ def user_profile(request):
                     serializer.save()
                     return Response(serializer.data)
                 else:
+                    print(f"Ошибки валидации профиля: {serializer.errors}")
+                    print(f"Данные запроса: {request.data}")
+                    print(f"Роль пользователя: {request.user.role}")
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             except UserProfile.DoesNotExist:
                 return Response({

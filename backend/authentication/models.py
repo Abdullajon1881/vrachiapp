@@ -233,7 +233,7 @@ class Consultation(models.Model):
     
     @property
     def can_doctor_write(self):
-        return self.status in ['active', 'pending']
+        return self.status == 'active'
 
 
 class Message(models.Model):

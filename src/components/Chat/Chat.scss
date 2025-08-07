@@ -76,9 +76,40 @@
 
   &__meta {
     display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__meta-row {
+    display: flex;
     gap: $spacing-lg;
     align-items: center;
     flex-wrap: wrap;
+  }
+
+  &__date {
+    font-size: $font-size-sm;
+    color: $text-light;
+    font-weight: $font-weight-medium;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
+  &__description {
+    margin-top: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    background: rgba($primary-blue, 0.1);
+    border-radius: $border-radius-md;
+    font-size: $font-size-sm;
+    color: $text-dark;
+    border-left: 3px solid $primary-blue;
+
+    .dark-theme & {
+      background: rgba($primary-blue, 0.2);
+      color: $dark-text;
+    }
   }
 
   &__doctor {
@@ -472,20 +503,108 @@
   &__disabled {
     padding: $spacing-xl;
     text-align: center;
-    background: $light-gray;
     border-top: 1px solid $border-color;
-
-    p {
-      color: $text-light;
-      margin: 0;
-      font-weight: $font-weight-medium;
-    }
+    background: linear-gradient(135deg, rgba($light-gray, 0.8), rgba($light-gray, 0.6));
+    backdrop-filter: blur(10px);
 
     .dark-theme & {
-      background: $dark-surface;
+      background: linear-gradient(135deg, rgba($dark-surface, 0.9), rgba($dark-surface, 0.7));
       border-top-color: $dark-border;
+    }
 
-      p {
+    &--pending {
+      background: linear-gradient(135deg, rgba($warning, 0.1), rgba($warning, 0.05));
+      border-top: 2px solid rgba($warning, 0.3);
+    }
+
+    &--completed {
+      background: linear-gradient(135deg, rgba($success, 0.1), rgba($success, 0.05));
+      border-top: 2px solid rgba($success, 0.3);
+    }
+
+    &--cancelled {
+      background: linear-gradient(135deg, rgba($error, 0.1), rgba($error, 0.05));
+      border-top: 2px solid rgba($error, 0.3);
+    }
+  }
+
+  &__disabled-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-md;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  &__disabled-icon {
+    font-size: 2rem;
+    margin-bottom: $spacing-sm;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  &__disabled p {
+    color: $text-light;
+    margin: 0;
+    font-weight: $font-weight-medium;
+    line-height: 1.5;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
+  &__status-info {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-md;
+    padding: $spacing-lg;
+    margin: $spacing-lg 0;
+    border-radius: $border-radius-lg;
+    animation: statusSlideIn 0.5s ease-out;
+
+    &--pending {
+      background: linear-gradient(135deg, rgba($warning, 0.1), rgba($warning, 0.05));
+      border: 1px solid rgba($warning, 0.2);
+    }
+
+    &--completed {
+      background: linear-gradient(135deg, rgba($success, 0.1), rgba($success, 0.05));
+      border: 1px solid rgba($success, 0.2);
+    }
+
+    &--cancelled {
+      background: linear-gradient(135deg, rgba($error, 0.1), rgba($error, 0.05));
+      border: 1px solid rgba($error, 0.2);
+    }
+  }
+
+  &__status-icon {
+    font-size: 1.5rem;
+    margin-top: $spacing-xs;
+    animation: bounce 2s ease-in-out infinite;
+  }
+
+  &__status-content {
+    flex: 1;
+
+    h3 {
+      margin: 0 0 $spacing-xs 0;
+      font-size: $font-size-lg;
+      font-weight: $font-weight-bold;
+      color: $text-dark;
+
+      .dark-theme & {
+        color: $dark-text;
+      }
+    }
+
+    p {
+      margin: 0;
+      color: $text-light;
+      line-height: 1.5;
+
+      .dark-theme & {
         color: $dark-text-secondary;
       }
     }
@@ -716,6 +835,40 @@
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes statusSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.7; 
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
   }
 }
 

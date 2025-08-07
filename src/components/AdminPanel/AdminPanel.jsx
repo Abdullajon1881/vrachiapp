@@ -169,7 +169,7 @@ const AdminPanel = ({ updateUserData }) => {
 
   const loadCities = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
@@ -182,7 +182,7 @@ const AdminPanel = ({ updateUserData }) => {
   const loadDistricts = async (regionId) => {
     try {
       console.log('Загружаем районы для региона ID:', regionId);
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region=${regionId}`);
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
       console.log('Ответ от API районов:', response.status, response.ok);
       
       if (response.ok) {
@@ -196,6 +196,43 @@ const AdminPanel = ({ updateUserData }) => {
       }
     } catch (error) {
       console.error('Ошибка загрузки районов:', error);
+    }
+  };
+
+  const loadDistrictsByCity = async (cityId) => {
+    try {
+      console.log('Загружаем районы для города ID:', cityId);
+      const response = await fetch(`http://localhost:8000/api/auth/districts/?city_id=${cityId}`);
+      console.log('Ответ от API районов по городу:', response.status, response.ok);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Загруженные районы по городу:', data);
+        if (data.length > 0) {
+          // Если у города есть свои районы, показываем их
+          setDistricts(data);
+        } else {
+          // Если у города нет своих районов, показываем районы региона
+          console.log('У города нет районов, загружаем районы региона');
+          if (editingUser.region) {
+            loadDistricts(editingUser.region);
+          }
+        }
+      } else {
+        console.error('Ошибка API районов по городу:', response.status);
+        const errorText = await response.text();
+        console.error('Текст ошибки:', errorText);
+        // В случае ошибки показываем районы региона
+        if (editingUser.region) {
+          loadDistricts(editingUser.region);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки районов по городу:', error);
+      // В случае ошибки показываем районы региона
+      if (editingUser.region) {
+        loadDistricts(editingUser.region);
+      }
     }
   };
 
@@ -410,8 +447,17 @@ const AdminPanel = ({ updateUserData }) => {
       district: null
     }));
     
-    // Районы уже загружены по региону, просто фильтруем их
-    // Дополнительная загрузка не нужна
+    // Загружаем районы для выбранного города
+    if (cityId) {
+      loadDistrictsByCity(cityId);
+    } else {
+      // Если город не выбран, загружаем районы только по региону
+      if (editingUser.region) {
+        loadDistricts(editingUser.region);
+      } else {
+        setDistricts([]);
+      }
+    }
   };
 
   const handleSaveUser = async () => {
