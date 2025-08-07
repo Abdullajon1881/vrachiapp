@@ -186,6 +186,11 @@ const AIDiagnosis = () => {
 
   // Убрал сложную систему анализа аудио - теперь все через Speech Recognition API
 
+  // Функция для удаления эмодзи из текста
+  const removeEmojis = (text) => {
+    return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+  };
+
   // Озвучиваем текст с помощью Web Speech API
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) {
@@ -193,39 +198,53 @@ const AIDiagnosis = () => {
       return;
     }
 
-    console.log('🗣️ Озвучиваю текст:', text.substring(0, 50) + '...');
+    // Убираем эмодзи из текста перед озвучиванием
+    const cleanText = removeEmojis(text);
+    
+    if (!cleanText.trim()) {
+      console.log('⚠️ Текст пустой после удаления эмодзи, пропускаем озвучивание');
+      return;
+    }
+
+    console.log('🗣️ Озвучиваю текст:', cleanText.substring(0, 50) + '...');
 
     // Останавливаем текущую речь
     window.speechSynthesis.cancel();
     
-          // Приостанавливаем прослушивание во время речи AI
+    // Приостанавливаем прослушивание во время речи AI
     const wasListening = isListening;
     if (wasListening) {
       console.log('⏸️ Приостанавливаю прослушивание для речи AI');
       speechRecognition.stop();
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     
-    // Настройки голоса
-    utterance.rate = 0.9; // Скорость речи
-    utterance.pitch = 1; // Высота голоса
-    utterance.volume = 0.8; // Громкость
-    utterance.lang = 'ru-RU'; // Устанавливаем русский язык
+    // Улучшенные настройки голоса для более естественного звучания
+    utterance.rate = 1.0; // Нормальная скорость речи
+    utterance.pitch = 1.0; // Нормальная высота голоса
+    utterance.volume = 0.9; // Хорошая громкость
+    utterance.lang = 'ru-RU'; // Русский язык
     
-    // Попытка найти русский голос
+    // Ищем лучший русский голос
     const voices = window.speechSynthesis.getVoices();
-    console.log('🎵 Доступные голоса:', voices.map(v => `${v.name} (${v.lang})`));
+    console.log('🎵 Поиск качественного русского голоса...');
     
-    const russianVoice = voices.find(voice => 
-      voice.lang.includes('ru') || voice.name.toLowerCase().includes('russian')
-    );
+    // Приоритет голосам с лучшим качеством
+    const bestRussianVoice = voices.find(voice => 
+      voice.lang.startsWith('ru') && 
+      (voice.name.toLowerCase().includes('elena') || 
+       voice.name.toLowerCase().includes('anna') ||
+       voice.name.toLowerCase().includes('maria') ||
+       voice.name.toLowerCase().includes('premium') ||
+       voice.name.toLowerCase().includes('neural'))
+    ) || voices.find(voice => voice.lang.startsWith('ru'));
     
-    if (russianVoice) {
-      utterance.voice = russianVoice;
-      console.log('✅ Выбран русский голос:', russianVoice.name);
+    if (bestRussianVoice) {
+      utterance.voice = bestRussianVoice;
+      console.log('✅ Выбран голос:', bestRussianVoice.name);
     } else {
-      console.log('⚠️ Русский голос не найден, используем голос по умолчанию');
+      console.log('⚠️ Русский голос не найден, используем системный');
     }
 
     utterance.onstart = () => {
@@ -244,7 +263,7 @@ const AIDiagnosis = () => {
           if (speechRecognition) {
             speechRecognition.start();
           }
-        }, 500); // Небольшая пауза перед возобновлением
+        }, 500);
       }
     };
 
@@ -262,10 +281,7 @@ const AIDiagnosis = () => {
     }
   };
 
-  // Тестирование голосового синтеза
-  const testVoiceSynthesis = () => {
-    speakText('Привет! Это тест голосового синтеза. Я Healzy AI и готова помочь!');
-  };
+  // Убрал функцию тестирования - больше не нужна
 
   // Отправка текстового сообщения
   const handleSendMessage = async () => {
@@ -565,14 +581,7 @@ const AIDiagnosis = () => {
               {isListening ? '🛑' : '🎤'}
             </button>
 
-            <button
-              className="ai-diagnosis__action-btn"
-              onClick={testVoiceSynthesis}
-              disabled={isSpeaking}
-              title="Тест голосового синтеза"
-            >
-              🔊
-            </button>
+
           </div>
 
           <div className="ai-diagnosis__input-container">
@@ -608,11 +617,11 @@ const AIDiagnosis = () => {
         <div className="ai-diagnosis__disclaimer">
           ⚠️ Внимание: AI диагностика не заменяет консультацию врача. 
           При серьезных симптомах обратитесь к специалисту.
-          <br />
-          {isSupported ? (
-            <>🎤 Для голосового диалога: нажмите микрофон и говорите! 🔊 Тест голоса справа.</>
-          ) : (
-            <>❌ Голосовые функции недоступны в этом браузере. Попробуйте Chrome.</>
+          {!isSupported && (
+            <>
+              <br />
+              ❌ Голосовые функции недоступны в этом браузере. Попробуйте Chrome.
+            </>
           )}
         </div>
       </div>
