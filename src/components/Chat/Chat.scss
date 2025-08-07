@@ -16,19 +16,132 @@
   &__header {
     display: flex;
     align-items: center;
-    gap: $spacing-lg;
-    padding: $spacing-xl;
+    justify-content: space-between;
+    padding: $spacing-sm $spacing-lg;
     border-bottom: 1px solid $border-color;
     background: $white;
     box-shadow: $shadow-light;
-    position: sticky;
-    top: 0;
-    z-index: 10;
 
     .dark-theme & {
       background: $dark-card;
       border-bottom-color: $dark-border;
       box-shadow: $shadow-dark-light;
+    }
+  }
+
+  &__consultation-title {
+    text-align: center;
+    flex: 1;
+
+    h1 {
+      font-size: $font-size-lg;
+      font-weight: $font-weight-bold;
+      color: $text-dark;
+      margin: 0 0 2px 0;
+
+      .dark-theme & {
+        color: $dark-text;
+      }
+    }
+  }
+
+  &__consultation-date {
+    font-size: $font-size-xs;
+    color: $text-light;
+    font-weight: $font-weight-medium;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+    }
+  }
+
+  &__participant-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    background: $white;
+    border-bottom: 1px solid $border-color;
+    padding: $spacing-sm $spacing-lg;
+
+    .dark-theme & {
+      background: $dark-card;
+      border-bottom-color: $dark-border;
+    }
+  }
+
+  &__participant-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: $gradient-primary;
+    color: $white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: $font-weight-bold;
+    font-size: $font-size-sm;
+    box-shadow: $shadow-light;
+    flex-shrink: 0;
+  }
+
+  &__participant-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__participant-name {
+    font-size: $font-size-md;
+    font-weight: $font-weight-semibold;
+    color: $text-dark;
+    margin: 0;
+
+    .dark-theme & {
+      color: $dark-text;
+    }
+  }
+
+  &__participant-status {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+
+    &--pending {
+      color: $warning;
+    }
+
+    &--active {
+      color: $success;
+    }
+
+    &--completed {
+      color: $info;
+    }
+  }
+
+  &__message-counter {
+    font-size: $font-size-xs;
+    color: $text-light;
+    font-weight: $font-weight-medium;
+    padding: 2px 6px;
+    background: rgba($light-gray, 0.5);
+    border-radius: $border-radius-sm;
+
+    .dark-theme & {
+      color: $dark-text-secondary;
+      background: rgba($dark-surface, 0.5);
+    }
+  }
+
+
+
+  &__doctor-actions {
+    padding: $spacing-sm $spacing-lg;
+    text-align: center;
+    border-bottom: 1px solid $border-color;
+
+    .dark-theme & {
+      border-bottom-color: $dark-border;
     }
   }
 
@@ -210,9 +323,10 @@
   &__messages {
     flex: 1;
     overflow-y: auto;
-    padding: $spacing-xl;
+    padding: $spacing-lg;
     background: $light-gray;
     position: relative;
+    min-height: 0; // Позволяет элементу сжиматься
 
     .dark-theme & {
       background: $dark-surface;
@@ -321,7 +435,7 @@
     max-width: 70%;
     animation: messageSlideIn 0.3s ease-out;
 
-    &--patient {
+    &--own {
       align-self: flex-end;
       flex-direction: row-reverse;
 
@@ -341,7 +455,7 @@
       }
     }
 
-    &--doctor {
+    &--other {
       align-self: flex-start;
 
       .chat__message-content {
@@ -402,17 +516,19 @@
     word-wrap: break-word;
   }
 
-  &__input-form {
-    padding: $spacing-xl;
-    border-top: 1px solid $border-color;
+  &__input-area {
     background: $white;
-    position: sticky;
-    bottom: 0;
+    border-top: 1px solid $border-color;
+    padding: $spacing-md $spacing-lg;
 
     .dark-theme & {
       background: $dark-card;
       border-top-color: $dark-border;
     }
+  }
+
+  &__input-form {
+    margin: 0;
   }
 
   &__input-container {
@@ -464,7 +580,7 @@
     width: 48px;
     height: 48px;
     border: none;
-    border-radius: 50%;
+    border-radius: $border-radius-lg;
     background: $gradient-primary;
     color: $white;
     cursor: pointer;
@@ -472,11 +588,13 @@
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    box-shadow: $shadow-medium;
+    box-shadow: $shadow-light;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-bold;
 
     &:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: $shadow-large;
+      transform: translateY(-1px);
+      box-shadow: $shadow-medium;
     }
 
     &:disabled {
@@ -484,12 +602,34 @@
       cursor: not-allowed;
       transform: none;
     }
+  }
 
-    svg {
-      width: 20px;
-      height: 20px;
+  &__input-disabled {
+    padding: $spacing-lg;
+    text-align: center;
+    background: rgba($light-gray, 0.3);
+    border-radius: $border-radius-lg;
+    border: 1px dashed $border-color;
+    margin-bottom: $spacing-md;
+
+    .dark-theme & {
+      background: rgba($dark-surface, 0.3);
+      border-color: $dark-border;
     }
   }
+
+  &__input-disabled-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__disabled-icon {
+    font-size: $font-size-xl;
+  }
+
+
 
   &__send-spinner {
     width: 20px;
@@ -875,33 +1015,61 @@
 // Адаптивность
 @media (max-width: 768px) {
   .chat {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+
     &__header {
-      padding: $spacing-lg;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: $spacing-md;
+      padding: $spacing-xs $spacing-md;
+      flex-shrink: 0;
     }
 
-    &__title {
-      font-size: $font-size-xl;
+    &__consultation-title h1 {
+      font-size: $font-size-md;
     }
 
-    &__meta {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: $spacing-xs;
+    &__consultation-date {
+      font-size: 10px;
+    }
+
+    &__participant-bar {
+      padding: $spacing-xs $spacing-md;
+      flex-shrink: 0;
+    }
+
+    &__participant-avatar {
+      width: 32px;
+      height: 32px;
+      font-size: $font-size-xs;
+    }
+
+    &__participant-name {
+      font-size: $font-size-sm;
+    }
+
+    &__message-counter {
+      font-size: 10px;
+      padding: 1px 4px;
+    }
+
+    &__doctor-actions {
+      padding: $spacing-xs $spacing-md;
+      flex-shrink: 0;
     }
 
     &__messages {
-      padding: $spacing-lg;
+      flex: 1;
+      padding: $spacing-md;
+      overflow-y: auto;
     }
 
     &__message {
       max-width: 85%;
     }
 
-    &__input-form {
-      padding: $spacing-lg;
+    &__input-area {
+      padding: $spacing-xs $spacing-md;
+      flex-shrink: 0;
     }
 
     &__input-container {
@@ -911,7 +1079,10 @@
     &__send-btn {
       width: 44px;
       height: 44px;
+      font-size: $font-size-md;
     }
+
+
 
     &__modal {
       width: 95%;
@@ -924,6 +1095,50 @@
 
     &__modal-btn {
       width: 100%;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .chat {
+    &__header {
+      padding: $spacing-sm $spacing-md;
+    }
+
+
+
+    &__participant-info {
+      gap: $spacing-md;
+    }
+
+    &__participant-avatar {
+      width: 45px;
+      height: 45px;
+      font-size: $font-size-md;
+    }
+
+    &__participant-name {
+      font-size: $font-size-lg;
+    }
+
+
+
+    &__messages {
+      padding: $spacing-sm;
+    }
+
+    &__input-area {
+      padding: $spacing-sm $spacing-md;
+    }
+
+    &__input {
+      font-size: $font-size-sm;
+    }
+
+    &__send-btn {
+      width: 40px;
+      height: 40px;
+      font-size: $font-size-sm;
     }
   }
 } 

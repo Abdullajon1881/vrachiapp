@@ -159,7 +159,8 @@ const Chat = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Убираем автоматический скролл при отправке сообщений
+    // messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleSendMessage = async (e) => {
@@ -289,6 +290,62 @@ const Chat = () => {
     return userData.role === 'doctor';
   };
 
+  const getCurrentUser = () => {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  };
+
+  const isMyMessage = (message) => {
+    const currentUser = getCurrentUser();
+    return message.sender.id === currentUser.id;
+  };
+
+  const getOtherParticipant = () => {
+    if (!consultation) return null;
+    const currentUser = getCurrentUser();
+    if (currentUser.role === 'doctor') {
+      return consultation.patient;
+    } else {
+      return consultation.doctor;
+    }
+  };
+
+  const getOtherParticipantRole = () => {
+    const currentUser = getCurrentUser();
+    if (currentUser.role === 'doctor') {
+      return 'Пациент';
+    } else {
+      return 'Врач';
+    }
+  };
+
+  const getMessageProgress = () => {
+    const messageCount = consultation?.messages_count || 0;
+    const maxMessages = 50;
+    return Math.round((messageCount / maxMessages) * 100);
+  };
+
+  const formatConsultationDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('ru-RU', {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true
+    });
+  };
+
+  const formatMessageTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   if (loading) {
     return (
       <div className="chat">
@@ -332,28 +389,40 @@ const Chat = () => {
     <div className="chat">
       <div className="chat__header">
         <button onClick={() => navigate('/consultations')} className="chat__back-btn">
-          ← Вернуться к консультациям
+          ← Назад
         </button>
         
-        <div className="chat__consultation-info">
-          <h1 className="chat__title">
-            {consultation.title || `Консультация с ${consultation.doctor_name}`}
-          </h1>
-          <div className="chat__meta">
-            <span className="chat__doctor">{consultation.doctor_name}</span>
-            <span className={`chat__status chat__status--${consultation.status}`}>
-              {consultation.status_display}
-            </span>
-            {wsConnected && (
-              <span className="chat__connection-status chat__connection-status--connected">
-                ● Онлайн
-              </span>
-            )}
-          </div>
+        <div className="chat__consultation-title">
+          <h1>Консультация № #{consultation.id}</h1>
+          <span className="chat__consultation-date">
+            {formatConsultationDate(consultation.created_at)}
+          </span>
         </div>
+      </div>
+
+      <div className="chat__participant-bar">
+        <div className="chat__participant-avatar">
+          {getOtherParticipant()?.initials || '?'}
+        </div>
+        <div className="chat__participant-info">
+          <span className="chat__participant-name">
+            {getOtherParticipant()?.full_name || 'Участник'}
+          </span>
+          <span className={`chat__participant-status chat__participant-status--${consultation.status}`}>
+            {consultation.status === 'pending' && 'Ожидание'}
+            {consultation.status === 'active' && 'Активна'}
+            {consultation.status === 'completed' && 'Завершена'}
+            {consultation.status === 'cancelled' && 'Отменена'}
+          </span>
+        </div>
+        <div className="chat__message-counter">
+          {consultation.messages_count || 0}/50
+        </div>
+      </div>
 
         {/* Кнопки действий для врача */}
-        {isDoctor() && consultation.status === 'pending' && (
+      {isDoctor() && consultation.status === 'pending' && (
+        <div className="chat__doctor-actions">
           <button 
             onClick={() => setShowAcceptModal(true)}
             disabled={actionLoading}
@@ -361,9 +430,11 @@ const Chat = () => {
           >
             {actionLoading ? 'Принятие...' : 'Принять консультацию'}
           </button>
-        )}
+        </div>
+      )}
 
-        {isDoctor() && consultation.status === 'active' && (
+      {isDoctor() && consultation.status === 'active' && (
+        <div className="chat__doctor-actions">
           <button 
             onClick={() => setShowCompleteModal(true)}
             disabled={actionLoading}
@@ -371,8 +442,8 @@ const Chat = () => {
           >
             {actionLoading ? 'Завершение...' : 'Завершить консультацию'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="chat__messages">
         {messages.length === 0 ? (
@@ -428,15 +499,15 @@ const Chat = () => {
             {messages.map((message) => (
               <div 
                 key={message.id} 
-                className={`chat__message chat__message--${message.sender.id === consultation.patient.id ? 'patient' : 'doctor'}`}
+                className={`chat__message ${isMyMessage(message) ? 'chat__message--own' : 'chat__message--other'}`}
               >
                 <div className="chat__message-avatar">
                   {message.sender.initials}
                 </div>
                 <div className="chat__message-content">
                   <div className="chat__message-header">
-                    <span className="chat__message-sender">{message.sender.full_name}</span>
-                    <span className="chat__message-time">{formatDate(message.created_at)}</span>
+                    <span className="chat__message-sender">{message.sender.initials}</span>
+                    <span className="chat__message-time">{formatMessageTime(message.created_at)}</span>
                   </div>
                   <div className="chat__message-text">{message.content}</div>
                 </div>
@@ -447,61 +518,53 @@ const Chat = () => {
         )}
       </div>
 
-      {canWrite() ? (
-        <form className="chat__input-form" onSubmit={handleSendMessage}>
-          <div className="chat__input-container">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Введите сообщение..."
-              className="chat__input"
-              disabled={sending}
-            />
-            <button 
-              type="submit" 
-              className="chat__send-btn"
-              disabled={!newMessage.trim() || sending}
-            >
-              {sending ? (
-                <div className="chat__send-spinner"></div>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+      <div className="chat__input-area">
+        {canWrite() ? (
+          <form className="chat__input-form" onSubmit={handleSendMessage}>
+            <div className="chat__input-container">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Введите сообщение..."
+                className="chat__input"
+                disabled={sending}
+              />
+              <button 
+                type="submit" 
+                className="chat__send-btn"
+                disabled={!newMessage.trim() || sending}
+              >
+                {sending ? '...' : '➤'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="chat__input-disabled">
+            <div className="chat__input-disabled-content">
+              {consultation.status === 'pending' && (
+                <>
+                  <span className="chat__disabled-icon">🔒</span>
+                  <p>
+                    {isDoctor() 
+                      ? 'Примите консультацию, чтобы разблокировать чат'
+                      : 'Чат будет разблокирован после принятия консультации врачом'
+                    }
+                  </p>
+                </>
               )}
-            </button>
+              {consultation.status === 'completed' && (
+                <>
+                  <span className="chat__disabled-icon">🔐</span>
+                  <p>Консультация завершена. Чат заархивирован.</p>
+                </>
+              )}
+            </div>
           </div>
-        </form>
-      ) : (
-        <div className={`chat__disabled chat__disabled--${consultation.status}`}>
-          <div className="chat__disabled-content">
-            {consultation.status === 'pending' && (
-              <>
-                <span className="chat__disabled-icon">🔒</span>
-                <p>
-                  {isDoctor() 
-                    ? 'Примите консультацию выше, чтобы разблокировать чат'
-                    : 'Чат будет разблокирован после принятия консультации врачом'
-                  }
-                </p>
-              </>
-            )}
-            {consultation.status === 'completed' && (
-              <>
-                <span className="chat__disabled-icon">🔐</span>
-                <p>Консультация завершена. Чат заархивирован.</p>
-              </>
-            )}
-            {consultation.status === 'cancelled' && (
-              <>
-                <span className="chat__disabled-icon">⛔</span>
-                <p>Консультация отменена. Чат недоступен.</p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+        
+
+      </div>
 
       {/* Модальное окно принятия консультации */}
       {showAcceptModal && (

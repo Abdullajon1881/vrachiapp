@@ -102,13 +102,58 @@ const Consultations = () => {
     );
   }
 
+  const getCurrentUser = () => {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  };
+
+  const getOtherParticipant = (consultation) => {
+    const currentUser = getCurrentUser();
+    if (currentUser.role === 'doctor') {
+      return consultation.patient;
+    } else {
+      return consultation.doctor;
+    }
+  };
+
+  const getOtherParticipantRole = (consultation) => {
+    const currentUser = getCurrentUser();
+    if (currentUser.role === 'doctor') {
+      return 'Пациент';
+    } else {
+      return 'Врач';
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase();
+    }
+    return name.charAt(0).toUpperCase();
+  };
+
+  const formatCreationDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
     <div className="consultations">
       <div className="consultations__header">
-        <h1 className="consultations__title">Мои консультации</h1>
-        <p className="consultations__subtitle">
-          Управляйте своими консультациями с врачами
-        </p>
+        <h1 className="consultations__title">История</h1>
       </div>
 
       {consultations.length === 0 ? (
@@ -131,57 +176,70 @@ const Consultations = () => {
         </div>
       ) : (
         <div className="consultations__list">
-          {consultations.map((consultation) => (
-            <div 
-              key={consultation.id} 
-              className={`consultations__item consultations__item--${getStatusColor(consultation.status)}`}
-              onClick={() => handleConsultationClick(consultation.id)}
-            >
-              <div className="consultations__item-header">
-                <div className="consultations__item-info">
-                  <h3 className="consultations__item-title">
-                    {consultation.title || `Консультация с ${consultation.doctor_name}`}
-                  </h3>
-                  <p className="consultations__item-doctor">
-                    {consultation.doctor_name}
-                  </p>
-                </div>
-                <div className={`consultations__item-status consultations__item-status--${getStatusColor(consultation.status)}`}>
-                  {getStatusText(consultation.status)}
-                </div>
-              </div>
-
-              <div className="consultations__item-content">
-                {consultation.description && (
-                  <p className="consultations__item-description">
-                    {consultation.description}
-                  </p>
-                )}
-                
-                <div className="consultations__item-meta">
-                  <span className="consultations__item-date">
-                    {formatDate(consultation.created_at)}
-                  </span>
-                  {consultation.messages_count > 0 && (
-                    <span className="consultations__item-messages">
-                      {consultation.messages_count} сообщений
-                    </span>
-                  )}
+          {consultations.map((consultation) => {
+            const otherParticipant = getOtherParticipant(consultation);
+            const otherParticipantRole = getOtherParticipantRole(consultation);
+            
+            return (
+              <div 
+                key={consultation.id} 
+                className="consultations__card"
+              >
+                <div className="consultations__card-header">
+                  <div className="consultations__avatar">
+                    {getInitials(otherParticipant?.full_name || '')}
+                  </div>
+                  <div className="consultations__card-info">
+                    <h3 className="consultations__participant-name">
+                      {otherParticipant?.full_name || 'Неизвестно'}
+                    </h3>
+                    <p className="consultations__participant-role">
+                      {otherParticipantRole}
+                    </p>
+                  </div>
                 </div>
 
-                {consultation.last_message && (
-                  <div className="consultations__item-last-message">
-                    <span className="consultations__item-last-message-text">
-                      {consultation.last_message.content}
-                    </span>
-                    <span className="consultations__item-last-message-time">
-                      {formatDate(consultation.last_message.created_at)}
+                <div className="consultations__card-details">
+                  <div className="consultations__detail-row">
+                    <span className="consultations__detail-label">Статус:</span>
+                    <span className={`consultations__detail-value consultations__status--${getStatusColor(consultation.status)}`}>
+                      {getStatusText(consultation.status)}
                     </span>
                   </div>
-                )}
+
+                  <div className="consultations__detail-row">
+                    <span className="consultations__detail-label">Дата создания:</span>
+                    <span className="consultations__detail-value">
+                      {formatCreationDate(consultation.created_at)}
+                    </span>
+                  </div>
+
+                  {consultation.started_at && (
+                    <div className="consultations__detail-row">
+                      <span className="consultations__detail-label">Время начала:</span>
+                      <span className="consultations__detail-value">
+                        {formatTime(consultation.started_at)}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="consultations__detail-row">
+                    <span className="consultations__detail-label">Сообщения:</span>
+                    <span className="consultations__detail-value">
+                      {consultation.messages_count || 0} / 50
+                    </span>
+                  </div>
+                </div>
+
+                <button 
+                  className="consultations__chat-btn"
+                  onClick={() => handleConsultationClick(consultation.id)}
+                >
+                  Открыть чат
+                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
