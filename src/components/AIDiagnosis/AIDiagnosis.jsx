@@ -16,6 +16,8 @@ const AIDiagnosis = () => {
   const [isSpeaking, setIsSpeaking] = useState(false); // AI говорит
   const [speechRecognition, setSpeechRecognition] = useState(null); // Распознавание речи
   const [isSupported, setIsSupported] = useState(false); // Поддержка Speech API
+  const [availableVoices, setAvailableVoices] = useState([]); // Доступные голоса
+  const [currentVoiceIndex, setCurrentVoiceIndex] = useState(0); // Текущий голос
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -44,6 +46,36 @@ const AIDiagnosis = () => {
       recognition.maxAlternatives = 1;
       
       setSpeechRecognition(recognition);
+      
+      // Предзагружаем голоса для лучшего выбора
+      if ('speechSynthesis' in window) {
+        const loadVoices = () => {
+          const voices = window.speechSynthesis.getVoices();
+          
+          // Сортируем голоса по качеству (облачные и премиальные сначала)
+          const russianVoices = voices
+            .filter(voice => voice.lang.startsWith('ru'))
+            .sort((a, b) => {
+              // Приоритет облачным голосам
+              if (!a.localService && b.localService) return -1;
+              if (a.localService && !b.localService) return 1;
+              
+              // Приоритет качественным голосам
+              const qualityA = getVoiceQuality(a.name);
+              const qualityB = getVoiceQuality(b.name);
+              return qualityB - qualityA;
+            });
+          
+          setAvailableVoices(russianVoices);
+          console.log('🎵 Голоса загружены и отсортированы:', voices.length, 'всего, русских:', russianVoices.length);
+          console.log('🎯 Топ-3 голоса:', russianVoices.slice(0, 3).map(v => `${v.name} (${v.localService ? 'локальный' : 'облачный'})`));
+        };
+        
+        // Принудительно загружаем голоса
+        window.speechSynthesis.getVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        setTimeout(loadVoices, 100);
+      }
       
       // Обработчики событий
       recognition.onstart = () => {
@@ -186,9 +218,30 @@ const AIDiagnosis = () => {
 
   // Убрал сложную систему анализа аудио - теперь все через Speech Recognition API
 
-  // Функция для удаления эмодзи из текста
-  const removeEmojis = (text) => {
-    return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+  // Функция для очистки текста от всех нежелательных символов
+  const cleanTextForSpeech = (text) => {
+    let cleanText = text;
+    
+    // Убираем эмодзи
+    cleanText = cleanText.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
+    
+    // Убираем специальные символы и знаки препинания которые плохо произносятся
+    cleanText = cleanText.replace(/[*#@$%^&()[\]{}|\\<>+=_~`]/g, ' ');
+    
+    // Убираем множественные пробелы
+    cleanText = cleanText.replace(/\s+/g, ' ');
+    
+    // Заменяем некоторые символы на слова для лучшего произношения
+    cleanText = cleanText.replace(/\b\d+\.\s/g, '. '); // "1. текст" -> ". текст"
+    cleanText = cleanText.replace(/\bвр\./gi, 'врач'); 
+    cleanText = cleanText.replace(/\bдр\./gi, 'доктор');
+    cleanText = cleanText.replace(/\bмин\./gi, 'минут');
+    cleanText = cleanText.replace(/\bчас\./gi, 'часов');
+    
+    // Убираем лишние знаки препинания
+    cleanText = cleanText.replace(/[,.!?;:]{2,}/g, '. ');
+    
+    return cleanText.trim();
   };
 
   // Озвучиваем текст с помощью Web Speech API
@@ -198,11 +251,11 @@ const AIDiagnosis = () => {
       return;
     }
 
-    // Убираем эмодзи из текста перед озвучиванием
-    const cleanText = removeEmojis(text);
+    // Очищаем текст от всех нежелательных символов
+    const cleanText = cleanTextForSpeech(text);
     
-    if (!cleanText.trim()) {
-      console.log('⚠️ Текст пустой после удаления эмодзи, пропускаем озвучивание');
+        if (!cleanText.trim()) {
+      console.log('⚠️ Текст пустой после очистки, пропускаем озвучивание');
       return;
     }
 
@@ -220,31 +273,70 @@ const AIDiagnosis = () => {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
-    // Улучшенные настройки голоса для более естественного звучания
-    utterance.rate = 1.0; // Нормальная скорость речи
-    utterance.pitch = 1.0; // Нормальная высота голоса
-    utterance.volume = 0.9; // Хорошая громкость
+    // Более человеческие настройки голоса
+    utterance.rate = 0.9; // Естественная скорость
+    utterance.pitch = 1.0; // Нормальная высота
+    utterance.volume = 0.85; // Комфортная громкость
     utterance.lang = 'ru-RU'; // Русский язык
     
-    // Ищем лучший русский голос
-    const voices = window.speechSynthesis.getVoices();
-    console.log('🎵 Поиск качественного русского голоса...');
+    // Используем выбранный пользователем голос или автоматический
+    let selectedVoice = null;
     
-    // Приоритет голосам с лучшим качеством
-    const bestRussianVoice = voices.find(voice => 
-      voice.lang.startsWith('ru') && 
-      (voice.name.toLowerCase().includes('elena') || 
-       voice.name.toLowerCase().includes('anna') ||
-       voice.name.toLowerCase().includes('maria') ||
-       voice.name.toLowerCase().includes('premium') ||
-       voice.name.toLowerCase().includes('neural'))
-    ) || voices.find(voice => voice.lang.startsWith('ru'));
-    
-    if (bestRussianVoice) {
-      utterance.voice = bestRussianVoice;
-      console.log('✅ Выбран голос:', bestRussianVoice.name);
+    if (availableVoices.length > 0) {
+      selectedVoice = availableVoices[currentVoiceIndex % availableVoices.length];
+      console.log(`🎵 Используем голос ${currentVoiceIndex + 1}/${availableVoices.length}:`, selectedVoice.name);
     } else {
-      console.log('⚠️ Русский голос не найден, используем системный');
+      // Fallback к автоматическому поиску
+      const voices = window.speechSynthesis.getVoices();
+      selectedVoice = voices.find(voice => voice.lang.startsWith('ru'));
+      console.log('⚠️ Fallback к автоматическому поиску голоса');
+    }
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      console.log('✅ Выбран голос:', selectedVoice.name, 
+                  selectedVoice.localService ? '(локальный)' : '(облачный)');
+      
+      // Индивидуальные настройки для каждого голоса
+      const voiceName = selectedVoice.name.toLowerCase();
+      
+      if (voiceName.includes('elena')) {
+        utterance.rate = 0.92;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.9;
+      } else if (voiceName.includes('irina')) {
+        utterance.rate = 0.88;
+        utterance.pitch = 0.95;
+        utterance.volume = 0.85;
+      } else if (voiceName.includes('anna') || voiceName.includes('anya')) {
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.87;
+      } else if (voiceName.includes('svetlana')) {
+        utterance.rate = 0.85;
+        utterance.pitch = 0.98;
+        utterance.volume = 0.88;
+      } else if (voiceName.includes('maria')) {
+        utterance.rate = 0.9;
+        utterance.pitch = 1.02;
+        utterance.volume = 0.85;
+      } else if (voiceName.includes('pavel') || voiceName.includes('paul')) {
+        utterance.rate = 0.88;
+        utterance.pitch = 0.9;
+        utterance.volume = 0.9;
+      } else if (voiceName.includes('alexei') || voiceName.includes('alex')) {
+        utterance.rate = 0.9;
+        utterance.pitch = 0.92;
+        utterance.volume = 0.88;
+      }
+      
+      // Дополнительные настройки для премиальных голосов
+      if (voiceName.includes('neural') || voiceName.includes('premium')) {
+        utterance.rate *= 0.95; // Немного медленнее для лучшего качества
+        utterance.volume = Math.min(utterance.volume + 0.05, 1.0);
+      }
+    } else {
+      console.log('⚠️ Русские голоса не найдены');
     }
 
     utterance.onstart = () => {
@@ -281,7 +373,50 @@ const AIDiagnosis = () => {
     }
   };
 
-  // Убрал функцию тестирования - больше не нужна
+  // Функция оценки качества голоса
+  const getVoiceQuality = (voiceName) => {
+    const name = voiceName.toLowerCase();
+    let score = 0;
+    
+    // Премиальные и нейронные голоса
+    if (name.includes('neural') || name.includes('wavenet') || name.includes('premium')) score += 50;
+    if (name.includes('enhanced') || name.includes('natural')) score += 40;
+    
+    // Качественные женские голоса (часто звучат естественнее)
+    if (name.includes('elena')) score += 30;
+    if (name.includes('irina')) score += 25;
+    if (name.includes('anna') || name.includes('anya')) score += 25;
+    if (name.includes('svetlana')) score += 20;
+    if (name.includes('maria') || name.includes('masha')) score += 20;
+    if (name.includes('katarina') || name.includes('kate')) score += 15;
+    
+    // Качественные мужские голоса
+    if (name.includes('pavel') || name.includes('paul')) score += 20;
+    if (name.includes('alexei') || name.includes('alex')) score += 15;
+    if (name.includes('vladimir') || name.includes('vlad')) score += 15;
+    
+    // Бренды с хорошим качеством
+    if (name.includes('microsoft')) score += 10;
+    if (name.includes('google')) score += 15;
+    if (name.includes('amazon')) score += 12;
+    if (name.includes('apple')) score += 8;
+    
+    return score;
+  };
+
+  // Переключение голоса
+  const switchVoice = () => {
+    if (availableVoices.length > 0) {
+      const newIndex = (currentVoiceIndex + 1) % availableVoices.length;
+      setCurrentVoiceIndex(newIndex);
+      const newVoice = availableVoices[newIndex];
+      const quality = getVoiceQuality(newVoice.name);
+      console.log(`🔄 Голос ${newIndex + 1}/${availableVoices.length}:`, newVoice.name, `(качество: ${quality})`);
+      
+      // Тестируем новый голос более естественным текстом
+      speakText('Привет! Меня зовут Healzy. Я ваш медицинский помощник. Как этот голос?');
+    }
+  };
 
   // Отправка текстового сообщения
   const handleSendMessage = async () => {
@@ -580,6 +715,17 @@ const AIDiagnosis = () => {
             >
               {isListening ? '🛑' : '🎤'}
             </button>
+
+            {availableVoices.length > 1 && (
+              <button
+                className="ai-diagnosis__action-btn"
+                onClick={switchVoice}
+                disabled={isSpeaking}
+                title={`Сменить голос (${currentVoiceIndex + 1}/${availableVoices.length})`}
+              >
+                🎭
+              </button>
+            )}
 
 
           </div>
