@@ -257,4 +257,58 @@ class Message(models.Model):
         if not self.is_read:
             self.is_read = True
             self.read_at = timezone.now()
-            self.save() 
+            self.save()
+
+
+class AIDialogue(models.Model):
+    """Модель для хранения диалогов с AI"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_dialogues')
+    title = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'AI диалог'
+        verbose_name_plural = 'AI диалоги'
+
+    def __str__(self):
+        return f"AI Dialogue {self.id} - {self.user.full_name}"
+
+    def save(self, *args, **kwargs):
+        # Автоматически создаем заголовок из первого сообщения
+        if not self.title and not self.pk:
+            self.title = f"Диалог от {self.created_at.strftime('%d.%m.%Y %H:%M')}"
+        super().save(*args, **kwargs)
+
+
+class AIMessage(models.Model):
+    """Модель для хранения сообщений в AI диалоге"""
+    MESSAGE_TYPES = [
+        ('text', 'Текст'),
+        ('image', 'Изображение'),
+        ('video', 'Видео'),
+        ('audio', 'Аудио'),
+    ]
+    
+    SENDER_TYPES = [
+        ('user', 'Пользователь'),
+        ('ai', 'AI'),
+    ]
+
+    dialogue = models.ForeignKey(AIDialogue, on_delete=models.CASCADE, related_name='messages')
+    sender_type = models.CharField(max_length=10, choices=SENDER_TYPES)
+    message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES, default='text')
+    content = models.TextField()
+    file_path = models.CharField(max_length=500, blank=True, null=True)  # Для медиафайлов
+    metadata = models.JSONField(default=dict, blank=True)  # Дополнительные данные
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name = 'AI сообщение'
+        verbose_name_plural = 'AI сообщения'
+
+    def __str__(self):
+        return f"{self.get_sender_type_display()} сообщение в диалоге {self.dialogue.id}" 

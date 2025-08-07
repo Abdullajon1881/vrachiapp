@@ -37,6 +37,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
       case 'consultations':
         navigate('/consultations');
         break;
+
       default:
         navigate('/');
     }
@@ -54,6 +55,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     if (path === '/admin') return 'admin';
     if (path === '/doctor-application') return 'doctor-application';
     if (path === '/consultations' || path.startsWith('/consultations/')) return 'consultations';
+
     return 'home';
   };
 

@@ -1,7 +1,18 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Hero.scss';
 
 const Hero = () => {
+  const navigate = useNavigate();
+
+  const handleFindDoctor = () => {
+    navigate('/doctors');
+  };
+
+  const handleAIDiagnosis = () => {
+    navigate('/ai-diagnosis');
+  };
+
   return (
     <section className="hero">
       <div className="container">
@@ -17,13 +28,13 @@ const Hero = () => {
               Получите доступ к лучшим врачам, быстрой диагностике и современным методам лечения
             </p>
             <div className="hero__buttons">
-              <button className="btn btn--primary">
+              <button className="btn btn--primary" onClick={handleFindDoctor}>
                 Найти врача
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-              <button className="btn btn--outline">
+              <button className="btn btn--outline" onClick={handleAIDiagnosis}>
                 AI Диагностика
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

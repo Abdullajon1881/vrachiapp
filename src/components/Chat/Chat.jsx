@@ -25,9 +25,15 @@ const Chat = () => {
     connectWebSocket();
 
     return () => {
-      if (ws) {
-        ws.close();
-      }
+      // Используем функцию для получения актуального состояния WebSocket
+      setWs(currentWs => {
+        if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+          console.log('Cleanup: закрываем WebSocket подключение');
+          currentWs.close();
+        }
+        return null;
+      });
+      setWsConnected(false);
     };
   }, [consultationId]);
 
@@ -80,6 +86,12 @@ const Chat = () => {
   };
 
   const connectWebSocket = () => {
+    // Закрываем существующее подключение если есть
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('Закрываем существующее WebSocket подключение');
+      ws.close();
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
     const wsUrl = `${protocol}//${host}/ws/chat/${consultationId}/`;
@@ -163,10 +175,14 @@ const Chat = () => {
       
       // Попытка переподключения через 3 секунды для других ошибок
       setTimeout(() => {
-        if (!wsConnected) {
-          console.log('Попытка переподключения к WebSocket...');
-          connectWebSocket();
-        }
+        // Проверяем актуальное состояние подключения
+        setWsConnected(currentConnected => {
+          if (!currentConnected) {
+            console.log('Попытка переподключения к WebSocket...');
+            connectWebSocket();
+          }
+          return currentConnected;
+        });
       }, 3000);
     };
 

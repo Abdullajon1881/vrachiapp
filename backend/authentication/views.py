@@ -12,6 +12,10 @@ from django.db import models
 from django.urls import reverse
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.views.decorators.http import require_http_methods
+from asgiref.sync import sync_to_async
+import asyncio
+from .ai_service import ai_service
 
 from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message
 from .serializers import (
@@ -1190,6 +1194,173 @@ def complete_consultation(request, consultation_id):
             'consultation': serializer.data
         })
     except Consultation.DoesNotExist:
-        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND) 
+        return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def ai_diagnosis(request):
+    """API для работы с AI диагностикой"""
+    try:
+        user = request.user
+        
+        # Проверяем тип запроса
+        if 'file' in request.FILES:
+            # Обработка файла (изображение, видео, аудио)
+            file = request.FILES['file']
+            file_type = request.data.get('type', 'image')
+            
+            if file_type == 'image':
+                # Асинхронная обработка изображения
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(ai_service.process_image_message(user, file))
+                finally:
+                    loop.close()
+                    
+            elif file_type == 'audio':
+                # Асинхронная обработка аудио
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(ai_service.process_audio_message(user, file))
+                finally:
+                    loop.close()
+                    
+            elif file_type == 'video':
+                # Пока что видео обрабатываем как изображение
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(ai_service.process_image_message(user, file))
+                finally:
+                    loop.close()
+            else:
+                return Response({
+                    'error': 'Неподдерживаемый тип файла'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            if result['success']:
+                # Сохраняем пользовательское сообщение
+                ai_service.save_dialogue_message(
+                    user=user,
+                    content=f"Файл загружен: {file.name}",
+                    sender_type='user',
+                    message_type=file_type
+                )
+                
+                # Сохраняем ответ AI
+                ai_service.save_dialogue_message(
+                    user=user,
+                    content=result['response'],
+                    sender_type='ai',
+                    message_type='text'
+                )
+                
+                return Response({
+                    'response': result['response'],
+                    'type': result['type']
+                })
+            else:
+                return Response({
+                    'error': result.get('error', 'Ошибка обработки файла')
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        elif 'message' in request.data:
+            # Обработка текстового сообщения
+            message = request.data['message']
+            
+            if not message or not message.strip():
+                return Response({
+                    'error': 'Сообщение не может быть пустым'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Асинхронная обработка текста
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(ai_service.process_text_message(user, message))
+            finally:
+                loop.close()
+                
+            if result['success']:
+                # Сохраняем пользовательское сообщение
+                ai_service.save_dialogue_message(
+                    user=user,
+                    content=message,
+                    sender_type='user',
+                    message_type='text'
+                )
+                
+                # Сохраняем ответ AI
+                ai_service.save_dialogue_message(
+                    user=user,
+                    content=result['response'],
+                    sender_type='ai',
+                    message_type='text'
+                )
+                
+                return Response({
+                    'response': result['response'],
+                    'type': result['type']
+                })
+            else:
+                return Response({
+                    'error': result.get('error', 'Ошибка обработки сообщения')
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({
+                'error': 'Не указано сообщение или файл'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        print(f"Error in ai_diagnosis: {e}")
+        return Response({
+            'error': 'Произошла внутренняя ошибка сервера'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ai_dialogue_history(request):
+    """Получение истории диалогов с AI"""
+    try:
+        user = request.user
+        
+        # Получаем активный диалог пользователя
+        from .models import AIDialogue
+        
+        try:
+            dialogue = AIDialogue.objects.get(user=user, is_active=True)
+            messages = dialogue.messages.all()
+            
+            messages_data = []
+            for msg in messages:
+                messages_data.append({
+                    'id': msg.id,
+                    'sender_type': msg.sender_type,
+                    'message_type': msg.message_type,
+                    'content': msg.content,
+                    'timestamp': msg.timestamp.isoformat(),
+                })
+            
+            return Response({
+                'dialogue_id': dialogue.id,
+                'messages': messages_data
+            })
+            
+        except AIDialogue.DoesNotExist:
+            # Если диалога нет, возвращаем пустой список
+            return Response({
+                'dialogue_id': None,
+                'messages': []
+            })
+            
+    except Exception as e:
+        print(f"Error in ai_dialogue_history: {e}")
+        return Response({
+            'error': 'Ошибка получения истории диалогов'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
 
  

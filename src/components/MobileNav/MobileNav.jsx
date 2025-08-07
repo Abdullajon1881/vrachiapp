@@ -23,6 +23,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
     if (path === '/admin') return 'admin';
     if (path === '/doctor-application') return 'doctor-application';
     if (path === '/consultations' || path.startsWith('/consultations/')) return 'consultations';
+
     return 'home';
   };
 
@@ -92,6 +93,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
       case 'theme-toggle':
         toggleTheme();
         break;
+
       default:
         navigate('/');
     }

@@ -11,6 +11,7 @@ import About from './components/About/About';
 import Doctors from './components/Doctors/Doctors';
 import DoctorProfile from './components/DoctorProfile/DoctorProfile';
 import Profile from './components/Profile/Profile';
+import AIDiagnosis from './components/AIDiagnosis/AIDiagnosis';
 import AdminPanel from './components/AdminPanel/AdminPanel';
 import AuthModal from './components/AuthModal/AuthModal';
 import DoctorApplication from './components/DoctorApplication/DoctorApplication';
@@ -245,6 +246,14 @@ function App() {
     return <Chat />;
   };
 
+  // Компонент для AI диагностики (только для авторизованных)
+  const AIDiagnosisPage = () => {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace />;
+    }
+    return <AIDiagnosis />;
+  };
+
   return (
     <Router>
       <div className="app">
@@ -274,6 +283,7 @@ function App() {
             <Route path="/doctor-application" element={<DoctorApplicationPage />} />
             <Route path="/consultations" element={<ConsultationsPage />} />
             <Route path="/consultations/:consultationId" element={<ChatPage />} />
+            <Route path="/ai-diagnosis" element={<AIDiagnosisPage />} />
           </Routes>
         </main>
         <Footer />

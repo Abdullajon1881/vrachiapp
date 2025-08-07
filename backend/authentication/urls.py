@@ -53,4 +53,8 @@ urlpatterns = [
     path('consultations/<int:consultation_id>/complete/', views.complete_consultation, name='complete_consultation'),
     path('consultations/<int:consultation_id>/messages/', views.get_messages, name='get_messages'),
     path('consultations/<int:consultation_id>/messages/send/', views.send_message, name='send_message'),
+    
+    # AI диагностика
+    path('ai/diagnosis/', views.ai_diagnosis, name='ai_diagnosis'),
+    path('ai/history/', views.ai_dialogue_history, name='ai_dialogue_history'),
 ] 

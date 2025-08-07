@@ -1,0 +1,448 @@
+@import '../../styles/variables';
+
+.ai-diagnosis {
+  padding: $spacing-lg;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: calc(100vh - 120px);
+  
+  &__container {
+    background: $white;
+    border-radius: $border-radius-lg;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    height: calc(100vh - 160px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .dark-theme & {
+      background: $dark-card;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-lg;
+    border-bottom: 1px solid $gray;
+    background: linear-gradient(135deg, $primary-blue, $secondary-blue);
+    color: $white;
+
+    .dark-theme & {
+      border-color: $dark-border;
+    }
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+
+    h1 {
+      margin: 0;
+      font-size: $font-size-xl;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: $font-size-sm;
+    }
+  }
+
+  &__icon {
+    font-size: 2.5rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &-indicator {
+      width: 8px;
+      height: 8px;
+      background: #4caf50;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+  }
+
+  &__messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: $spacing-lg;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    background: $light-gray;
+
+    .dark-theme & {
+      background: $dark-bg;
+    }
+  }
+
+  &__message {
+    display: flex;
+    gap: $spacing-md;
+    max-width: 80%;
+    animation: fadeInUp 0.3s ease-out;
+
+    &--user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+
+      .ai-diagnosis__message-content {
+        background: $primary-blue;
+        color: $white;
+        border-radius: $border-radius-lg $border-radius-sm $border-radius-lg $border-radius-lg;
+      }
+    }
+
+    &--ai {
+      align-self: flex-start;
+
+      .ai-diagnosis__message-content {
+        background: $white;
+        color: $text-primary;
+        border-radius: $border-radius-sm $border-radius-lg $border-radius-lg $border-radius-lg;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        .dark-theme & {
+          background: $dark-card;
+          color: $dark-text;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+      }
+    }
+
+    &-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      background: $light-blue;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+      .dark-theme & {
+        background: $dark-hover;
+      }
+    }
+
+    &-content {
+      padding: $spacing-md $spacing-lg;
+      border-radius: $border-radius-lg;
+      position: relative;
+      word-wrap: break-word;
+    }
+
+    &-text {
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    &-time {
+      font-size: $font-size-xs;
+      opacity: 0.7;
+      margin-top: $spacing-xs;
+    }
+  }
+
+  &__loading {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+
+    span {
+      width: 8px;
+      height: 8px;
+      background: $primary-blue;
+      border-radius: 50%;
+      animation: loading 1.4s infinite ease-in-out both;
+
+      &:nth-child(1) { animation-delay: -0.32s; }
+      &:nth-child(2) { animation-delay: -0.16s; }
+      &:nth-child(3) { animation-delay: 0s; }
+    }
+  }
+
+  &__input {
+    padding: $spacing-lg;
+    border-top: 1px solid $gray;
+    background: $white;
+
+    .dark-theme & {
+      border-color: $dark-border;
+      background: $dark-card;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-md;
+  }
+
+  &__action-btn {
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: $light-blue;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      background: $primary-blue;
+      color: $white;
+      transform: scale(1.05);
+    }
+
+    &--recording {
+      background: $error;
+      color: $white;
+      animation: pulse 1s infinite;
+    }
+
+    .dark-theme & {
+      background: $dark-hover;
+
+      &:hover {
+        background: $primary-blue;
+      }
+    }
+  }
+
+  &__input-container {
+    display: flex;
+    gap: $spacing-sm;
+    align-items: flex-end;
+  }
+
+  &__text-input {
+    flex: 1;
+    padding: $spacing-md $spacing-lg;
+    border: 2px solid $gray;
+    border-radius: $border-radius-lg;
+    font-size: $font-size-md;
+    resize: none;
+    max-height: 120px;
+    min-height: 48px;
+    outline: none;
+    transition: border-color 0.3s ease;
+
+    &:focus {
+      border-color: $primary-blue;
+    }
+
+    &::placeholder {
+      color: $text-secondary;
+    }
+
+    .dark-theme & {
+      background: $dark-hover;
+      border-color: $dark-border;
+      color: $dark-text;
+
+      &::placeholder {
+        color: $dark-text-secondary;
+      }
+    }
+  }
+
+  &__send-btn {
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: $primary-blue;
+    color: $white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover:not(:disabled) {
+      background: $secondary-blue;
+      transform: scale(1.05);
+    }
+
+    &:disabled {
+      background: $gray;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+
+  &__file-input {
+    display: none;
+  }
+
+  &__disclaimer {
+    margin-top: $spacing-md;
+    padding: $spacing-md;
+    background: rgba($warning, 0.1);
+    border: 1px solid rgba($warning, 0.3);
+    border-radius: $border-radius-md;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    text-align: center;
+
+    .dark-theme & {
+      background: rgba($warning, 0.15);
+      border-color: rgba($warning, 0.4);
+      color: $dark-text-secondary;
+    }
+  }
+}
+
+// Анимации
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes loading {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+// Мобильная адаптивность
+@media (max-width: 768px) {
+  .ai-diagnosis {
+    padding: $spacing-md;
+
+    &__container {
+      height: calc(100vh - 100px);
+    }
+
+    &__header {
+      padding: $spacing-md;
+    }
+
+    &__title {
+      h1 {
+        font-size: $font-size-lg;
+      }
+    }
+
+    &__messages {
+      padding: $spacing-md;
+    }
+
+    &__message {
+      max-width: 90%;
+
+      &-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+      }
+
+      &-content {
+        padding: $spacing-sm $spacing-md;
+      }
+    }
+
+    &__input {
+      padding: $spacing-md;
+    }
+
+    &__actions {
+      justify-content: center;
+    }
+
+    &__action-btn {
+      width: 44px;
+      height: 44px;
+    }
+
+    &__text-input {
+      font-size: $font-size-md;
+    }
+
+    &__send-btn {
+      width: 44px;
+      height: 44px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-diagnosis {
+    padding: $spacing-sm;
+
+    &__container {
+      height: calc(100vh - 80px);
+    }
+
+    &__header {
+      padding: $spacing-sm;
+      flex-direction: column;
+      gap: $spacing-sm;
+      text-align: center;
+    }
+
+    &__title {
+      flex-direction: column;
+      gap: $spacing-xs;
+
+      h1 {
+        font-size: $font-size-md;
+      }
+    }
+
+    &__icon {
+      font-size: 2rem;
+    }
+
+    &__messages {
+      padding: $spacing-sm;
+    }
+
+    &__input {
+      padding: $spacing-sm;
+    }
+
+    &__disclaimer {
+      font-size: $font-size-xs;
+    }
+  }
+}
