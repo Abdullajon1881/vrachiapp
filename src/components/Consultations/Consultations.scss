@@ -330,6 +330,13 @@
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: $shadow-light;
+    margin-top: auto;
+    
+    // Убираем подсветку при нажатии на мобильных
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
     
     // Улучшения для мобильных устройств
     @media (max-width: 768px) {
@@ -339,7 +346,14 @@
       
       &:active {
         transform: scale(0.95);
+        background: linear-gradient(135deg, darken($primary-blue, 15%), darken($secondary-blue, 15%));
       }
+    }
+    
+    @media (max-width: 480px) {
+      padding: $spacing-lg $spacing-md;
+      font-size: $font-size-md;
+      min-height: 44px;
     }
 
     &:hover {

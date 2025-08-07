@@ -45,15 +45,7 @@
     }
   }
 
-  &__consultation-date {
-    font-size: $font-size-xs;
-    color: $text-light;
-    font-weight: $font-weight-medium;
 
-    .dark-theme & {
-      color: $dark-text-secondary;
-    }
-  }
 
   &__participant-bar {
     display: flex;
@@ -1025,12 +1017,10 @@
     }
 
     &__consultation-title h1 {
-      font-size: $font-size-md;
+      font-size: $font-size-sm;
     }
 
-    &__consultation-date {
-      font-size: 10px;
-    }
+
 
     &__participant-bar {
       padding: $spacing-xs $spacing-md;

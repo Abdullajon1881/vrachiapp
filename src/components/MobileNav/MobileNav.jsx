@@ -18,6 +18,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
     if (path === '/profile') return 'profile';
     if (path === '/admin') return 'admin';
     if (path === '/doctor-application') return 'doctor-application';
+    if (path === '/consultations' || path.startsWith('/consultations/')) return 'consultations';
     return 'home';
   };
 
@@ -49,6 +50,9 @@ const MobileNav = ({ isAuthenticated, userData }) => {
         break;
       case 'doctor-application':
         navigate('/doctor-application');
+        break;
+      case 'consultations':
+        navigate('/consultations');
         break;
       default:
         navigate('/');
@@ -97,7 +101,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
       )
     },
     {
-      id: 'appointments',
+      id: 'consultations',
       label: 'Записи',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -153,7 +157,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
       // Для администраторов показываем только админские пункты + главная и о нас
       navigationItems = [...navigationItems, ...adminNavigationItems];
     } else if (isDoctor) {
-      // Для врачей показываем только базовые пункты + профиль (без пункта "Врачи")
+      // Для врачей показываем только базовые пункты + профиль + консультации (без пункта "Врачи")
       const doctorNavigationItems = patientNavigationItems.filter(item => item.id !== 'doctors');
       navigationItems = [...navigationItems, ...doctorNavigationItems];
     } else {

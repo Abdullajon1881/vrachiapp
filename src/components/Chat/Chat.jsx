@@ -17,6 +17,7 @@ const Chat = () => {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [justSentMessage, setJustSentMessage] = useState(false);
 
   useEffect(() => {
     fetchConsultation();
@@ -30,9 +31,13 @@ const Chat = () => {
     };
   }, [consultationId]);
 
+  // Автоматический скролл к последнему сообщению только когда сам пользователь отправил сообщение
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (justSentMessage) {
+      scrollToBottom();
+      setJustSentMessage(false);
+    }
+  }, [messages, justSentMessage]);
 
   const fetchConsultation = async () => {
     try {
@@ -61,6 +66,8 @@ const Chat = () => {
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
+        // При первой загрузке сообщений прокручиваем вниз
+        setTimeout(() => scrollToBottom(), 100);
       } else {
         setError('Ошибка загрузки сообщений');
       }
@@ -94,6 +101,9 @@ const Chat = () => {
         console.log('Получено WebSocket сообщение:', data);
         
         if (data.type === 'chat_message') {
+          const currentUser = getCurrentUser();
+          const isMyMessage = data.sender_id === currentUser?.id;
+          
           setMessages(prev => {
             // Проверяем, нет ли уже такого сообщения
             const messageExists = prev.some(msg => msg.id === data.message_id);
@@ -113,6 +123,11 @@ const Chat = () => {
               is_read: false
             }];
           });
+          
+          // Если это мое сообщение, прокручиваем вниз
+          if (isMyMessage) {
+            setJustSentMessage(true);
+          }
         } else if (data.type === 'connection_established') {
           console.log('WebSocket соединение подтверждено');
         } else if (data.type === 'error') {
@@ -178,6 +193,8 @@ const Chat = () => {
       }));
       
       setNewMessage('');
+      // Отмечаем, что мы только что отправили сообщение
+      setJustSentMessage(true);
     } catch (error) {
       console.error('Ошибка при отправке сообщения:', error);
       setError('Ошибка соединения с сервером');
@@ -393,21 +410,12 @@ const Chat = () => {
         </button>
         
         <div className="chat__consultation-title">
-          <h1>Консультация № #{consultation.id}</h1>
-          <span className="chat__consultation-date">
-            {formatConsultationDate(consultation.created_at)}
-          </span>
+          <h1>{getOtherParticipant()?.full_name || 'Участник'}</h1>
         </div>
       </div>
 
       <div className="chat__participant-bar">
-        <div className="chat__participant-avatar">
-          {getOtherParticipant()?.initials || '?'}
-        </div>
         <div className="chat__participant-info">
-          <span className="chat__participant-name">
-            {getOtherParticipant()?.full_name || 'Участник'}
-          </span>
           <span className={`chat__participant-status chat__participant-status--${consultation.status}`}>
             {consultation.status === 'pending' && 'Ожидание'}
             {consultation.status === 'active' && 'Активна'}
