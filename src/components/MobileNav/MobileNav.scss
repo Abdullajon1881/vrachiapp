@@ -107,6 +107,7 @@
     color: $text-primary;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
+    position: relative;
 
     .dark-theme & {
       color: $dark-text;
@@ -116,6 +117,35 @@
       width: 24px;
       height: 24px;
       transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+
+  &__badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: $font-weight-bold;
+    color: $white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+
+    &--active {
+      background: linear-gradient(135deg, #4caf50, #388e3c);
+    }
+
+    &--pending {
+      background: linear-gradient(135deg, #ff9800, #f57c00);
+    }
+
+    &--completed {
+      background: linear-gradient(135deg, #2196f3, #1976d2);
     }
   }
 
@@ -160,6 +190,15 @@
         width: 20px;
         height: 20px;
       }
+    }
+
+    &__badge {
+      top: -4px;
+      right: -4px;
+      min-width: 14px;
+      height: 14px;
+      font-size: 9px;
+      padding: 0 3px;
     }
 
     &__text {

@@ -6,6 +6,11 @@ const MobileNav = ({ isAuthenticated, userData }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeItem, setActiveItem] = useState('home');
+  const [consultationsStats, setConsultationsStats] = useState({
+    active: 0,
+    completed: 0,
+    pending: 0
+  });
 
   // Определяем текущую страницу на основе URL
   const getCurrentPage = () => {
@@ -26,6 +31,37 @@ const MobileNav = ({ isAuthenticated, userData }) => {
   useEffect(() => {
     setActiveItem(getCurrentPage());
   }, [location.pathname]);
+
+  // Загружаем статистику консультаций для авторизованных пользователей
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchConsultationsStats();
+    }
+  }, [isAuthenticated]);
+
+  const fetchConsultationsStats = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/consultations/', {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const consultations = await response.json();
+        const stats = consultations.reduce((acc, consultation) => {
+          acc[consultation.status] = (acc[consultation.status] || 0) + 1;
+          return acc;
+        }, {});
+
+        setConsultationsStats({
+          active: stats.active || 0,
+          completed: stats.completed || 0,
+          pending: stats.pending || 0
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке статистики консультаций:', error);
+    }
+  };
 
   const handleItemClick = (itemId) => {
     setActiveItem(itemId);
@@ -103,6 +139,8 @@ const MobileNav = ({ isAuthenticated, userData }) => {
     {
       id: 'consultations',
       label: 'Записи',
+      badge: consultationsStats.active + consultationsStats.pending || 0,
+      badgeType: consultationsStats.active > 0 ? 'active' : 'pending',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -180,6 +218,11 @@ const MobileNav = ({ isAuthenticated, userData }) => {
           >
             <div className="mobile-nav__icon">
               {item.icon}
+              {item.badge > 0 && (
+                <span className={`mobile-nav__badge mobile-nav__badge--${item.badgeType}`}>
+                  {item.badge}
+                </span>
+              )}
             </div>
             {activeItem === item.id && (
               <span className="mobile-nav__text">{item.label}</span>

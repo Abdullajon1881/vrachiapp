@@ -195,10 +195,40 @@
     align-items: center;
     justify-content: center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
 
     svg {
       width: 32px;
       height: 32px;
+    }
+  }
+
+  &__nav-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: $font-weight-bold;
+    color: $white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+
+    &--active {
+      background: linear-gradient(135deg, #4caf50, #388e3c);
+    }
+
+    &--pending {
+      background: linear-gradient(135deg, #ff9800, #f57c00);
+    }
+
+    &--completed {
+      background: linear-gradient(135deg, #2196f3, #1976d2);
     }
   }
 

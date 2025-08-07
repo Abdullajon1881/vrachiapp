@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.scss';
 
 const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [consultationsStats, setConsultationsStats] = useState({
+    active: 0,
+    completed: 0,
+    pending: 0
+  });
 
   const handleItemClick = (itemId) => {
     switch (itemId) {
@@ -54,6 +59,38 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
 
   const currentPage = getCurrentPage();
 
+  // Загружаем статистику консультаций для авторизованных пользователей
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchConsultationsStats();
+    }
+  }, [isAuthenticated]);
+
+  const fetchConsultationsStats = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/consultations/', {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const consultations = await response.json();
+        console.log('Sidebar consultations:', consultations); // Для отладки
+        const stats = consultations.reduce((acc, consultation) => {
+          acc[consultation.status] = (acc[consultation.status] || 0) + 1;
+          return acc;
+        }, {});
+
+        setConsultationsStats({
+          active: stats.active || 0,
+          completed: stats.completed || 0,
+          pending: stats.pending || 0
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке статистики консультаций:', error);
+    }
+  };
+
   // Определяем роль пользователя
   const isAdmin = userData && (userData.role === 'admin' || userData.is_staff || userData.is_superuser);
   const isDoctor = userData && userData.role === 'doctor';
@@ -98,6 +135,8 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     {
       id: 'consultations',
       label: 'Консультации',
+      badge: consultationsStats.active + consultationsStats.pending || 0,
+      badgeType: consultationsStats.active > 0 ? 'active' : 'pending',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -132,6 +171,8 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     {
       id: 'consultations',
       label: 'Консультации',
+      badge: consultationsStats.active + consultationsStats.pending || 0,
+      badgeType: consultationsStats.active > 0 ? 'active' : 'pending',
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -234,6 +275,11 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
               >
                 <div className="sidebar__nav-icon">
                   {item.icon}
+                  {item.badge > 0 && (
+                    <span className={`sidebar__nav-badge sidebar__nav-badge--${item.badgeType}`}>
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
               </button>
             </li>
