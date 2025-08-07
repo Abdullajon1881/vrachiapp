@@ -90,6 +90,9 @@ const MobileNav = ({ isAuthenticated, userData }) => {
       case 'consultations':
         navigate('/consultations');
         break;
+      case 'about':
+        navigate('/about');
+        break;
       default:
         navigate('/');
     }
@@ -213,6 +216,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
         {navigationItems.map((item) => (
           <div 
             key={item.id}
+            data-id={item.id}
             className={`mobile-nav__item ${activeItem === item.id ? 'mobile-nav__item--active' : ''}`}
             onClick={() => handleItemClick(item.id)}
           >

@@ -253,6 +253,8 @@ function App() {
           userData={userData}
           onLogout={handleLogout}
           onAuthSuccess={updateAuthState}
+          isDarkTheme={isDarkTheme}
+          toggleTheme={toggleTheme}
         />
         <Sidebar 
           toggleTheme={toggleTheme} 
