@@ -2,15 +2,15 @@
 
 .ai-diagnosis {
   padding: $spacing-lg;
-  max-width: 1200px;
+  max-width: 1400px; // Увеличил ширину чата (было 1200px)
   margin: 0 auto;
-  min-height: calc(100vh - 120px);
+  min-height: calc(100vh - 100px); // Увеличил высоту компонента
   
   &__container {
     background: $white;
     border-radius: $border-radius-lg;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    height: calc(100vh - 160px);
+    height: calc(100vh - 140px); // Увеличил высоту чата (было 160px)
     display: flex;
     flex-direction: column;
     overflow: hidden;
