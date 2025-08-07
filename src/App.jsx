@@ -282,6 +282,8 @@ function App() {
           setCurrentPage={setCurrentPage}
           isAuthenticated={isAuthenticated}
           userData={userData}
+          isDarkTheme={isDarkTheme}
+          toggleTheme={toggleTheme}
         />
       </div>
     </Router>

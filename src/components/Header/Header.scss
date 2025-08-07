@@ -99,8 +99,8 @@
     letter-spacing: -0.01em;
   }
 
-  // Переключатель темы
-  &__theme {
+  // Смена языка
+  &__language {
     &-container {
       display: flex;
       align-items: center;
@@ -112,23 +112,11 @@
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       height: 56px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      cursor: pointer;
-
       &:hover {
-        background: rgba($warning, 0.1);
-        border-color: $warning;
+        background: $light-blue;
+        border-color: $primary-blue;
         transform: translateY(-2px);
-        box-shadow: 0 4px 16px rgba($warning, 0.15);
-        
-        .header__theme-icon svg {
-          transform: rotate(15deg) scale(1.1);
-        }
-      }
-
-      &:active {
-        .header__theme-icon svg {
-          transform: rotate(30deg) scale(0.95);
-        }
+        box-shadow: 0 4px 16px rgba($primary-blue, 0.15);
       }
 
       .dark-theme & {
@@ -138,10 +126,10 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 
         &:hover {
-          background: rgba($warning, 0.15);
-          border-color: $warning;
+          background: $dark-hover;
+          border-color: $primary-blue;
           color: $dark-text;
-          box-shadow: 0 4px 16px rgba($warning, 0.2);
+          box-shadow: 0 4px 16px rgba($primary-blue, 0.2);
         }
       }
     }
@@ -152,25 +140,22 @@
       justify-content: center;
       width: 24px;
       height: 24px;
-      color: $warning;
-      
-      svg {
-        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      }
+      color: $primary-blue;
+      opacity: 0.8;
 
       .dark-theme & {
-        color: $warning;
+        color: $primary-blue;
       }
     }
 
     &-divider {
       width: 1px;
       height: 24px;
-      background: rgba($warning, 0.3);
+      background: $gray;
       border-radius: 1px;
 
       .dark-theme & {
-        background: rgba($warning, 0.4);
+        background: $dark-border;
       }
     }
 
@@ -505,7 +490,7 @@
       font-weight: 600;
     }
 
-    &__theme {
+    &__language {
       &-container {
         padding: 0 $spacing-md;
         border-radius: 20px;
@@ -515,7 +500,7 @@
         background: transparent;
 
         &:hover {
-          background: rgba($warning, 0.08);
+          background: rgba($primary-blue, 0.05);
           transform: none;
           box-shadow: none;
         }
@@ -524,7 +509,7 @@
           background: transparent;
 
           &:hover {
-            background: rgba($warning, 0.15);
+            background: rgba($dark-text, 0.05);
           }
         }
       }
@@ -585,7 +570,7 @@
       min-width: 60px;
     }
 
-    &__theme {
+    &__language {
       &-container {
         height: 60px;
         min-width: 60px;

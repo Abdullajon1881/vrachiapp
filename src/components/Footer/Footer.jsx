@@ -52,9 +52,9 @@ const Footer = () => {
             <div className="footer__section">
               <h4>Информация</h4>
               <ul>
-                <li><a href="#">О клинике</a></li>
-                <li><a href="#">Врачи</a></li>
-                <li><a href="#">Цены</a></li>
+                <li><a href="/about">О нас</a></li>
+                <li><a href="/doctors">Врачи</a></li>
+                <li><a href="/services">Услуги</a></li>
                 <li><a href="#">Контакты</a></li>
               </ul>
             </div>

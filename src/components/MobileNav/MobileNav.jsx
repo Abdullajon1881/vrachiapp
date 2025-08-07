@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './MobileNav.scss';
 
-const MobileNav = ({ isAuthenticated, userData }) => {
+const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeItem, setActiveItem] = useState('home');
@@ -16,7 +16,6 @@ const MobileNav = ({ isAuthenticated, userData }) => {
   const getCurrentPage = () => {
     const path = location.pathname;
     if (path === '/') return 'home';
-    if (path === '/about') return 'about';
     if (path === '/doctors') return 'doctors';
     if (path.startsWith('/doctors/')) return 'doctors';
     if (path === '/services') return 'services';
@@ -90,8 +89,8 @@ const MobileNav = ({ isAuthenticated, userData }) => {
       case 'consultations':
         navigate('/consultations');
         break;
-      case 'about':
-        navigate('/about');
+      case 'theme-toggle':
+        toggleTheme();
         break;
       default:
         navigate('/');
@@ -115,11 +114,25 @@ const MobileNav = ({ isAuthenticated, userData }) => {
       )
     },
     {
-      id: 'about',
-      label: 'О нас',
-      icon: (
+      id: 'theme-toggle',
+      label: isDarkTheme ? 'Светлая' : 'Темная',
+      icon: isDarkTheme ? (
+        // Солнце для темной темы
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ) : (
+        // Луна для светлой темы
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )
     }
@@ -207,7 +220,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
     }
   } else {
     // Для неавторизованных пользователей показываем только основные пункты
-    navigationItems = navigationItems.filter(item => ['home', 'about', 'services'].includes(item.id));
+    navigationItems = navigationItems.filter(item => ['home', 'theme-toggle', 'services'].includes(item.id));
   }
 
   return (
@@ -217,7 +230,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
           <div 
             key={item.id}
             data-id={item.id}
-            className={`mobile-nav__item ${activeItem === item.id ? 'mobile-nav__item--active' : ''}`}
+            className={`mobile-nav__item ${activeItem === item.id && item.id !== 'theme-toggle' ? 'mobile-nav__item--active' : ''}`}
             onClick={() => handleItemClick(item.id)}
           >
             <div className="mobile-nav__icon">
@@ -228,7 +241,7 @@ const MobileNav = ({ isAuthenticated, userData }) => {
                 </span>
               )}
             </div>
-            {activeItem === item.id && (
+            {activeItem === item.id && item.id !== 'theme-toggle' && (
               <span className="mobile-nav__text">{item.label}</span>
             )}
           </div>

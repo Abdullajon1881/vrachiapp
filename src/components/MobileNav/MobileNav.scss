@@ -201,9 +201,38 @@
       height: 14px;
       font-size: 9px;
       padding: 0 3px;
+      }
+
+  // Специальные стили для переключателя темы
+  &__item[data-id="theme-toggle"] {
+    .mobile-nav__icon {
+      color: $primary-blue;
+      
+      svg {
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
     }
 
-    &__text {
+    &:hover {
+      background: rgba($primary-blue, 0.08);
+      
+      .mobile-nav__icon svg {
+        transform: rotate(15deg) scale(1.1);
+      }
+
+      .dark-theme & {
+        background: rgba($primary-blue, 0.15);
+      }
+    }
+
+    &:active {
+      .mobile-nav__icon svg {
+        transform: rotate(30deg) scale(0.95);
+      }
+    }
+  }
+
+  &__text {
       font-size: 12px;
     }
   }

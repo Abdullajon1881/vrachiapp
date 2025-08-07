@@ -92,36 +92,20 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
               <span className="header__phone-number">1188</span>
             </div>
 
-            {/* Переключатель темы */}
-            <div className="header__theme">
-              <div className="header__theme-container" onClick={toggleTheme}>
-                <div className="header__theme-icon">
-                  {isDarkTheme ? (
-                    // Солнце для темной темы
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  ) : (
-                    // Луна для светлой темы
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
+            {/* Смена языка */}
+            <div className="header__language">
+              <div className="header__language-container">
+                <div className="header__language-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </div>
-                <div className="header__theme-divider"></div>
-                <div className="header__theme-buttons">
+                <div className="header__language-divider"></div>
+                <div className="header__language-buttons">
                   <button
-                    className="header__theme-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    className="header__language-btn"
+                    onClick={() => {
                       const currentIndex = languages.findIndex(lang => lang.code === currentLanguage);
                       const nextIndex = (currentIndex + 1) % languages.length;
                       setCurrentLanguage(languages[nextIndex].code);
