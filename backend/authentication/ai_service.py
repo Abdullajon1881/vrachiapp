@@ -38,11 +38,7 @@ class HealzyAIService:
 ✅ Объясняй медицинские вопросы простым языком
 ✅ Будь дружелюбной, но профессиональной
 ✅ Отвечай точно на заданный вопрос
-
-ПРИ ПРИВЕТСТВИИ:
-- Кратко поздоровайся
-- Спроси о здоровье или симптомах
-- Предложи свою помощь
+✅ Не начинай ответ с приветствия — сразу переходи к сути. Приветствия формируются системой при необходимости.
 
 ПРИ МЕДИЦИНСКИХ ВОПРОСАХ:
 - Подробно анализируй ситуацию
@@ -55,6 +51,7 @@ class HealzyAIService:
 ❌ Не повторяй шаблонные фразы  
 ❌ Не добавляй предупреждения к каждому ответу
 ❌ Не отвечай на немедицинские вопросы
+❌ Не начинай ответ с "Здравствуйте" или "Привет"
 """
     
     async def _is_medical_question(self, text: str) -> bool:
@@ -76,7 +73,8 @@ class HealzyAIService:
 - Беременность и детское здоровье
 - Приветствия и знакомство с медицинским помощником
 
-- Бизнес, финансы МЕДИЦИНСКИЕ ТЕМЫ (отвечай "НЕТ"):
+НЕ МЕДИЦИНСКИЕ ТЕМЫ (отвечай "НЕТ"):
+- Бизнес, финансы
 - История, география, политика
 - Наука, технологии (кроме медицинских)
 - Развлечения, спорт, хобби
@@ -105,6 +103,17 @@ class HealzyAIService:
             logger.error(f"Ошибка при анализе вопроса с помощью AI: {str(e)}")
             # В случае ошибки считаем что это медицинский вопрос
             return True
+
+    def _is_greeting(self, text: str) -> bool:
+        """Простая эвристика для распознавания коротких приветствий/малого small talk"""
+        text_lower = text.strip().lower()
+        if len(text_lower) > 40:
+            return False
+        greeting_keywords = [
+            'привет', 'здравствуй', 'здравствуйте', 'добрый день', 'добрый вечер', 'доброе утро',
+            'как дела', 'как ты', 'как у тебя', 'hi', 'hello'
+        ]
+        return any(kw in text_lower for kw in greeting_keywords)
     
     def _create_safety_disclaimer(self, message: str) -> str:
         """Создает предупреждение о безопасности только для серьезных случаев"""
@@ -123,22 +132,51 @@ class HealzyAIService:
         
         # Для обычных вопросов не добавляем предупреждение
         return ""
+
+    def _strip_leading_greeting(self, text: str) -> str:
+        """Удаляет вежливые вступительные приветствия в начале ответа"""
+        if not text:
+            return text
+        cleaned = text.lstrip()
+        lower = cleaned.lower()
+        prefixes = [
+            'здравствуйте', 'привет', 'добрый день', 'добрый вечер', 'доброе утро',
+            'рад помочь', 'рада помочь', 'я healzy ai', 'я – healzy ai', 'я — healzy ai'
+        ]
+        for prefix in prefixes:
+            if lower.startswith(prefix):
+                # Найти конец первой строки/предложения
+                # Обрезаем до первого переноса строки или точки с пробелом
+                for sep in ['\n', '. ', '! ', '? ']:
+                    idx = cleaned.find(sep)
+                    if idx != -1 and idx < 80:
+                        cleaned = cleaned[idx + len(sep):].lstrip()
+                        lower = cleaned.lower()
+                        break
+                else:
+                    # Если разделителей нет — просто удаляем сам префикс
+                    cleaned = cleaned[len(prefix):].lstrip(' ,!.-')
+                # После удаления одного префикса выходим
+                break
+        return cleaned
     
     async def process_text_message(self, user: User, message: str) -> Dict[str, Any]:
         """Обрабатывает текстовое сообщение"""
         try:
+            # Короткое приветствие — отвечаем кратко и дружелюбно, без длинных блоков
+            if self._is_greeting(message):
+                return {
+                    'success': True,
+                    'response': 'Привет! Чем могу помочь со здоровьем? Коротко опишите, что беспокоит.',
+                    'type': 'text'
+                }
+
             # Проверяем, является ли вопрос медицинским (с помощью AI)
             if not await self._is_medical_question(message):
-                response = """Привет! Я Healzy AI - медицинский помощник! 👩‍⚕️
-
-Я специализируюсь на вопросах здоровья и медицины:
-• Анализ симптомов и жалоб
-• Медицинские рекомендации  
-• Объяснение медицинских терминов
-• Советы когда обратиться к врачу
-• Вопросы о лекарствах и лечении
-
-Расскажите, что вас беспокоит или какой у вас медицинский вопрос? 😊"""
+                response = (
+                    "Я могу помогать только с медицинскими вопросами. "
+                    "Пожалуйста, опишите симптом или задайте вопрос о здоровье."
+                )
                 return {
                     'success': True,
                     'response': response,
@@ -146,13 +184,18 @@ class HealzyAIService:
                 }
             
             # Создаем контекст с системным промптом
-            full_prompt = f"{self.system_prompt}\n\nВопрос пользователя: {message}\n\nОтветь точно на этот вопрос:"
+            full_prompt = (
+                f"{self.system_prompt}\n\n"
+                f"Вопрос пользователя: {message}\n\n"
+                f"Ответь кратко и по делу, без вступительных приветствий."
+            )
             
             # Отправляем запрос к Gemini
             response = self.model.generate_content(full_prompt)
             
             if response and response.text:
-                ai_response = response.text + self._create_safety_disclaimer(message)
+                ai_body = self._strip_leading_greeting(response.text)
+                ai_response = ai_body + self._create_safety_disclaimer(message)
                 
                 return {
                     'success': True,

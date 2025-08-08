@@ -35,7 +35,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
-  min-height: 100vh;
+  min-height: 100dvh; // динамическая высота вьюпорта
 
   .app.dark-theme & {
     background-color: $dark-bg;
@@ -54,7 +54,7 @@ main {
   margin-left: 111px;
   margin-top: 0; // Убеждаемся, что нет отступа сверху
   transition: margin-left 0.3s ease;
-  min-height: 100vh;
+  min-height: 100dvh; // динамическая высота вьюпорта для мобильных
   background-color: $white;
   padding-top: 0; // Убираем отступ сверху
 
