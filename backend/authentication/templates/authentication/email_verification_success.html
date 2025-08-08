@@ -125,20 +125,20 @@
             <p class="message">
                 Ваш email успешно подтвержден. Теперь вы можете войти в свой аккаунт и пользоваться всеми возможностями VrachiApp.
             </p>
-            <a href="http://localhost:5173" class="btn">Перейти на главную</a>
+            <a href="https://healzy.uz" class="btn">Перейти на главную</a>
         {% else %}
             <div class="error">
                 <h2>Ошибка подтверждения</h2>
                 <p>{{ error_message }}</p>
             </div>
-            <a href="http://localhost:5173" class="btn">Перейти на главную</a>
+            <a href="https://healzy.uz" class="btn">Перейти на главную</a>
         {% endif %}
     </div>
     
     <script>
         // Автоматическое перенаправление через 5 секунд
         setTimeout(() => {
-            window.location.href = 'http://localhost:5173';
+            window.location.href = 'https://healzy.uz';
         }, 5000);
     </script>
 </body>

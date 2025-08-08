@@ -29,7 +29,7 @@
 
 .admin-panel {
   padding: $spacing-xl;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: $white;
   
   &__header {
@@ -589,6 +589,69 @@
     &:hover {
       background: darken($primary-blue, 10%);
       transform: translateY(-2px);
+    }
+  }
+
+  // Мобильная адаптация
+  @media (max-width: 768px) {
+    padding: $spacing-lg;
+
+    &__header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: $spacing-md;
+    }
+
+    &__tabs {
+      flex-wrap: wrap;
+      gap: $spacing-sm;
+      .admin-panel__tab {
+        flex: 1 1 auto;
+        text-align: center;
+      }
+    }
+
+    &__applications,
+    &__users {
+      gap: $spacing-md;
+    }
+
+    &__application-card,
+    &__user-card {
+      flex-direction: column;
+      align-items: stretch;
+      gap: $spacing-md;
+    }
+
+    &__application-actions,
+    &__user-actions {
+      justify-content: stretch;
+      button { width: 100%; }
+    }
+
+    &__stats {
+      grid-template-columns: 1fr 1fr;
+      @media (max-width: 480px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    &__filters {
+      gap: $spacing-sm;
+      .admin-panel__filter {
+        flex: 1 1 auto;
+        text-align: center;
+      }
+    }
+
+    &__modal {
+      width: 100%;
+      max-width: none;
+      margin: 0 $spacing-sm;
+    }
+
+    &__form-row {
+      grid-template-columns: 1fr;
     }
   }
 }

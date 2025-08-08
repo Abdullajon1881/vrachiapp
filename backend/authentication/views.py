@@ -954,16 +954,21 @@ def verify_email_html_view(request, token):
     try:
         user = verify_email_token(token)
         if user:
+            # Успех: передаем флаг success в шаблон успеха
             return render(request, 'authentication/email_verification_success.html', {
-                'user': user
+                'success': True,
+                'user': user,
             })
         else:
-            return render(request, 'authentication/email_verification.html', {
-                'error': 'Недействительный или истекший токен верификации'
+            # Неуспех: показываем страницу успеха, но с блоком ошибки
+            return render(request, 'authentication/email_verification_success.html', {
+                'success': False,
+                'error_message': 'Недействительный или истекший токен верификации'
             })
-    except Exception as e:
-        return render(request, 'authentication/email_verification.html', {
-            'error': 'Ошибка верификации email'
+    except Exception:
+        return render(request, 'authentication/email_verification_success.html', {
+            'success': False,
+            'error_message': 'Ошибка верификации email'
         })
 
 
