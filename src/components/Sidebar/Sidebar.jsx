@@ -76,7 +76,6 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
 
       if (response.ok) {
         const consultations = await response.json();
-        console.log('Sidebar consultations:', consultations); // Для отладки
         const stats = consultations.reduce((acc, consultation) => {
           acc[consultation.status] = (acc[consultation.status] || 0) + 1;
           return acc;

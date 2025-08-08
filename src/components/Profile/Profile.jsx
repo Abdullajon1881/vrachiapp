@@ -68,7 +68,6 @@ const Profile = () => {
         setRegions(data);
       }
     } catch (err) {
-      console.error('Ошибка загрузки регионов:', err);
     }
   };
 
@@ -92,7 +91,6 @@ const Profile = () => {
         }
       }
     } catch (err) {
-      console.error('Ошибка загрузки городов:', err);
     }
   };
 
@@ -116,7 +114,6 @@ const Profile = () => {
         }
       }
     } catch (err) {
-      console.error('Ошибка загрузки районов:', err);
     }
   };
 
@@ -141,7 +138,6 @@ const Profile = () => {
         }
       }
     } catch (err) {
-      console.error('Ошибка загрузки районов по городу:', err);
       // В случае ошибки показываем районы региона
       if (formData.region) {
         fetchDistricts(formData.region);

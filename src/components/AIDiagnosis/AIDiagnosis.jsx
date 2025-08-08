@@ -34,7 +34,6 @@ const AIDiagnosis = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (SpeechRecognition) {
-      console.log('✅ Speech Recognition поддерживается!');
       setIsSupported(true);
       
       const recognition = new SpeechRecognition();
@@ -67,8 +66,6 @@ const AIDiagnosis = () => {
             });
           
           setAvailableVoices(russianVoices);
-          console.log('🎵 Голоса загружены и отсортированы:', voices.length, 'всего, русских:', russianVoices.length);
-          console.log('🎯 Топ-3 голоса:', russianVoices.slice(0, 3).map(v => `${v.name} (${v.localService ? 'локальный' : 'облачный'})`));
         };
         
         // Принудительно загружаем голоса
@@ -79,7 +76,6 @@ const AIDiagnosis = () => {
       
       // Обработчики событий
       recognition.onstart = () => {
-        console.log('🎤 Распознавание речи началось');
         setIsListening(true);
       };
       
@@ -95,13 +91,11 @@ const AIDiagnosis = () => {
         }
         
         if (finalTranscript.trim()) {
-          console.log('🗣️ Распознанная речь:', finalTranscript);
           handleVoiceInput(finalTranscript.trim());
         }
       };
       
       recognition.onerror = (event) => {
-        console.error('❌ Ошибка распознавания речи:', event.error);
         setIsListening(false);
         
         if (event.error === 'not-allowed') {
@@ -110,12 +104,10 @@ const AIDiagnosis = () => {
       };
       
       recognition.onend = () => {
-        console.log('🔇 Распознавание речи завершено');
         setIsListening(false);
       };
       
     } else {
-      console.log('❌ Speech Recognition не поддерживается');
       setIsSupported(false);
     }
     
@@ -124,7 +116,6 @@ const AIDiagnosis = () => {
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
-          console.log('🎵 Голоса загружены:', voices.length);
         }
       };
       
@@ -141,25 +132,21 @@ const AIDiagnosis = () => {
     }
     
     if (isListening) {
-      console.log('🔴 Останавливаем голосовое прослушивание...');
       speechRecognition.stop();
       setIsListening(false);
       return;
     }
 
-    console.log('🎤 Запускаем Speech Recognition...');
     
     try {
       speechRecognition.start();
     } catch (error) {
-      console.error('❌ Ошибка запуска распознавания:', error);
       alert('Не удалось запустить распознавание речи. Убедитесь что микрофон доступен.');
     }
   };
 
   // Обработка голосового ввода от Speech Recognition
   const handleVoiceInput = async (transcript) => {
-    console.log('💬 Обрабатываю голосовой ввод:', transcript);
     
     // Добавляем сообщение пользователя в чат
     const userMessage = {
@@ -202,7 +189,6 @@ const AIDiagnosis = () => {
         throw new Error('Ошибка сервера');
       }
     } catch (error) {
-      console.error('❌ Ошибка при отправке голосового сообщения:', error);
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
@@ -247,7 +233,6 @@ const AIDiagnosis = () => {
   // Озвучиваем текст с помощью Web Speech API
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) {
-      console.log('❌ Speech Synthesis не поддерживается в этом браузере');
       return;
     }
 
@@ -255,11 +240,9 @@ const AIDiagnosis = () => {
     const cleanText = cleanTextForSpeech(text);
     
         if (!cleanText.trim()) {
-      console.log('⚠️ Текст пустой после очистки, пропускаем озвучивание');
       return;
     }
 
-    console.log('🗣️ Озвучиваю текст:', cleanText.substring(0, 50) + '...');
 
     // Останавливаем текущую речь
     window.speechSynthesis.cancel();
@@ -267,7 +250,6 @@ const AIDiagnosis = () => {
     // Приостанавливаем прослушивание во время речи AI
     const wasListening = isListening;
     if (wasListening) {
-      console.log('⏸️ Приостанавливаю прослушивание для речи AI');
       speechRecognition.stop();
     }
 
@@ -284,18 +266,15 @@ const AIDiagnosis = () => {
     
     if (availableVoices.length > 0) {
       selectedVoice = availableVoices[currentVoiceIndex % availableVoices.length];
-      console.log(`🎵 Используем голос ${currentVoiceIndex + 1}/${availableVoices.length}:`, selectedVoice.name);
     } else {
       // Fallback к автоматическому поиску
       const voices = window.speechSynthesis.getVoices();
       selectedVoice = voices.find(voice => voice.lang.startsWith('ru'));
-      console.log('⚠️ Fallback к автоматическому поиску голоса');
     }
     
     if (selectedVoice) {
       utterance.voice = selectedVoice;
-      console.log('✅ Выбран голос:', selectedVoice.name, 
-                  selectedVoice.localService ? '(локальный)' : '(облачный)');
+
       
       // Индивидуальные настройки для каждого голоса
       const voiceName = selectedVoice.name.toLowerCase();
@@ -336,21 +315,17 @@ const AIDiagnosis = () => {
         utterance.volume = Math.min(utterance.volume + 0.05, 1.0);
       }
     } else {
-      console.log('⚠️ Русские голоса не найдены');
     }
 
     utterance.onstart = () => {
       setIsSpeaking(true);
-      console.log('🗣️ AI начала говорить');
     };
 
     utterance.onend = () => {
       setIsSpeaking(false);
-      console.log('🔇 AI закончила говорить');
       
       // Возобновляем прослушивание после речи AI
       if (wasListening) {
-        console.log('▶️ Возобновляю прослушивание через 0.5 сек...');
         setTimeout(() => {
           if (speechRecognition) {
             speechRecognition.start();
@@ -361,14 +336,11 @@ const AIDiagnosis = () => {
 
     utterance.onerror = (event) => {
       setIsSpeaking(false);
-      console.error('❌ Ошибка синтеза речи:', event);
     };
 
     try {
       window.speechSynthesis.speak(utterance);
-      console.log('🎤 Запустил синтез речи');
     } catch (error) {
-      console.error('❌ Ошибка при запуске синтеза речи:', error);
       setIsSpeaking(false);
     }
   };
@@ -411,7 +383,6 @@ const AIDiagnosis = () => {
       setCurrentVoiceIndex(newIndex);
       const newVoice = availableVoices[newIndex];
       const quality = getVoiceQuality(newVoice.name);
-      console.log(`🔄 Голос ${newIndex + 1}/${availableVoices.length}:`, newVoice.name, `(качество: ${quality})`);
       
       // Тестируем новый голос более естественным текстом
       speakText('Привет! Меня зовут Healzy. Я ваш медицинский помощник. Как этот голос?');

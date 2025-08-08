@@ -30,7 +30,6 @@ const DoctorProfile = () => {
           setError('Врач не найден');
         }
       } catch (error) {
-        console.error('Ошибка при загрузке профиля врача:', error);
         setError('Ошибка соединения с сервером');
       } finally {
         setLoading(false);
@@ -121,7 +120,6 @@ const DoctorProfile = () => {
         alert(data.error || 'Ошибка создания консультации');
       }
     } catch (error) {
-      console.error('Ошибка при создании консультации:', error);
       alert('Ошибка соединения с сервером');
     } finally {
       setCreatingConsultation(false);

@@ -79,7 +79,6 @@ const DoctorApplication = () => {
         setRegions(data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки регионов:', error);
     }
   };
 
@@ -91,7 +90,6 @@ const DoctorApplication = () => {
         setCities(data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки городов:', error);
     }
   };
 
@@ -103,7 +101,6 @@ const DoctorApplication = () => {
         setDistricts(data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки районов:', error);
     }
   };
 
@@ -124,7 +121,6 @@ const DoctorApplication = () => {
         }
       }
     } catch (error) {
-      console.error('Ошибка загрузки районов по городу:', error);
       // В случае ошибки показываем районы региона
       if (formData.region) {
         loadDistricts(formData.region);
@@ -217,7 +213,6 @@ const DoctorApplication = () => {
       if (formData.diploma) formDataToSend.append('diploma', formData.diploma);
       if (formData.license) formDataToSend.append('license', formData.license);
 
-      console.log('Отправляем данные:', Object.fromEntries(formDataToSend));
 
       const response = await fetch('https://healzy.uz/api/auth/doctor-applications/', {
         method: 'POST',
@@ -254,11 +249,9 @@ const DoctorApplication = () => {
         });
       } else {
         const error = await response.json();
-        console.error('Ошибка сервера:', error);
         showMessage(error.message || 'Ошибка отправки заявки', 'error');
       }
     } catch (error) {
-      console.error('Ошибка соединения:', error);
       showMessage('Ошибка соединения с сервером', 'error');
     } finally {
       setLoading(false);

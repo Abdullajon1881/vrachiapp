@@ -33,7 +33,6 @@ const AdminPanel = ({ updateUserData }) => {
         fetchUsers();
       }
     } catch (error) {
-      console.error('Ошибка в useEffect AdminPanel:', error);
       setError('Ошибка загрузки данных');
     }
   }, [activeSection, activeTab, hasAdminAccess]);
@@ -46,24 +45,20 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Данные пользователя в админке:', data);
         setUserData(data);
         
         // Проверяем, есть ли у пользователя права администратора
         const isAdmin = data.is_staff || data.is_superuser || data.role === 'admin';
-        console.log('Права администратора:', isAdmin);
         setHasAdminAccess(isAdmin);
         
         if (!isAdmin) {
           setError('У вас нет прав для доступа к панели администратора');
         }
       } else {
-        console.error('Ошибка проверки прав доступа:', response.status);
         setError('Ошибка проверки прав доступа');
         setHasAdminAccess(false);
       }
     } catch (error) {
-      console.error('Ошибка проверки прав пользователя:', error);
       setError('Ошибка соединения с сервером');
       setHasAdminAccess(false);
     }
@@ -85,12 +80,10 @@ const AdminPanel = ({ updateUserData }) => {
         const data = await response.json();
         setApplications(data);
       } else {
-        console.error('Ошибка загрузки заявок:', response.status);
         setError('Ошибка загрузки заявок');
         setApplications([]);
       }
     } catch (error) {
-      console.error('Ошибка загрузки заявок:', error);
       setError('Ошибка соединения с сервером');
       setApplications([]);
     } finally {
@@ -102,14 +95,10 @@ const AdminPanel = ({ updateUserData }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Загружаем пользователей...');
       const response = await fetch('https://healzy.uz/api/auth/users/', {
         credentials: 'include'
       });
-      
-      console.log('Ответ сервера:', response.status);
-      console.log('Заголовки ответа:', response.headers);
-      
+            
       if (response.ok) {
         const data = await response.json();
         
@@ -123,12 +112,10 @@ const AdminPanel = ({ updateUserData }) => {
             
             setUsers(usersArray);
           } else {
-            console.error('Полученные данные не являются массивом:', data);
             setError('Неверный формат данных');
             setUsers([]);
           }
         } else {
-          console.error('Полученные данные не являются массивом:', data);
           setError('Неверный формат данных');
           setUsers([]);
         }
@@ -671,7 +658,6 @@ const AdminPanel = ({ updateUserData }) => {
                   <button 
                     className="admin-panel__view-btn"
                     onClick={() => {
-                      console.log('Нажата кнопка "Управлять профилем" для пользователя:', user);
                       openUserModal(user);
                     }}
                   >

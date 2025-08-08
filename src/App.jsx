@@ -38,7 +38,6 @@ function App() {
         setUserData(parsedUser);
         setIsAuthenticated(true);
       } catch (error) {
-        console.error('Ошибка парсинга данных пользователя:', error);
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setUserData(null);
@@ -95,11 +94,9 @@ function App() {
               // Очищаем URL
               window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-              console.error('Ошибка Google OAuth:', data.error);
               window.history.replaceState({}, document.title, window.location.pathname);
             }
           } catch (err) {
-            console.error('Ошибка соединения с сервером:', err);
             window.history.replaceState({}, document.title, window.location.pathname);
           }
         }
@@ -136,7 +133,6 @@ function App() {
             // Перенаправляем на главную страницу
             window.location.href = '/';
           } catch (err) {
-            console.error('Ошибка верификации email:', err);
             alert('Ошибка соединения с сервером');
             window.location.href = '/';
           }
