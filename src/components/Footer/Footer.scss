@@ -153,6 +153,39 @@
             }
           }
         }
+
+        // Кнопочные ссылки (SPA переходы) стилизуем как обычные ссылки
+        .footer__link-btn {
+          background: none;
+          border: none;
+          padding: 0;
+          margin: 0;
+          color: $text-dark;
+          text-decoration: none;
+          font-size: $font-size-md;
+          cursor: pointer;
+          transition: color 0.3s ease;
+          font-family: inherit;
+          line-height: 1.4;
+
+          &:hover {
+            color: $primary-blue;
+          }
+
+          &:focus {
+            outline: none;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+          }
+
+          .dark-theme & {
+            color: $dark-text-secondary;
+
+            &:hover {
+              color: $dark-text;
+            }
+          }
+        }
       }
     }
   }

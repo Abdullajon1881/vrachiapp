@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Services.scss';
 
 const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
+  const navigate = useNavigate();
   const services = [
     // Медицинские услуги
     {
@@ -182,7 +184,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
                 <h3 className="service-card__title">{service.title}</h3>
                 <p className="service-card__description">{service.description}</p>
                 {userData && userData.role !== 'doctor' && (
-                  <button className="service-card__btn">
+                  <button className="service-card__btn" onClick={() => navigate('/services')}>
                     Подробнее
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                       <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -211,7 +213,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
                       <h3 className="service-card__title">{service.title}</h3>
                       <p className="service-card__description">{service.description}</p>
                       {userData && userData.role !== 'doctor' && (
-                        <button className="service-card__btn">
+                        <button className="service-card__btn" onClick={() => navigate('/services')}>
                           Подробнее
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                             <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -228,7 +230,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
 
         <div className="services__cta">
           {userData && userData.role !== 'doctor' && (
-            <button className="btn btn--primary" onClick={handleShowAllServices}>
+            <button className="btn btn--primary" onClick={() => navigate('/services')}>
               Все услуги
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -236,7 +238,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
             </button>
           )}
           {userData && userData.role === 'patient' && (
-            <button className="btn btn--secondary" onClick={handleShowDoctors}>
+            <button className="btn btn--secondary" onClick={() => navigate('/doctors')}>
               Найти врача
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

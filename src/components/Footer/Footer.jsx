@@ -1,7 +1,9 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import './Footer.scss';
 
 const Footer = () => {
+  const navigate = useNavigate();
   return (
     <footer className="footer">
       <div className="container">
@@ -32,30 +34,30 @@ const Footer = () => {
             <div className="footer__section">
               <h4>Услуги</h4>
               <ul>
-                <li><a href="#">Терапия</a></li>
-                <li><a href="#">Кардиология</a></li>
-                <li><a href="#">Неврология</a></li>
-                <li><a href="#">Офтальмология</a></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Терапия</button></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Кардиология</button></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Неврология</button></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Офтальмология</button></li>
               </ul>
             </div>
 
             <div className="footer__section">
               <h4>Диагностика</h4>
               <ul>
-                <li><a href="#">Лабораторные анализы</a></li>
-                <li><a href="#">УЗИ диагностика</a></li>
-                <li><a href="#">ЭКГ</a></li>
-                <li><a href="#">Рентген</a></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Лабораторные анализы</button></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">УЗИ диагностика</button></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">ЭКГ</button></li>
+                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Рентген</button></li>
               </ul>
             </div>
 
             <div className="footer__section">
               <h4>Информация</h4>
               <ul>
-                <li><a href="/about">О нас</a></li>
-                <li><a href="/doctors">Врачи</a></li>
-                <li><a href="/services">Услуги</a></li>
-                <li><a href="#">Контакты</a></li>
+                <li><Link to="/about">О нас</Link></li>
+                <li><Link to="/doctors">Врачи</Link></li>
+                <li><Link to="/services">Услуги</Link></li>
+                <li><button type="button" onClick={() => navigate('/contact')} className="footer__link-btn">Контакты</button></li>
               </ul>
             </div>
 

@@ -10,7 +10,9 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [ws, setWs] = useState(null);
+  // WebSocket и keepalive лучше держать в ref, чтобы не триггерить лишние рендеры
+  const wsRef = useRef(null);
+  const pingIntervalRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -25,14 +27,16 @@ const Chat = () => {
     connectWebSocket();
 
     return () => {
-      // Используем функцию для получения актуального состояния WebSocket
-      setWs(currentWs => {
-        if (currentWs && currentWs.readyState === WebSocket.OPEN) {
-          console.log('Cleanup: закрываем WebSocket подключение');
-          currentWs.close();
+      try {
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
         }
-        return null;
-      });
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log('Cleanup: закрываем WebSocket подключение');
+          wsRef.current.close();
+        }
+      } catch (_) {}
       setWsConnected(false);
     };
   }, [consultationId]);
@@ -87,9 +91,9 @@ const Chat = () => {
 
   const connectWebSocket = () => {
     // Закрываем существующее подключение если есть
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       console.log('Закрываем существующее WebSocket подключение');
-      ws.close();
+      wsRef.current.close();
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -101,10 +105,24 @@ const Chat = () => {
     // WebSocket не поддерживает передачу заголовков, но браузер автоматически передает куки
     // для того же домена, если они httpOnly
     const websocket = new WebSocket(wsUrl);
+    wsRef.current = websocket;
 
     websocket.onopen = () => {
       console.log('WebSocket соединение установлено');
       setWsConnected(true);
+      // Запускаем keepalive ping каждые 25 секунд
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+      pingIntervalRef.current = setInterval(() => {
+        try {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'ping' }));
+          }
+        } catch (e) {
+          console.warn('Не удалось отправить ping:', e);
+        }
+      }, 25000);
     };
 
     websocket.onmessage = (event) => {
@@ -161,6 +179,11 @@ const Chat = () => {
     websocket.onclose = (event) => {
       console.log('WebSocket соединение закрыто:', event.code, event.reason);
       setWsConnected(false);
+      // Чистим keepalive
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
       
       // Проверяем код закрытия для понимания причины
       if (event.code === 4001) {
@@ -186,7 +209,6 @@ const Chat = () => {
       }, 3000);
     };
 
-    setWs(websocket);
   };
 
   const scrollToBottom = () => {
@@ -197,13 +219,13 @@ const Chat = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || sending || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!newMessage.trim() || sending || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
     setSending(true);
 
     try {
       // Отправляем сообщение через WebSocket
-      ws.send(JSON.stringify({
+      wsRef.current.send(JSON.stringify({
         type: 'chat_message',
         message: newMessage.trim()
       }));

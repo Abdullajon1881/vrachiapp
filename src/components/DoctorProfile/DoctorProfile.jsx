@@ -284,25 +284,24 @@ const DoctorProfile = () => {
             </div>
 
             <div className="doctor-profile__action-card">
-              <h3>Записаться на прием</h3>
-              <p>Выберите удобный способ связи с врачом</p>
+              <h3>Связаться с врачом</h3>
+              <p>Выберите удобный способ связи</p>
               <div className="doctor-profile__action-buttons">
                 {doctor.phone && (
                   <a href={`tel:${doctor.phone}`} className="doctor-profile__call-btn">
                     📞 Позвонить
                   </a>
                 )}
+                {doctor.email && (
+                  <a href={`mailto:${doctor.email}`} className="doctor-profile__appointment-btn">
+                    ✉️ Написать на email
+                  </a>
+                )}
                 <button 
                   onClick={handleConsultation}
                   className="doctor-profile__consultation-btn"
                 >
-                  💬 Начать консультацию
-                </button>
-                <button 
-                  onClick={handleAppointment}
-                  className="doctor-profile__appointment-btn"
-                >
-                  📅 Записаться онлайн
+                  💬 Начать онлайн‑консультацию
                 </button>
               </div>
             </div>
