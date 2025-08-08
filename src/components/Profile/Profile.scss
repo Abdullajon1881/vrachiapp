@@ -2,7 +2,7 @@
 
 .profile {
   padding: $spacing-2xl;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(135deg, $light-blue 0%, $white 100%);
 
   .dark-theme & {
@@ -225,6 +225,128 @@
     .dark-theme & {
       background: $dark-card;
       box-shadow: $shadow-dark-medium;
+    }
+  }
+
+  /* Настройки / выход */
+  &__settings {
+    margin-top: $spacing-2xl;
+    background: $white;
+    border-radius: $border-radius-xl;
+    padding: $spacing-2xl;
+    box-shadow: $shadow-medium;
+
+    .dark-theme & {
+      background: $dark-card;
+      box-shadow: $shadow-dark-medium;
+    }
+  }
+
+  &__settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    @media (max-width: 768px) {
+      justify-content: center;
+    }
+  }
+
+  &__logout-btn {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  /* ===== Мобильная адаптация ===== */
+  @media (max-width: 768px) {
+    padding: $spacing-md;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+
+    &__container {
+      width: 100%;
+    }
+
+    &__header {
+      padding: $spacing-xl;
+      gap: $spacing-xl;
+    }
+
+    &__avatar,
+    &__avatar-placeholder {
+      width: 96px;
+      height: 96px;
+    }
+
+    &__name {
+      font-size: $font-size-2xl;
+    }
+
+    &__email {
+      font-size: $font-size-md;
+    }
+
+    &__actions {
+      width: 100%;
+      .btn {
+        width: 100%;
+        min-height: 48px;
+      }
+    }
+
+    &__content {
+      padding: $spacing-lg;
+      box-shadow: $shadow-light;
+    }
+
+    &__section-title {
+      font-size: $font-size-xl;
+      margin-bottom: $spacing-lg;
+      padding-bottom: $spacing-sm;
+    }
+
+    &__form-grid {
+      gap: $spacing-lg;
+    }
+
+    &__form-group {
+      label {
+        font-size: $font-size-xs;
+      }
+      input,
+      select,
+      textarea {
+        font-size: $font-size-md;
+        padding: $spacing-md;
+        min-height: 48px;
+        border-radius: $border-radius-lg;
+      }
+      textarea {
+        min-height: 120px;
+      }
+    }
+
+    /* Кнопки по умолчанию во всю ширину на мобилках */
+    .btn {
+      width: 100%;
+      min-height: 48px;
+    }
+
+    /* Закрепляем действия настроек над нижней навигацией */
+    &__settings-actions {
+      position: sticky;
+      bottom: calc(80px + env(safe-area-inset-bottom));
+      padding-top: $spacing-md;
+      background: linear-gradient(180deg, rgba($white, 0) 0%, rgba($white, 1) 40%);
+      .dark-theme & {
+        background: linear-gradient(180deg, rgba($dark-card, 0) 0%, rgba($dark-card, 1) 40%);
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    &__header {
+      padding: $spacing-lg;
+    }
+    &__content {
+      padding: $spacing-md;
     }
   }
 

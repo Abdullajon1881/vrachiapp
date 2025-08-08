@@ -15,6 +15,19 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
 
+  const handleLogout = async () => {
+    try {
+      // Пытаемся завершить серверную сессию, если эндпоинт существует
+      await fetch('https://healzy.uz/api/auth/logout/', {
+        method: 'POST',
+        credentials: 'include'
+      }).catch(() => {});
+    } catch (_) {}
+    // Чистим локальные данные и уходим на главную
+    localStorage.removeItem('user');
+    window.location.href = '/';
+  };
+
   useEffect(() => {
     fetchUserData();
     fetchRegions();
@@ -553,6 +566,16 @@ const Profile = () => {
                 </div>
               </div>
             )}
+
+            {/* Настройки / выход */}
+            <div className="profile__section">
+              <h2 className="profile__section-title">Настройки</h2>
+              <div className="profile__settings-actions">
+                <button type="button" className="btn btn--secondary profile__logout-btn" onClick={handleLogout}>
+                  Выйти из аккаунта
+                </button>
+              </div>
+            </div>
           </form>
         </div>
       </div>

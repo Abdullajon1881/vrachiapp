@@ -2,11 +2,13 @@
 
 .doctors {
   padding: $spacing-2xl;
+  min-height: 100dvh;
   max-width: 1200px;
   margin: 0 auto;
 
   @media (max-width: 768px) {
     padding: $spacing-lg;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
   @media (max-width: 480px) {
@@ -48,6 +50,17 @@
 
   &__filters {
     margin-bottom: $spacing-3xl;
+    background: $white;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-xl;
+    padding: $spacing-xl;
+    box-shadow: $shadow-light;
+
+    .dark-theme & {
+      background: $dark-card;
+      border-color: $dark-border;
+      box-shadow: $shadow-dark-light;
+    }
   }
 
   &__search {
@@ -137,6 +150,7 @@
 
     @media (max-width: 768px) {
       flex-direction: column;
+      gap: $spacing-sm;
     }
   }
 
@@ -167,6 +181,12 @@
     background: $white;
     cursor: pointer;
     transition: all 0.3s ease;
+
+    @media (max-width: 768px) {
+      min-height: 48px;
+      font-size: $font-size-md;
+      border-radius: $border-radius-xl;
+    }
 
     .dark-theme & {
       background: $dark-bg;
@@ -222,7 +242,7 @@
 
   &__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: $spacing-2xl;
 
     @media (max-width: 768px) {

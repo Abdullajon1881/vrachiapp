@@ -11,7 +11,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 99999;
   padding: $spacing-lg;
   /* гарантируем центрирование на мобильных с безопасной зоной */
   min-height: 100dvh;
@@ -22,10 +22,13 @@
   border-radius: $border-radius-xl;
   box-shadow: $shadow-heavy;
   max-width: 480px;
-  width: 100%;
+  width: calc(100vw - 32px);
   max-height: 90dvh;
   overflow-y: auto;
-  position: relative;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   animation: modalSlideIn 0.3s ease-out;
 
   .dark-theme & {
@@ -347,6 +350,7 @@
   }
 
   .auth-modal {
+    width: calc(100vw - 24px);
     &__content {
       padding: $spacing-xl;
     }
@@ -364,6 +368,7 @@
 
 @media (max-width: 480px) {
   .auth-modal {
+    width: calc(100vw - 20px);
     &__content {
       padding: $spacing-lg;
     }

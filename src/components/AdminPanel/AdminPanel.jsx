@@ -19,6 +19,14 @@ const AdminPanel = ({ updateUserData }) => {
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState(null);
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
+  
+  const handleLogout = async () => {
+    try {
+      await fetch('https://healzy.uz/api/auth/logout/', { method: 'POST', credentials: 'include' }).catch(() => {});
+    } catch (_) {}
+    localStorage.removeItem('user');
+    window.location.href = '/';
+  };
 
   useEffect(() => {
     // Проверяем права пользователя при загрузке компонента
@@ -535,6 +543,12 @@ const AdminPanel = ({ updateUserData }) => {
             Управление пользователями
           </button>
         </div>
+      </div>
+      
+      <div className="admin-panel__logout">
+        <button className="admin-panel__logout-btn" onClick={handleLogout}>
+          Выйти из аккаунта
+        </button>
       </div>
 
       {activeSection === 'applications' && (

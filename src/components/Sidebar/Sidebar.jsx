@@ -222,7 +222,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   
   if (isAuthenticated) {
     if (isAdmin) {
-      // Для администраторов показываем только админские пункты + главная и о нас
+      // Для администраторов показываем админские пункты + logout
       navigationItems = [...navigationItems, ...adminNavigationItems];
     } else if (isDoctor) {
       // Для врачей показываем базовые пункты + консультации, услуги, профиль
