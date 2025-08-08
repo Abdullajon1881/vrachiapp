@@ -4,13 +4,23 @@
   padding: $spacing-lg;
   max-width: 1400px; // Увеличил ширину чата (было 1200px)
   margin: 0 auto;
-  min-height: calc(100vh - 100px); // Увеличил высоту компонента
+  min-height: 100dvh; // Используем динамическую высоту экрана для мобилок
+  
+  @media (max-width: 768px) {
+    padding: $spacing-md;
+    // Отталкиваем контент от фиксированной нижней моб. навигации
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  
+  @media (max-width: 480px) {
+    padding: $spacing-sm;
+  }
   
   &__container {
     background: $white;
     border-radius: $border-radius-lg;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    height: calc(100vh - 140px); // Увеличил высоту чата (было 160px)
+    min-height: calc(100dvh - 120px); // Адаптивная высота контейнера
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -82,6 +92,7 @@
     flex-direction: column;
     gap: $spacing-md;
     background: $light-gray;
+    -webkit-overflow-scrolling: touch;
 
     .dark-theme & {
       background: $dark-bg;
@@ -180,6 +191,9 @@
     padding: $spacing-lg;
     border-top: 1px solid $gray;
     background: $white;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 
     .dark-theme & {
       border-color: $dark-border;
