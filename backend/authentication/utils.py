@@ -23,7 +23,7 @@ def send_verification_email(user, verification_url):
     html_message = render_to_string('authentication/email_verification.html', {
         'user': user,
         'verification_url': html_verification_url,
-        'expires_in': '10 минут'
+        'expires_in': '24 часа'
     })
     
     # Текстовый шаблон для email
@@ -59,11 +59,11 @@ def send_verification_email(user, verification_url):
 
 
 def is_verification_token_expired(user):
-    """Проверяет, истек ли токен верификации (10 минут)"""
+    """Проверяет, истек ли токен верификации (увеличено до 24 часов)"""
     if not user.email_verification_sent_at:
         return True
     
-    expiration_time = user.email_verification_sent_at + timedelta(minutes=10)
+    expiration_time = user.email_verification_sent_at + timedelta(hours=24)
     return timezone.now() > expiration_time
 
 
