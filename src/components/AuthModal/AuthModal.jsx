@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import './AuthModal.scss';
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
@@ -193,7 +194,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div className="auth-modal-overlay" onClick={onClose}>
       <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
         <button className="auth-modal__close" onClick={onClose}>
@@ -367,6 +368,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(modalContent, document.body);
 };
 
 export default AuthModal; 
