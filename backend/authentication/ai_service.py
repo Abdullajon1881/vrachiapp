@@ -325,5 +325,27 @@ class HealzyAIService:
             logger.error(f"Ошибка при сохранении сообщения: {str(e)}")
             raise
 
+    def start_new_dialogue(self, user: User, title: Optional[str] = None) -> AIDialogue:
+        """Создает новый диалог и деактивирует предыдущий активный"""
+        # Деактивируем текущие активные диалоги пользователя
+        AIDialogue.objects.filter(user=user, is_active=True).update(is_active=False)
+        # Создаем новый
+        dialogue = AIDialogue.objects.create(
+            user=user,
+            title=title or 'Новый диалог с AI',
+            is_active=True,
+        )
+        return dialogue
+
+    def close_dialogue(self, user: User, dialogue_id: int) -> bool:
+        """Закрывает указанный диалог пользователя"""
+        try:
+            dialogue = AIDialogue.objects.get(id=dialogue_id, user=user)
+            dialogue.is_active = False
+            dialogue.save()
+            return True
+        except AIDialogue.DoesNotExist:
+            return False
+
 # Создаем экземпляр сервиса
 ai_service = HealzyAIService()
