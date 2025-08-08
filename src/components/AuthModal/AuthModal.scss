@@ -2,19 +2,16 @@
 
 .auth-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000000;
-  padding: 0;
-  /* гарантируем центрирование на мобильных с безопасной зоной */
-  min-height: 100dvh;
+}
+
+.dark-theme .auth-modal {
+  background: $dark-card;
+  color: $dark-text;
+  box-shadow: $shadow-dark-heavy;
 }
 
 .auth-modal {
@@ -25,10 +22,14 @@
   width: calc(100vw - 32px);
   max-height: 90dvh;
   overflow-y: auto;
-  position: relative;
-  margin: auto;
-  animation: modalFadeIn 0.2s ease-out both;
-  will-change: opacity;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  animation: none;
+  will-change: auto;
+  z-index: 1000001;
 
   .dark-theme & {
     background: $dark-card;
@@ -336,12 +337,6 @@
 }
 
 @media (max-width: 768px) {
-  .auth-modal-overlay {
-    padding: calc(#{$spacing-sm} + env(safe-area-inset-top)) $spacing-sm calc(#{$spacing-sm} + env(safe-area-inset-bottom));
-    align-items: center;
-    justify-content: center;
-  }
-
   .auth-modal {
     width: calc(100vw - 24px);
     &__content {

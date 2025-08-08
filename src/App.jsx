@@ -56,10 +56,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem('darkTheme', JSON.stringify(isDarkTheme));
     const appElement = document.querySelector('.app');
+    const htmlElement = document.documentElement;
+    const bodyElement = document.body;
     if (isDarkTheme) {
       appElement.classList.add('dark-theme');
+      htmlElement.classList.add('dark-theme');
+      bodyElement.classList.add('dark-theme');
     } else {
       appElement.classList.remove('dark-theme');
+      htmlElement.classList.remove('dark-theme');
+      bodyElement.classList.remove('dark-theme');
     }
   }, [isDarkTheme]);
 
