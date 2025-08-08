@@ -19,7 +19,7 @@ const DoctorProfile = () => {
   useEffect(() => {
     const fetchDoctorProfile = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/auth/doctors/${id}/`, {
+        const response = await fetch(`https://healzy.uz/api/auth/doctors/${id}/`, {
           credentials: 'include'
         });
         
@@ -97,7 +97,7 @@ const DoctorProfile = () => {
     setCreatingConsultation(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/consultations/create/', {
+      const response = await fetch('https://healzy.uz/api/auth/consultations/create/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

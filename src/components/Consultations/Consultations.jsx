@@ -14,7 +14,7 @@ const Consultations = () => {
 
   const fetchConsultations = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/consultations/', {
+      const response = await fetch('https://healzy.uz/api/auth/consultations/', {
         credentials: 'include'
       });
 
@@ -25,7 +25,6 @@ const Consultations = () => {
         setError('Ошибка загрузки консультаций');
       }
     } catch (error) {
-      console.error('Ошибка при загрузке консультаций:', error);
       setError('Ошибка соединения с сервером');
     } finally {
       setLoading(false);

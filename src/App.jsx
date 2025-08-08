@@ -77,7 +77,7 @@ function App() {
         if (accessToken) {
           try {
             // Отправляем токен на сервер
-            const response = await fetch('http://localhost:8000/api/auth/google-auth/', {
+            const response = await fetch('https://healzy.uz/api/auth/google-auth/', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ function App() {
         
         if (token) {
           try {
-            const response = await fetch(`http://localhost:8000/api/auth/verify-email/${token}/`, {
+            const response = await fetch(`https://healzy.uz/api/auth/verify-email/${token}/`, {
               method: 'GET',
               credentials: 'include'
             });
@@ -161,7 +161,7 @@ function App() {
 
   const updateUserData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+      const response = await fetch('https://healzy.uz/api/auth/current-user/', {
         credentials: 'include'
       });
       

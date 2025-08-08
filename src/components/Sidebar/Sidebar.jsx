@@ -70,7 +70,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
 
   const fetchConsultationsStats = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/consultations/', {
+      const response = await fetch('https://healzy.uz/api/auth/consultations/', {
         credentials: 'include'
       });
 
@@ -88,9 +88,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
           pending: stats.pending || 0
         });
       }
-    } catch (error) {
-      console.error('Ошибка при загрузке статистики консультаций:', error);
-    }
+    } catch (error) { }
   };
 
   // Определяем роль пользователя

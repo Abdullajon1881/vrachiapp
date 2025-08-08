@@ -29,7 +29,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/resend-verification/', {
+      const response = await fetch('https://healzy.uz/api/auth/resend-verification/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,12 +62,11 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     setSuccessMessage('');
     setNeedsVerification(false);
 
-    // Логируем данные формы для отладки
-    console.log('Form data being sent:', formData);
+    // без отладочного лога
 
     try {
       const endpoint = isLogin ? '/api/auth/login/' : '/api/auth/register/';
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
+      const response = await fetch(`https://healzy.uz${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +76,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
       });
 
       const data = await response.json();
-      console.log('Server response:', data);
 
       if (response.ok) {
         if (isLogin) {
@@ -128,7 +126,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
         setError(errorMessage);
       }
     } catch (err) {
-      console.error('Network error:', err);
       setError('Ошибка соединения с сервером. Проверьте интернет-соединение');
     } finally {
       setLoading(false);
@@ -149,7 +146,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
             if (response.access_token) {
               try {
                 // Отправляем токен на сервер
-                const serverResponse = await fetch('http://localhost:8000/api/auth/google-auth/', {
+                const serverResponse = await fetch('https://healzy.uz/api/auth/google-auth/', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

@@ -73,7 +73,7 @@ const DoctorApplication = () => {
 
   const loadRegions = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/regions/');
+      const response = await fetch('https://healzy.uz/api/auth/regions/');
       if (response.ok) {
         const data = await response.json();
         setRegions(data);
@@ -85,7 +85,7 @@ const DoctorApplication = () => {
 
   const loadCities = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/cities/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
@@ -97,7 +97,7 @@ const DoctorApplication = () => {
 
   const loadDistricts = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/districts/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setDistricts(data);
@@ -110,7 +110,7 @@ const DoctorApplication = () => {
   const loadDistrictsByCity = async (cityId) => {
     try {
       // Сначала пытаемся найти районы конкретного города
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?city_id=${cityId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/districts/?city_id=${cityId}`);
       if (response.ok) {
         const data = await response.json();
         if (data.length > 0) {
@@ -219,7 +219,7 @@ const DoctorApplication = () => {
 
       console.log('Отправляем данные:', Object.fromEntries(formDataToSend));
 
-      const response = await fetch('http://localhost:8000/api/auth/doctor-applications/', {
+      const response = await fetch('https://healzy.uz/api/auth/doctor-applications/', {
         method: 'POST',
         credentials: 'include',
         body: formDataToSend

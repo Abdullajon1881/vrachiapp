@@ -24,9 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = '296411a6e1177b3d3d96dc074cd15b83817c00cc8c6c2ab889069c7cbc45b753'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'healzy.uz', '172.174.231.5']
 
 
 # Application definition
@@ -67,7 +67,7 @@ CHANNEL_LAYERS = {
     },
 }
 
-# Настройки логирования
+# Настройки логирования (уровень понижен в продакшене)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -82,29 +82,25 @@ LOGGING = {
         },
     },
     'handlers': {
+        # В продакшене можно отключить консольный логгер и лог в файл для снижения нагрузки
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-            'formatter': 'verbose',
+            'formatter': 'simple',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'INFO',
+        'level': 'WARNING',
     },
     'loggers': {
         'authentication': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'handlers': ['console'],
+            'level': 'WARNING',
             'propagate': False,
         },
         'channels': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'WARNING',
             'propagate': False,
         },
     },
@@ -114,6 +110,7 @@ LOGGING = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://healzy.uz",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -140,9 +137,9 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # Отключаем CSRF для API endpoints
-CSRF_TRUSTED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
+CSRF_TRUSTED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://healzy.uz']
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
 
 ROOT_URLCONF = 'vrachiapp_backend.urls'
 
@@ -253,6 +250,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://healzy.uz",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -274,7 +272,7 @@ DEFAULT_FROM_EMAIL = 'ymarumar502@gmail.com'
 
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_COOKIE_SECURE = False  # Set to True in production
-SESSION_COOKIE_HTTPONLY = False  # Allow JavaScript access for debugging
+SESSION_COOKIE_SECURE = True  # secure cookies в продакшене
+SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = True  # Save session on every request

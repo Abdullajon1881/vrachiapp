@@ -26,7 +26,6 @@ const AdminPanel = ({ updateUserData }) => {
   }, []);
 
   useEffect(() => {
-    console.log('AdminPanel: useEffect triggered, activeSection:', activeSection, 'hasAdminAccess:', hasAdminAccess);
     try {
       if (hasAdminAccess && activeSection === 'applications') {
         fetchApplications();
@@ -41,7 +40,7 @@ const AdminPanel = ({ updateUserData }) => {
 
   const checkUserPermissions = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+      const response = await fetch('https://healzy.uz/api/auth/current-user/', {
         credentials: 'include'
       });
       
@@ -75,8 +74,8 @@ const AdminPanel = ({ updateUserData }) => {
     setError(null);
     try {
       const url = activeTab === 'all' 
-        ? 'http://localhost:8000/api/auth/doctor-applications/list/'
-        : `http://localhost:8000/api/auth/doctor-applications/list/?status=${activeTab}`;
+        ? 'https://healzy.uz/api/auth/doctor-applications/list/'
+        : `https://healzy.uz/api/auth/doctor-applications/list/?status=${activeTab}`;
       
       const response = await fetch(url, {
         credentials: 'include'
@@ -104,7 +103,7 @@ const AdminPanel = ({ updateUserData }) => {
     setError(null);
     try {
       console.log('Загружаем пользователей...');
-      const response = await fetch('http://localhost:8000/api/auth/users/', {
+      const response = await fetch('https://healzy.uz/api/auth/users/', {
         credentials: 'include'
       });
       
@@ -113,12 +112,6 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Полученные пользователи:', data);
-        console.log('Тип данных:', typeof data);
-        console.log('Является ли массивом:', Array.isArray(data));
-        console.log('Длина данных:', data ? data.length : 'undefined');
-        console.log('Ключи объекта:', data ? Object.keys(data) : 'undefined');
-        console.log('Структура данных:', JSON.stringify(data, null, 2));
         
         // Проверяем, что data является массивом
         if (Array.isArray(data)) {
@@ -127,7 +120,7 @@ const AdminPanel = ({ updateUserData }) => {
           // Ищем массив пользователей в объекте
           const usersArray = data.users || data.results || data.data || Object.values(data).find(val => Array.isArray(val));
           if (usersArray && Array.isArray(usersArray)) {
-            console.log('Найден массив пользователей в объекте:', usersArray);
+            
             setUsers(usersArray);
           } else {
             console.error('Полученные данные не являются массивом:', data);
@@ -139,15 +132,13 @@ const AdminPanel = ({ updateUserData }) => {
           setError('Неверный формат данных');
           setUsers([]);
         }
-      } else {
-        console.error('Ошибка загрузки пользователей:', response.status);
+        } else {
         const errorData = await response.json();
-        console.error('Детали ошибки:', errorData);
         setError(`Ошибка загрузки пользователей: ${response.status}`);
         setUsers([]);
       }
     } catch (error) {
-      console.error('Ошибка соединения при загрузке пользователей:', error);
+      
       setError('Ошибка соединения с сервером');
       setUsers([]);
     } finally {
@@ -157,78 +148,68 @@ const AdminPanel = ({ updateUserData }) => {
 
   const loadRegions = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/regions/');
+      const response = await fetch('https://healzy.uz/api/auth/regions/');
       if (response.ok) {
         const data = await response.json();
         setRegions(data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки регионов:', error);
+      
     }
   };
 
   const loadCities = async (regionId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/cities/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
       }
     } catch (error) {
-      console.error('Ошибка загрузки городов:', error);
+      
     }
   };
 
   const loadDistricts = async (regionId) => {
     try {
-      console.log('Загружаем районы для региона ID:', regionId);
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
-      console.log('Ответ от API районов:', response.status, response.ok);
+      const response = await fetch(`https://healzy.uz/api/auth/districts/?region_id=${regionId}`);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Загруженные районы:', data);
         setDistricts(data);
       } else {
-        console.error('Ошибка API районов:', response.status);
         const errorText = await response.text();
-        console.error('Текст ошибки:', errorText);
       }
     } catch (error) {
-      console.error('Ошибка загрузки районов:', error);
+      
     }
   };
 
   const loadDistrictsByCity = async (cityId) => {
     try {
-      console.log('Загружаем районы для города ID:', cityId);
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?city_id=${cityId}`);
-      console.log('Ответ от API районов по городу:', response.status, response.ok);
+      const response = await fetch(`https://healzy.uz/api/auth/districts/?city_id=${cityId}`);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Загруженные районы по городу:', data);
         if (data.length > 0) {
           // Если у города есть свои районы, показываем их
           setDistricts(data);
         } else {
           // Если у города нет своих районов, показываем районы региона
-          console.log('У города нет районов, загружаем районы региона');
+          
           if (editingUser.region) {
             loadDistricts(editingUser.region);
           }
         }
       } else {
-        console.error('Ошибка API районов по городу:', response.status);
         const errorText = await response.text();
-        console.error('Текст ошибки:', errorText);
         // В случае ошибки показываем районы региона
         if (editingUser.region) {
           loadDistricts(editingUser.region);
         }
       }
     } catch (error) {
-      console.error('Ошибка загрузки районов по городу:', error);
+      
       // В случае ошибки показываем районы региона
       if (editingUser.region) {
         loadDistricts(editingUser.region);
@@ -244,8 +225,7 @@ const AdminPanel = ({ updateUserData }) => {
     const selectedCity = cities.find(city => city.id == cityId);
     if (!selectedCity) return districts;
     
-    console.log('Выбранный город:', selectedCity);
-    console.log('Все районы:', districts);
+    
     
     // Фильтруем районы по городу, используя поле city в модели District
     const filteredDistricts = districts.filter(district => {
@@ -258,13 +238,13 @@ const AdminPanel = ({ updateUserData }) => {
       return !district.city;
     });
     
-    console.log('Отфильтрованные районы для города', selectedCity.name, ':', filteredDistricts);
+    
     return filteredDistricts;
   };
 
   const openApplicationModal = async (application) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/doctor-applications/${application.id}/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/doctor-applications/${application.id}/`, {
         credentials: 'include'
       });
       
@@ -279,17 +259,14 @@ const AdminPanel = ({ updateUserData }) => {
   };
 
   const openUserModal = async (user) => {
-    console.log('openUserModal вызвана для пользователя:', user);
+    
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/users/${user.id}/profile/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/users/${user.id}/profile/`, {
         credentials: 'include'
       });
       
       if (response.ok) {
         const userData = await response.json();
-        console.log('Данные пользователя из API:', userData);
-        console.log('Регион:', userData.region, 'Город:', userData.city, 'Район:', userData.district);
-        console.log('Названия:', userData.region_name, userData.city_name, userData.district_name);
         
         setSelectedUser(userData);
         setEditingUser({ ...userData });
@@ -301,11 +278,11 @@ const AdminPanel = ({ updateUserData }) => {
         
         // Если есть регион, загружаем города и районы
         if (userData.region) {
-          console.log('Загружаем города и районы для региона:', userData.region);
+           
           await loadCities(userData.region);
           await loadDistricts(userData.region);
         } else {
-          console.log('Регион не указан, города и районы будут загружены при выборе региона');
+          
           // Не очищаем города и районы, они загрузятся при выборе региона
         }
       } else {
@@ -318,7 +295,7 @@ const AdminPanel = ({ updateUserData }) => {
 
   const handleApprove = async (applicationId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/doctor-applications/${applicationId}/update/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/doctor-applications/${applicationId}/update/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -351,7 +328,7 @@ const AdminPanel = ({ updateUserData }) => {
     if (!reason) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/doctor-applications/${applicationId}/update/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/doctor-applications/${applicationId}/update/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -377,7 +354,7 @@ const AdminPanel = ({ updateUserData }) => {
 
   const handleUpdateDoctorName = async (applicationId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/doctor-applications/${applicationId}/update-name/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/doctor-applications/${applicationId}/update-name/`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -419,7 +396,7 @@ const AdminPanel = ({ updateUserData }) => {
 
   const handleRegionChange = (e) => {
     const regionId = e.target.value;
-    console.log('Выбран регион ID:', regionId);
+    
     
     setEditingUser(prev => ({
       ...prev,
@@ -429,11 +406,11 @@ const AdminPanel = ({ updateUserData }) => {
     }));
     
     if (regionId) {
-      console.log('Загружаем города и районы для региона:', regionId);
+      
       loadCities(regionId);
       loadDistricts(regionId);
     } else {
-      console.log('Регион не выбран, очищаем города и районы');
+      
       setCities([]);
       setDistricts([]);
     }
@@ -462,9 +439,9 @@ const AdminPanel = ({ updateUserData }) => {
 
   const handleSaveUser = async () => {
     try {
-      console.log('Отправляем данные для сохранения:', editingUser);
       
-      const response = await fetch(`http://localhost:8000/api/auth/users/${selectedUser.user.id}/profile/`, {
+      
+      const response = await fetch(`https://healzy.uz/api/auth/users/${selectedUser.user.id}/profile/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -475,7 +452,6 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Ответ от сервера после сохранения:', data);
         alert('Профиль пользователя успешно обновлен!');
         setSelectedUser(data.profile);
         setEditingUser({ ...data.profile });
@@ -505,7 +481,7 @@ const AdminPanel = ({ updateUserData }) => {
     if (!confirmed) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/users/${selectedUser.user.id}/delete/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/users/${selectedUser.user.id}/delete/`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -537,15 +513,7 @@ const AdminPanel = ({ updateUserData }) => {
     return 'Пациент';
   };
 
-  console.log('AdminPanel render:', { 
-    activeSection, 
-    loading, 
-    error, 
-    usersCount: users?.length || 0, 
-    applicationsCount: applications?.length || 0, 
-    hasAdminAccess,
-    userData: userData ? 'exists' : 'null'
-  });
+  
 
   // Если у пользователя нет прав администратора, показываем сообщение об ошибке
   if (!hasAdminAccess) {
@@ -762,7 +730,7 @@ const AdminPanel = ({ updateUserData }) => {
                     <div className="admin-panel__document">
                       <h4>Фотография</h4>
                       <img 
-                        src={`http://localhost:8000${selectedApplication.photo}`} 
+                        src={`https://healzy.uz${selectedApplication.photo}`}
                         alt="Фото врача" 
                         className="admin-panel__document-image"
                       />
@@ -773,7 +741,7 @@ const AdminPanel = ({ updateUserData }) => {
                     <div className="admin-panel__document">
                       <h4>Диплом</h4>
                       <a 
-                        href={`http://localhost:8000${selectedApplication.diploma}`} 
+                         href={`https://healzy.uz${selectedApplication.diploma}`}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="admin-panel__document-link"
@@ -787,7 +755,7 @@ const AdminPanel = ({ updateUserData }) => {
                     <div className="admin-panel__document">
                       <h4>Лицензия</h4>
                       <a 
-                        href={`http://localhost:8000${selectedApplication.license}`} 
+                         href={`https://healzy.uz${selectedApplication.license}`}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="admin-panel__document-link"

@@ -22,7 +22,7 @@ const Profile = () => {
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+      const response = await fetch('https://healzy.uz/api/auth/current-user/', {
         credentials: 'include'
       });
       
@@ -62,7 +62,7 @@ const Profile = () => {
 
   const fetchRegions = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/regions/');
+      const response = await fetch('https://healzy.uz/api/auth/regions/');
       if (response.ok) {
         const data = await response.json();
         setRegions(data);
@@ -78,7 +78,7 @@ const Profile = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/cities/?region_id=${regionId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/cities/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setCities(data);
@@ -102,7 +102,7 @@ const Profile = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?region_id=${regionId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/districts/?region_id=${regionId}`);
       if (response.ok) {
         const data = await response.json();
         setDistricts(data);
@@ -127,7 +127,7 @@ const Profile = () => {
     }
     try {
       // Сначала пытаемся найти районы конкретного города
-      const response = await fetch(`http://localhost:8000/api/auth/districts/?city_id=${cityId}`);
+      const response = await fetch(`https://healzy.uz/api/auth/districts/?city_id=${cityId}`);
       if (response.ok) {
         const data = await response.json();
         if (data.length > 0) {
@@ -182,7 +182,7 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/profile/', {
+      const response = await fetch('https://healzy.uz/api/auth/profile/', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -218,7 +218,7 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('avatar', avatarFile);
 
-      const response = await fetch('http://localhost:8000/api/auth/profile/', {
+      const response = await fetch('https://healzy.uz/api/auth/profile/', {
         method: 'PUT',
         credentials: 'include',
         body: formData

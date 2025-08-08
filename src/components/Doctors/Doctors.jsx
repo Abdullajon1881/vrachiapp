@@ -99,7 +99,7 @@ const Doctors = () => {
     // Получаем данные пользователя
     const fetchUserData = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+        const response = await fetch('https://healzy.uz/api/auth/current-user/', {
           credentials: 'include'
         });
         if (response.ok) {
@@ -159,7 +159,7 @@ const Doctors = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/doctors/', {
+      const response = await fetch('https://healzy.uz/api/auth/doctors/', {
         credentials: 'include'
       });
       
@@ -172,7 +172,6 @@ const Doctors = () => {
         setError(errorData.error || 'Ошибка загрузки врачей');
       }
     } catch (error) {
-      console.error('Ошибка при загрузке врачей:', error);
       setError('Ошибка соединения с сервером');
     } finally {
       setLoading(false);

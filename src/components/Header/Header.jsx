@@ -15,16 +15,14 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
     const fetchCurrentUser = async () => {
       if (isAuthenticated) {
         try {
-          const response = await fetch('http://localhost:8000/api/auth/current-user/', {
+          const response = await fetch('https://healzy.uz/api/auth/current-user/', {
             credentials: 'include'
           });
           if (response.ok) {
             const data = await response.json();
             setCurrentUserData(data);
           }
-        } catch (error) {
-          console.error('Ошибка получения данных пользователя:', error);
-        }
+        } catch (error) { }
       }
     };
 

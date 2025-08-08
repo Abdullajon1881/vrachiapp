@@ -33,7 +33,7 @@ const Chat = () => {
           pingIntervalRef.current = null;
         }
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          console.log('Cleanup: закрываем WebSocket подключение');
+          
           wsRef.current.close();
         }
       } catch (_) {}
@@ -51,7 +51,7 @@ const Chat = () => {
 
   const fetchConsultation = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/consultations/${consultationId}/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/consultations/${consultationId}/`, {
         credentials: 'include'
       });
 
@@ -62,14 +62,14 @@ const Chat = () => {
         setError('Консультация не найдена');
       }
     } catch (error) {
-      console.error('Ошибка при загрузке консультации:', error);
+      
       setError('Ошибка соединения с сервером');
     }
   };
 
   const fetchMessages = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/consultations/${consultationId}/messages/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/consultations/${consultationId}/messages/`, {
         credentials: 'include'
       });
 
@@ -82,7 +82,7 @@ const Chat = () => {
         setError('Ошибка загрузки сообщений');
       }
     } catch (error) {
-      console.error('Ошибка при загрузке сообщений:', error);
+      
       setError('Ошибка соединения с сервером');
     } finally {
       setLoading(false);
@@ -92,7 +92,7 @@ const Chat = () => {
   const connectWebSocket = () => {
     // Закрываем существующее подключение если есть
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log('Закрываем существующее WebSocket подключение');
+      
       wsRef.current.close();
     }
 
@@ -100,7 +100,7 @@ const Chat = () => {
     const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
     const wsUrl = `${protocol}//${host}/ws/chat/${consultationId}/`;
     
-    console.log('Подключение к WebSocket:', wsUrl);
+    
     
     // WebSocket не поддерживает передачу заголовков, но браузер автоматически передает куки
     // для того же домена, если они httpOnly
@@ -108,7 +108,7 @@ const Chat = () => {
     wsRef.current = websocket;
 
     websocket.onopen = () => {
-      console.log('WebSocket соединение установлено');
+      
       setWsConnected(true);
       // Запускаем keepalive ping каждые 25 секунд
       if (pingIntervalRef.current) {
@@ -120,7 +120,7 @@ const Chat = () => {
             wsRef.current.send(JSON.stringify({ type: 'ping' }));
           }
         } catch (e) {
-          console.warn('Не удалось отправить ping:', e);
+          
         }
       }, 25000);
     };
@@ -128,7 +128,7 @@ const Chat = () => {
     websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Получено WebSocket сообщение:', data);
+        
         
         if (data.type === 'chat_message') {
           const currentUser = getCurrentUser();
@@ -159,25 +159,25 @@ const Chat = () => {
             setJustSentMessage(true);
           }
         } else if (data.type === 'connection_established') {
-          console.log('WebSocket соединение подтверждено');
+          
         } else if (data.type === 'error') {
-          console.error('WebSocket ошибка:', data.message);
+          
           setError(data.message);
         } else if (data.type === 'pong') {
-          console.log('WebSocket pong получен');
+          
         }
       } catch (error) {
-        console.error('Ошибка парсинга WebSocket сообщения:', error);
+        
       }
     };
 
     websocket.onerror = (error) => {
-      console.error('WebSocket ошибка:', error);
+      
       setWsConnected(false);
     };
 
     websocket.onclose = (event) => {
-      console.log('WebSocket соединение закрыто:', event.code, event.reason);
+      
       setWsConnected(false);
       // Чистим keepalive
       if (pingIntervalRef.current) {
@@ -187,11 +187,11 @@ const Chat = () => {
       
       // Проверяем код закрытия для понимания причины
       if (event.code === 4001) {
-        console.error('WebSocket: Ошибка аутентификации');
+        
         setError('Ошибка аутентификации. Перезайдите в систему.');
         return;
       } else if (event.code === 4003) {
-        console.error('WebSocket: Нет доступа к консультации');
+        
         setError('У вас нет доступа к этой консультации.');
         return;
       }
@@ -201,7 +201,7 @@ const Chat = () => {
         // Проверяем актуальное состояние подключения
         setWsConnected(currentConnected => {
           if (!currentConnected) {
-            console.log('Попытка переподключения к WebSocket...');
+            
             connectWebSocket();
           }
           return currentConnected;
@@ -234,7 +234,7 @@ const Chat = () => {
       // Отмечаем, что мы только что отправили сообщение
       setJustSentMessage(true);
     } catch (error) {
-      console.error('Ошибка при отправке сообщения:', error);
+      
       setError('Ошибка соединения с сервером');
     } finally {
       setSending(false);
@@ -244,7 +244,7 @@ const Chat = () => {
   const handleAcceptConsultation = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/consultations/${consultationId}/accept/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/consultations/${consultationId}/accept/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +263,7 @@ const Chat = () => {
         showNotification(error.error || 'Ошибка принятия консультации', 'error');
       }
     } catch (error) {
-      console.error('Ошибка при принятии консультации:', error);
+      
       showNotification('Ошибка соединения с сервером', 'error');
     } finally {
       setActionLoading(false);
@@ -273,7 +273,7 @@ const Chat = () => {
   const handleCompleteConsultation = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/consultations/${consultationId}/complete/`, {
+      const response = await fetch(`https://healzy.uz/api/auth/consultations/${consultationId}/complete/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -291,7 +291,7 @@ const Chat = () => {
         showNotification(error.error || 'Ошибка завершения консультации', 'error');
       }
     } catch (error) {
-      console.error('Ошибка при завершении консультации:', error);
+      
       showNotification('Ошибка соединения с сервером', 'error');
     } finally {
       setActionLoading(false);
