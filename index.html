@@ -1,10 +1,88 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>Healzy — онлайн консультации с врачами, AI диагноз и лучшие специалисты</title>
+    <meta name="description" content="Healzy — онлайн консультации с врачами: терапевты, кардиологи, психологи и другие специалисты. AI-диагностика, чат, голос и видео. Консультация врачей онлайн по симптомам." />
+    <meta name="keywords" content="онлайн врач, консультация врача онлайн, врач онлайн чат, ai врач, диагностика симптомов, терапевт онлайн, психолог онлайн, телемедицина Узбекистан" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#1b5ddb" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Healzy" />
+    <meta property="og:title" content="Healzy — онлайн консультации с врачами и AI-диагностика" />
+    <meta property="og:description" content="Запишитесь к врачу онлайн или получите первичный AI-диагноз. Терапевты, кардиологи, психологи и другие специалисты." />
+    <meta property="og:url" content="https://healzy.uz" />
+    <meta property="og:image" content="https://healzy.uz/vite.svg" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Healzy — онлайн консультации с врачами и AI-диагностика" />
+    <meta name="twitter:description" content="Онлайн консультации врачей, чат, голос и AI-диагностика симптомов." />
+    <meta name="twitter:image" content="https://healzy.uz/vite.svg" />
+
+    <!-- Localized / Regional targeting -->
+    <meta http-equiv="Content-Language" content="ru" />
+    <link rel="canonical" href="https://healzy.uz/" />
+
+    <!-- Structured Data: Organization + Website + LocalBusiness Medical -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Healzy",
+        "url": "https://healzy.uz/",
+        "logo": "https://healzy.uz/vite.svg",
+        "sameAs": [
+          "https://healzy.uz/"
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Healzy",
+        "url": "https://healzy.uz/",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://healzy.uz/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "MedicalClinic",
+        "name": "Healzy Онлайн Консультации Врачей",
+        "image": "https://healzy.uz/vite.svg",
+        "@id": "https://healzy.uz/",
+        "url": "https://healzy.uz/",
+        "telephone": "+998 93 674 49 94",
+        "address": {
+          "@type": "PostalAddress",
+          "addressCountry": "UZ"
+        },
+        "medicalSpecialty": [
+          "PrimaryCare",
+          "Cardiovascular",
+          "Dermatology",
+          "Gastroenterologic",
+          "Neurologic",
+          "Psychiatric"
+        ],
+        "areaServed": "UZ"
+      }
+    </script>
+
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       // Инициализация Google Identity Services
@@ -13,7 +91,7 @@
           google.accounts.id.initialize({
             client_id: '735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com',
             callback: function(response) {
-              console.log('Google Identity Services loaded');
+              // prod: no logs
             }
           });
         }
