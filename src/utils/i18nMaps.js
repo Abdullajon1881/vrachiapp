@@ -72,13 +72,28 @@ const locationMap = {
   // Tashkent districts (examples)
   'Яшнабадский район': { en: 'Yashnabad district', uz: 'Yashnobod tumani' },
   'Чилонзарский район': { en: 'Chilanzar district', uz: 'Chilonzor tumani' },
+  'Чиланзарский район': { en: 'Chilanzar district', uz: 'Chilonzor tumani' },
   'Мирзо-Улугбекский район': { en: 'Mirzo Ulugbek district', uz: 'Mirzo Ulugʻbek tumani' },
   'Шайхантахурский район': { en: 'Shaykhantakhur district', uz: 'Shayxontohur tumani' },
   'Сергелийский район': { en: 'Sergeli district', uz: 'Sergeli tumani' },
   'Юнусабадский район': { en: 'Yunusabad district', uz: 'Yunusobod tumani' },
   'Алмазарский район': { en: 'Almazar district', uz: 'Olmazor tumani' },
   'Учтепинский район': { en: 'Uchtepa district', uz: 'Uchtepa tumani' },
-  'Бектемирский район': { en: 'Bektemir district', uz: 'Bektemir tumani' }
+  'Бектемирский район': { en: 'Bektemir district', uz: 'Bektemir tumani' },
+  'Яккасарайский район': { en: 'Yakkasaray district', uz: 'Yakkasaroy tumani' },
+
+  // Tashkent districts short forms (without "район")
+  'Яшнабадский': { en: 'Yashnabad', uz: 'Yashnobod' },
+  'Чилонзарский': { en: 'Chilanzar', uz: 'Chilonzor' },
+  'Чиланзарский': { en: 'Chilanzar', uz: 'Chilonzor' },
+  'Мирзо-Улугбекский': { en: 'Mirzo Ulugbek', uz: 'Mirzo Ulugʻbek' },
+  'Шайхантахурский': { en: 'Shaykhantakhur', uz: 'Shayxontohur' },
+  'Сергелийский': { en: 'Sergeli', uz: 'Sergeli' },
+  'Юнусабадский': { en: 'Yunusabad', uz: 'Yunusobod' },
+  'Алмазарский': { en: 'Almazar', uz: 'Olmazor' },
+  'Учтепинский': { en: 'Uchtepa', uz: 'Uchtepa' },
+  'Бектемирский': { en: 'Bektemir', uz: 'Bektemir' },
+  'Яккасарайский': { en: 'Yakkasaray', uz: 'Yakkasaroy' }
 };
 
 export function translateSpec(specialization, lng) {
@@ -99,21 +114,36 @@ export function translateLocation(name, lng) {
   // Heuristic fallback for unknown names
   let result = name;
   if (lang === 'en') {
+    // District with explicit suffix
+    if (/район$/i.test(result)) {
+      const base = result.replace(/\s*район$/i, '');
+      const baseMapped = locationMap[base]?.[lang] || base;
+      return `${baseMapped} district`;
+    }
     // City
     if (/^Город\s+/i.test(result)) {
-      result = result.replace(/^Город\s+/i, '');
-      result = `${result} City`;
+      const base = result.replace(/^Город\s+/i, '');
+      const baseMapped = locationMap[base]?.[lang] || base;
+      result = `${baseMapped} City`;
     }
     // Region
     result = result.replace(/\s*область$/i, ' Region');
-    // District
+    // District short form (e.g., "Чиланзарский")
+    if (locationMap[result]?.[lang]) return locationMap[result][lang];
     result = result.replace(/\s*район$/i, ' district');
   } else if (lang === 'uz') {
+    if (/район$/i.test(result)) {
+      const base = result.replace(/\s*район$/i, '');
+      const baseMapped = locationMap[base]?.[lang] || base;
+      return `${baseMapped} tumani`;
+    }
     if (/^Город\s+/i.test(result)) {
-      result = result.replace(/^Город\s+/i, '');
-      result = `${result} shahri`;
+      const base = result.replace(/^Город\s+/i, '');
+      const baseMapped = locationMap[base]?.[lang] || base;
+      result = `${baseMapped} shahri`;
     }
     result = result.replace(/\s*область$/i, ' viloyati');
+    if (locationMap[result]?.[lang]) return locationMap[result][lang];
     result = result.replace(/\s*район$/i, ' tumani');
   }
   return result;

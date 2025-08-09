@@ -415,7 +415,7 @@ const Doctors = () => {
               <option value="all">{t('doctorsPage.allSpecializations')}</option>
               {selectedService !== 'all' && specializationsByService[selectedService]?.map(spec => (
                 <option key={spec} value={spec}>
-                  {spec}
+                  {translateSpec(spec, i18n.language)}
                 </option>
               ))}
             </select>
