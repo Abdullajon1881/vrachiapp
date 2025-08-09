@@ -137,9 +137,17 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
   const handleGoogleAuth = async () => {
     setError('');
-    // Используем фиксированный redirect_uri, чтобы избежать mismatch (www / без www)
-    const redirectUri = 'https://healzy.uz';
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email profile`;
+    // Динамический redirect_uri = текущий origin (добавьте оба варианта в Google Console: https://healzy.uz и https://www.healzy.uz)
+    const redirectUri = window.location.origin.replace(/\/$/, '');
+    const params = new URLSearchParams({
+      client_id: '735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com',
+      redirect_uri: redirectUri,
+      response_type: 'token',
+      scope: 'openid email profile',
+      prompt: 'select_account',
+      include_granted_scopes: 'true'
+    });
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     localStorage.setItem('pendingGoogleAuth', 'true');
     window.location.href = googleAuthUrl;
   };
