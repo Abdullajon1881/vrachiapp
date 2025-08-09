@@ -100,6 +100,7 @@ const DoctorProfile = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify({

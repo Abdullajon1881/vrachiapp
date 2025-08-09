@@ -22,7 +22,11 @@ const AdminPanel = ({ updateUserData }) => {
   
   const handleLogout = async () => {
     try {
-      await fetch('https://healzy.uz/api/auth/logout/', { method: 'POST', credentials: 'include' }).catch(() => {});
+      await fetch('https://healzy.uz/api/auth/logout/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || '' },
+        credentials: 'include'
+      }).catch(() => {});
     } catch (_) {}
     localStorage.removeItem('user');
     window.location.href = '/';
@@ -278,7 +282,6 @@ const AdminPanel = ({ updateUserData }) => {
           await loadDistricts(userData.region);
         } else {
           
-          // Не очищаем города и районы, они загрузятся при выборе региона
         }
       } else {
         alert('Ошибка при загрузке профиля пользователя');
@@ -294,6 +297,7 @@ const AdminPanel = ({ updateUserData }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -327,6 +331,7 @@ const AdminPanel = ({ updateUserData }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -351,6 +356,7 @@ const AdminPanel = ({ updateUserData }) => {
     try {
       const response = await fetch(`https://healzy.uz/api/auth/doctor-applications/${applicationId}/update-name/`, {
         method: 'POST',
+        headers: { 'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || '' },
         credentials: 'include'
       });
       
@@ -440,6 +446,7 @@ const AdminPanel = ({ updateUserData }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify(editingUser)
@@ -478,6 +485,7 @@ const AdminPanel = ({ updateUserData }) => {
     try {
       const response = await fetch(`https://healzy.uz/api/auth/users/${selectedUser.user.id}/delete/`, {
         method: 'DELETE',
+        headers: { 'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || '' },
         credentials: 'include'
       });
       

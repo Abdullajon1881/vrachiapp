@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '296411a6e1177b3d3d96dc074cd15b83817c00cc8c6c2ab889069c7cbc45b753'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '296411a6e1177b3d3d96dc074cd15b83817c00cc8c6c2ab889069c7cbc45b753')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -282,10 +282,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'ymarumar502@gmail.com'
-EMAIL_HOST_PASSWORD = 'uqth iufx fscq xrmi'
-EMAIL_FROM = 'ymarumar502@gmail.com'
-DEFAULT_FROM_EMAIL = 'ymarumar502@gmail.com'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'ymarumar502@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_FROM = os.getenv('EMAIL_FROM', EMAIL_HOST_USER)
+DEFAULT_FROM_EMAIL = EMAIL_FROM
 
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 hours
@@ -293,3 +293,30 @@ SESSION_COOKIE_SECURE = True  # secure cookies в продакшене
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = True  # Save session on every request
+
+# CSRF tightening (SPA должен слать X-CSRFToken)
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = False  # разрешить фронту читать csrftoken
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Security hardening
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# DRF throttling (защита от брутфорса/флуда)
+REST_FRAMEWORK.update({
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': os.getenv('DRF_THROTTLE_ANON', '100/min'),
+        'user': os.getenv('DRF_THROTTLE_USER', '1000/min'),
+    }
+})

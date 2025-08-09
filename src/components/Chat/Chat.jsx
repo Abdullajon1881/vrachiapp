@@ -248,6 +248,7 @@ const Chat = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include'
       });
@@ -277,6 +278,7 @@ const Chat = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include'
       });

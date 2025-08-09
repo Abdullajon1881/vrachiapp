@@ -1,6 +1,7 @@
 import json
 import asyncio
 import logging
+import os
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -9,6 +10,15 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Redis rate-limit client (async)
+try:
+    import redis.asyncio as aioredis  # redis-py >= 4
+except Exception:
+    aioredis = None
+
+RATE_LIMIT_MSGS_PER_MINUTE = int(os.getenv('CHAT_RATE_LIMIT_PER_MIN', '60'))
+RATE_LIMIT_BAN_SECONDS = int(os.getenv('CHAT_RATE_LIMIT_BAN_SECONDS', '60'))
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -84,6 +94,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     return
                 
                 sender_id = self.scope['user'].id
+
+                # Rate limiting через Redis (если доступен)
+                if aioredis is not None:
+                    try:
+                        redis = aioredis.from_url(
+                            f"redis://{os.getenv('REDIS_HOST', '127.0.0.1')}:{os.getenv('REDIS_PORT', '6379')}/0",
+                            encoding='utf-8', decode_responses=True
+                        )
+                        key = f"rate:chat:{self.consultation_id}:{sender_id}"
+                        # Инкремент и установка TTL, первый инкремент возвращает 1
+                        count = await redis.incr(key)
+                        if count == 1:
+                            await redis.expire(key, 60)
+                        if count > RATE_LIMIT_MSGS_PER_MINUTE:
+                            # Превышение — сообщаем и не обрабатываем
+                            await self.send(text_data=json.dumps({
+                                'type': 'error',
+                                'message': 'Слишком много сообщений. Попробуйте позже.'
+                            }))
+                            return
+                    except Exception as e:
+                        logger.warning(f"Rate-limit Redis error: {e}")
                 
                 # Сохраняем сообщение в базе данных
                 saved_message = await self.save_message(message_content, sender_id)

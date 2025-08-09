@@ -34,6 +34,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify({ email: verificationEmail })
@@ -71,6 +72,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify(formData)
@@ -151,6 +153,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
                   },
                   credentials: 'include',
                   body: JSON.stringify({ access_token: response.access_token })

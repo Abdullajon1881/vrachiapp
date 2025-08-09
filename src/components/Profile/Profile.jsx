@@ -20,6 +20,7 @@ const Profile = () => {
       // Пытаемся завершить серверную сессию, если эндпоинт существует
       await fetch('https://healzy.uz/api/auth/logout/', {
         method: 'POST',
+        headers: { 'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || '' },
         credentials: 'include'
       }).catch(() => {});
     } catch (_) {}
@@ -195,6 +196,7 @@ const Profile = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
         },
         credentials: 'include',
         body: JSON.stringify(formData)

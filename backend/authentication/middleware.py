@@ -1,4 +1,5 @@
 from django.utils.deprecation import MiddlewareMixin
+import os
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 from channels.middleware import BaseMiddleware
@@ -13,8 +14,10 @@ User = get_user_model()
 
 class DisableCSRFMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        if request.path.startswith('/api/'):
-            setattr(request, '_dont_enforce_csrf_checks', True)
+        # В продакшене лучше не отключать CSRF. Оставляем флаг через env.
+        if os.getenv('DISABLE_CSRF', 'false').lower() == 'true':
+            if request.path.startswith('/api/'):
+                setattr(request, '_dont_enforce_csrf_checks', True)
 
 class WebSocketAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
