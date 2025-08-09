@@ -187,11 +187,11 @@ WSGI_APPLICATION = 'vrachiapp_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'vrachiapp_db',
-        'USER': 'vrachiapp_user',
-        'PASSWORD': '1435511926Ss..',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': os.getenv('DB_NAME', 'vrachiapp_db'),
+        'USER': os.getenv('DB_USER', 'vrachiapp_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '1435511926Ss..'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -201,6 +201,12 @@ DATABASES = {
 
 # Persistent DB connections to reduce handshake cost under load
 DATABASES['default']['CONN_MAX_AGE'] = int(os.getenv('DB_CONN_MAX_AGE', '60'))
+
+# Upload limits and content-types
+FILE_UPLOAD_MAX_SIZE = int(os.getenv('FILE_UPLOAD_MAX_SIZE', str(10 * 1024 * 1024)))  # 10MB
+ALLOWED_IMAGE_MIME_TYPES = os.getenv('ALLOWED_IMAGE_MIME_TYPES', 'image/jpeg,image/png,image/webp,image/gif').split(',')
+ALLOWED_AUDIO_MIME_TYPES = os.getenv('ALLOWED_AUDIO_MIME_TYPES', 'audio/mpeg,audio/wav,audio/webm').split(',')
+ALLOWED_VIDEO_MIME_TYPES = os.getenv('ALLOWED_VIDEO_MIME_TYPES', 'video/mp4,video/webm').split(',')
 
 
 # Password validation

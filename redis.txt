@@ -1,0 +1,5 @@
+sudo apt install redis-server
+sudo sed -i 's/^#* *supervised .*/supervised systemd/' /etc/redis/redis.conf
+sudo sed -i 's/^bind .*/bind 127.0.0.1/' /etc/redis/redis.conf
+sudo systemctl enable --now redis-server
+redis-cli ping

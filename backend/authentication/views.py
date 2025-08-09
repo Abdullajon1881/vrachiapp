@@ -194,7 +194,8 @@ class GoogleAuthView(generics.GenericAPIView):
         try:
             response = requests.get(
                 'https://www.googleapis.com/oauth2/v2/userinfo',
-                headers={'Authorization': f'Bearer {access_token}'}
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=5
             )
             
             if response.status_code == 200:
@@ -365,7 +366,7 @@ def detect_location(request):
         
         # Попытка 1: Nominatim (OpenStreetMap)
         try:
-            response = requests.get(f'http://ip-api.com/json/{ip}', timeout=5)
+            response = requests.get(f'http://ip-api.com/json/{ip}', timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -376,7 +377,7 @@ def detect_location(request):
         # Попытка 2: BigDataCloud
         if not location_data:
             try:
-                response = requests.get(f'https://api.bigdatacloud.net/data/ip-geolocation?ip={ip}&key=free', timeout=5)
+                response = requests.get(f'https://api.bigdatacloud.net/data/ip-geolocation?ip={ip}&key=free', timeout=3)
                 if response.status_code == 200:
                     data = response.json()
                     location_data = self.extract_bigdatacloud_address(data)
@@ -1230,6 +1231,19 @@ def ai_diagnosis(request):
             # Обработка файла (изображение, видео, аудио)
             file = request.FILES['file']
             file_type = request.data.get('type', 'image')
+            # Базовая валидация контента
+            max_size = getattr(settings, 'FILE_UPLOAD_MAX_SIZE', 10 * 1024 * 1024)
+            if file.size > max_size:
+                return Response({'error': 'Файл слишком большой'}, status=status.HTTP_400_BAD_REQUEST)
+            allowed = []
+            if file_type == 'image':
+                allowed = getattr(settings, 'ALLOWED_IMAGE_MIME_TYPES', [])
+            elif file_type == 'audio':
+                allowed = getattr(settings, 'ALLOWED_AUDIO_MIME_TYPES', [])
+            elif file_type == 'video':
+                allowed = getattr(settings, 'ALLOWED_VIDEO_MIME_TYPES', [])
+            if allowed and getattr(file, 'content_type', '') not in allowed:
+                return Response({'error': 'Неподдерживаемый тип файла'}, status=status.HTTP_400_BAD_REQUEST)
             
             if file_type == 'image':
                 # Асинхронная обработка изображения
