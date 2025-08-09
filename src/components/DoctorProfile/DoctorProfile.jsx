@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './DoctorProfile.scss';
 import { useTranslation } from 'react-i18next';
+import { translateSpec, translateLocation } from '../../utils/i18nMaps';
 
 const DoctorProfile = () => {
   const { id } = useParams();
@@ -193,12 +194,12 @@ const DoctorProfile = () => {
             <div className="doctor-profile__basic-info">
               <h1 className="doctor-profile__name">{doctor.full_name}</h1>
               <p className="doctor-profile__specialization">
-                {getSpecializationIcon(doctor.specialization)} {doctor.specialization}
+                {getSpecializationIcon(doctor.specialization)} {translateSpec(doctor.specialization, i18n.language)}
               </p>
               {doctor.region && (
                 <p className="doctor-profile__location">
-                  📍 {doctor.city ? `${doctor.city}, ${doctor.region}` : doctor.region}
-                  {doctor.district && `, ${doctor.district}`}
+                  📍 {doctor.city ? `${translateLocation(doctor.city, i18n.language)}, ${translateLocation(doctor.region, i18n.language)}` : translateLocation(doctor.region, i18n.language)}
+                  {doctor.district && `, ${translateLocation(doctor.district, i18n.language)}`}
                 </p>
               )}
               {doctor.license_number && (

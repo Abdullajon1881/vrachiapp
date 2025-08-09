@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './DoctorApplication.scss';
 import { useTranslation } from 'react-i18next';
+import { translateLocation } from '../../utils/i18nMaps';
+import { translateSpec } from '../../utils/i18nMaps';
 
 const DoctorApplication = () => {
   const [formData, setFormData] = useState({
@@ -321,23 +323,9 @@ const DoctorApplication = () => {
                   className="doctor-application__select"
                 >
                   <option value="">{t('doctorApplication.chooseSpecialization', 'Выберите специализацию')}</option>
-                  <option value="Терапевт">Терапевт</option>
-                  <option value="Кардиолог">Кардиолог</option>
-                  <option value="Невролог">Невролог</option>
-                  <option value="Офтальмолог">Офтальмолог</option>
-                  <option value="Дерматолог">Дерматолог</option>
-                  <option value="Ортопед">Ортопед</option>
-                  <option value="Хирург">Хирург</option>
-                  <option value="Педиатр">Педиатр</option>
-                  <option value="Гинеколог">Гинеколог</option>
-                  <option value="Уролог">Уролог</option>
-                  <option value="Психиатр">Психиатр</option>
-                  <option value="Ревматолог">Ревматолог</option>
-                  <option value="Эндокринолог">Эндокринолог</option>
-                  <option value="Гастроэнтеролог">Гастроэнтеролог</option>
-                  <option value="Пульмонолог">Пульмонолог</option>
-                  <option value="Онколог">Онколог</option>
-                  <option value="Другое">Другое</option>
+                  {specializations.map(spec => (
+                    <option key={spec} value={spec}>{translateSpec(spec, (typeof window !== 'undefined' && localStorage.getItem('i18nextLng')) || 'ru')}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -356,7 +344,7 @@ const DoctorApplication = () => {
                   <option value="">{t('doctorApplication.chooseRegion', 'Выберите регион')}</option>
                   {regions.map(region => (
                     <option key={region.id} value={region.id}>
-                      {region.name}
+                      {translateLocation(region.name, (typeof window !== 'undefined' && localStorage.getItem('i18nextLng')) || 'ru')}
                     </option>
                   ))}
                 </select>
@@ -376,7 +364,7 @@ const DoctorApplication = () => {
                   <option value="">{t('doctorApplication.chooseCity', 'Выберите город')}</option>
                   {cities.map(city => (
                     <option key={city.id} value={city.id}>
-                      {city.name}
+                      {translateLocation(city.name, (typeof window !== 'undefined' && localStorage.getItem('i18nextLng')) || 'ru')}
                     </option>
                   ))}
                 </select>
@@ -396,7 +384,7 @@ const DoctorApplication = () => {
                   <option value="">{t('doctorApplication.chooseDistrict', 'Выберите район')}</option>
                   {districts.map(district => (
                     <option key={district.id} value={district.id}>
-                      {district.name}
+                      {translateLocation(district.name, (typeof window !== 'undefined' && localStorage.getItem('i18nextLng')) || 'ru')}
                     </option>
                   ))}
                 </select>
@@ -610,7 +598,7 @@ const DoctorApplication = () => {
                       <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span>{t('doctorApplication.clickToUpload', 'Нажмите для загрузки')}</span>
-                    <small>PDF, JPG or PNG</small>
+                    <small>{t('doctorApplication.pdfHint', 'PDF, JPG или PNG')}</small>
                   </div>
                 </div>
                 {formData.diploma && (
@@ -636,7 +624,7 @@ const DoctorApplication = () => {
                       <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span>{t('doctorApplication.clickToUpload', 'Нажмите для загрузки')}</span>
-                    <small>PDF, JPG or PNG</small>
+                    <small>{t('doctorApplication.pdfHint', 'PDF, JPG или PNG')}</small>
                   </div>
                 </div>
                 {formData.license && (

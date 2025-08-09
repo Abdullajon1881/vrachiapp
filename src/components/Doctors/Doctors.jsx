@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './Doctors.scss';
 import { useTranslation } from 'react-i18next';
+import { translateSpec, translateLocation } from '../../utils/i18nMaps';
 
 const Doctors = () => {
   const [doctors, setDoctors] = useState([]);
@@ -17,9 +18,8 @@ const Doctors = () => {
 
 
 
-  // Услуги для фильтрации
-  const services = [
-    'all',
+  // Услуги для фильтрации (значения-ключи, отображаем переводы по ключу)
+  const serviceKeys = [
     'Медицинские услуги',
     'Спортивные и диетические',
     'Физиотерапия',
@@ -27,6 +27,15 @@ const Doctors = () => {
     'Психологические консультации',
     'Уход за пожилыми'
   ];
+  const serviceKeyMap = {
+    'Медицинские услуги': 'medical',
+    'Спортивные и диетические': 'sportDiet',
+    'Физиотерапия': 'physio',
+    'Массаж': 'massage',
+    'Психологические консультации': 'psychology',
+    'Уход за пожилыми': 'elderly'
+  };
+  const services = ['all', ...serviceKeys];
 
   // Специализации, сгруппированные по услугам
   const specializationsByService = {
@@ -76,9 +85,8 @@ const Doctors = () => {
     ]
   };
 
-  // Регионы для фильтрации
-  const regions = [
-    'all',
+  // Регионы для фильтрации (значения — русские ключи, метки переводим)
+  const regionKeys = [
     'Ташкентская область',
     'Город Ташкент',
     'Самаркандская область',
@@ -328,7 +336,7 @@ const Doctors = () => {
       <div className="doctors">
         <div className="doctors__loading">
           <div className="loading-spinner"></div>
-          <p>Загрузка врачей...</p>
+          <p>{t('doctorsPage.loading')}</p>
         </div>
       </div>
     );
@@ -390,7 +398,7 @@ const Doctors = () => {
             >
               {services.map(service => (
                 <option key={service} value={service}>
-                  {service === 'all' ? t('doctorsPage.allServices') : service}
+                  {service === 'all' ? t('doctorsPage.allServices') : t(`services.categories.${serviceKeyMap[service]}`)}
                 </option>
               ))}
             </select>
@@ -422,9 +430,9 @@ const Doctors = () => {
               disabled={selectedSpecialization === 'all'}
             >
               <option value="all">{t('doctorsPage.allRegions')}</option>
-              {selectedSpecialization !== 'all' && regions.filter(region => region !== 'all').map(region => (
-                <option key={region} value={region}>
-                  {region}
+              {selectedSpecialization !== 'all' && regionKeys.map(regionKey => (
+                <option key={regionKey} value={regionKey}>
+                  {translateLocation(regionKey, i18n.language)}
                 </option>
               ))}
             </select>
@@ -465,7 +473,7 @@ const Doctors = () => {
                 <div className="doctor-card__info">
                   <h3 className="doctor-card__name">{doctor.full_name}</h3>
                   <p className="doctor-card__specialization">
-                    {getSpecializationIcon(doctor.specialization)} {doctor.specialization}
+                    {getSpecializationIcon(doctor.specialization)} {translateSpec(doctor.specialization, i18n.language)}
                   </p>
                 </div>
               </div>
@@ -473,7 +481,7 @@ const Doctors = () => {
               <div className="doctor-card__details">
                 {doctor.region && (
                   <p className="doctor-card__location">
-                    📍 {doctor.city ? `${doctor.city}, ${doctor.region}` : doctor.region}
+                    📍 {doctor.city ? `${translateLocation(doctor.city, i18n.language)}, ${translateLocation(doctor.region, i18n.language)}` : translateLocation(doctor.region, i18n.language)}
                   </p>
                 )}
                 {doctor.experience && (
