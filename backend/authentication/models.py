@@ -290,6 +290,7 @@ class AIMessage(models.Model):
         ('image', 'Изображение'),
         ('video', 'Видео'),
         ('audio', 'Аудио'),
+        ('voice_response', 'Голосовой ответ'),
     ]
     
     SENDER_TYPES = [
@@ -299,9 +300,12 @@ class AIMessage(models.Model):
 
     dialogue = models.ForeignKey(AIDialogue, on_delete=models.CASCADE, related_name='messages')
     sender_type = models.CharField(max_length=10, choices=SENDER_TYPES)
-    message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES, default='text')
+    message_type = models.CharField(max_length=15, choices=MESSAGE_TYPES, default='text')
     content = models.TextField()
     file_path = models.CharField(max_length=500, blank=True, null=True)  # Для медиафайлов
+    audio_file = models.FileField(upload_to='ai_messages/audio/', blank=True, null=True)  # Аудиофайлы
+    audio_duration = models.FloatField(blank=True, null=True)  # Длительность аудио в секундах
+    transcription = models.TextField(blank=True, null=True)  # Расшифровка аудио
     metadata = models.JSONField(default=dict, blank=True)  # Дополнительные данные
     timestamp = models.DateTimeField(auto_now_add=True)
 

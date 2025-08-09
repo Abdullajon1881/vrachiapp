@@ -23,6 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '296411a6e1177b3d3d96dc074cd15b83817c00cc8c6c2ab889069c7cbc45b753')
 
+# TTS API Key для качественного женского голоса ElevenLabs
+ELEVENLABS_API_KEY = 'sk_496981d7be389ba63dc39097302ffe0c712406ea91d026a3'
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 

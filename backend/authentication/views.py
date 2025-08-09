@@ -1222,7 +1222,7 @@ def complete_consultation(request, consultation_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def ai_diagnosis(request):
-    """API для работы с AI диагностикой"""
+    """API для работы с AI диагностикой с поддержкой голосового общения"""
     try:
         user = request.user
         
@@ -1237,14 +1237,16 @@ def ai_diagnosis(request):
                 return Response({'error': 'Файл слишком большой'}, status=status.HTTP_400_BAD_REQUEST)
             allowed = []
             if file_type == 'image':
-                allowed = getattr(settings, 'ALLOWED_IMAGE_MIME_TYPES', [])
+                allowed = getattr(settings, 'ALLOWED_IMAGE_MIME_TYPES', ['image/jpeg', 'image/png', 'image/gif'])
             elif file_type == 'audio':
-                allowed = getattr(settings, 'ALLOWED_AUDIO_MIME_TYPES', [])
+                allowed = getattr(settings, 'ALLOWED_AUDIO_MIME_TYPES', ['audio/webm', 'audio/wav', 'audio/mp3', 'audio/ogg'])
             elif file_type == 'video':
-                allowed = getattr(settings, 'ALLOWED_VIDEO_MIME_TYPES', [])
+                allowed = getattr(settings, 'ALLOWED_VIDEO_MIME_TYPES', ['video/mp4', 'video/webm'])
+            
             if allowed and getattr(file, 'content_type', '') not in allowed:
                 return Response({'error': 'Неподдерживаемый тип файла'}, status=status.HTTP_400_BAD_REQUEST)
             
+            # Используем обновленный сервис
             if file_type == 'image':
                 # Асинхронная обработка изображения
                 loop = asyncio.new_event_loop()
@@ -1255,7 +1257,7 @@ def ai_diagnosis(request):
                     loop.close()
                     
             elif file_type == 'audio':
-                # Асинхронная обработка аудио
+                # Асинхронная обработка аудио с полным голосовым циклом
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
@@ -1278,25 +1280,39 @@ def ai_diagnosis(request):
                 
             if result['success']:
                 # Сохраняем пользовательское сообщение
-                ai_service.save_dialogue_message(
+                user_message = ai_service.save_dialogue_message(
                     user=user,
-                    content=f"Файл загружен: {file.name}",
+                    content=result.get('transcription', f"Файл загружен: {file.name}"),
                     sender_type='user',
-                    message_type=file_type
+                    message_type=file_type,
+                    audio_file=file.read() if file_type == 'audio' else None
                 )
                 
-                # Сохраняем ответ AI
-                ai_service.save_dialogue_message(
+                # Сохраняем ответ AI с аудиофайлом если есть
+                ai_message = ai_service.save_dialogue_message(
                     user=user,
                     content=result['response'],
                     sender_type='ai',
-                    message_type='text'
+                    message_type='voice_response' if result.get('has_voice') else 'text',
+                    audio_file=result.get('audio_content')
                 )
                 
-                return Response({
+                # Формируем ответ
+                response_data = {
                     'response': result['response'],
-                    'type': result['type']
-                })
+                    'type': result['type'],
+                    'has_voice': result.get('has_voice', False)
+                }
+                
+                # Добавляем URL аудиофайла если есть
+                if result.get('has_voice') and ai_message.audio_file:
+                    response_data['audio_url'] = request.build_absolute_uri(ai_message.audio_file.url)
+                
+                # Добавляем расшифровку для аудио
+                if result.get('transcription'):
+                    response_data['transcription'] = result['transcription']
+                
+                return Response(response_data)
             else:
                 return Response({
                     'error': result.get('error', 'Ошибка обработки файла')
@@ -1311,7 +1327,7 @@ def ai_diagnosis(request):
                     'error': 'Сообщение не может быть пустым'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Асинхронная обработка текста
+            # Асинхронная обработка текста с возможностью голосового ответа
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
@@ -1328,18 +1344,27 @@ def ai_diagnosis(request):
                     message_type='text'
                 )
                 
-                # Сохраняем ответ AI
-                ai_service.save_dialogue_message(
+                # Сохраняем ответ AI с аудиофайлом если есть
+                ai_message = ai_service.save_dialogue_message(
                     user=user,
                     content=result['response'],
                     sender_type='ai',
-                    message_type='text'
+                    message_type='voice_response' if result.get('has_voice') else 'text',
+                    audio_file=result.get('audio_content')
                 )
                 
-                return Response({
+                # Формируем ответ
+                response_data = {
                     'response': result['response'],
-                    'type': result['type']
-                })
+                    'type': result['type'],
+                    'has_voice': result.get('has_voice', False)
+                }
+                
+                # Добавляем URL аудиофайла если есть
+                if result.get('has_voice') and ai_message.audio_file:
+                    response_data['audio_url'] = request.build_absolute_uri(ai_message.audio_file.url)
+                
+                return Response(response_data)
             else:
                 return Response({
                     'error': result.get('error', 'Ошибка обработки сообщения')

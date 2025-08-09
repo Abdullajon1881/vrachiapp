@@ -8,7 +8,7 @@ const AIDiagnosis = () => {
     {
       id: 1,
       type: 'ai',
-       content: t('ai.welcome', 'Привет! 😊 Я Healzy AI - ваш дружелюбный помощник! Можете спросить меня о чем угодно: здоровье, симптомы, или просто поболтать! Отправляйте текст, голосовые сообщения или фото - я всегда рада помочь! ✨'),
+       content: t('ai.welcome', 'Привет! 😊 Я Healzy AI - ваша медицинская помощница! Я женщина-врач с естественным голосом. Можете спросить меня о здоровье, симптомах или медицинских вопросах. Говорите голосом или пишите текст - я всегда рада помочь! ✨'),
       timestamp: new Date()
     }
   ]);
@@ -54,10 +54,16 @@ const AIDiagnosis = () => {
         const loadVoices = () => {
           const voices = window.speechSynthesis.getVoices();
           
-          // Сортируем голоса по качеству (облачные и премиальные сначала)
+          // Сортируем голоса по качеству (женские голоса сначала)
           const russianVoices = voices
             .filter(voice => voice.lang.startsWith('ru'))
             .sort((a, b) => {
+              // Приоритет женским голосам
+              const aIsFemale = isFemaleVoice(a.name);
+              const bIsFemale = isFemaleVoice(b.name);
+              if (aIsFemale && !bIsFemale) return -1;
+              if (!aIsFemale && bIsFemale) return 1;
+              
               // Приоритет облачным голосам
               if (!a.localService && b.localService) return -1;
               if (a.localService && !b.localService) return 1;
@@ -151,11 +157,12 @@ const AIDiagnosis = () => {
   // Обработка голосового ввода от Speech Recognition
   const handleVoiceInput = async (transcript) => {
     
-    // Добавляем сообщение пользователя в чат
+    // Добавляем голосовое сообщение пользователя в чат (показываем как аудио)
     const userMessage = {
       id: Date.now(),
       type: 'user', 
-      content: `🎤 ${transcript}`,
+      content: transcript, // Сохраняем текст, но не показываем
+      isVoiceMessage: true,
       timestamp: new Date()
     };
     
@@ -182,12 +189,19 @@ const AIDiagnosis = () => {
           id: Date.now() + 1,
           type: 'ai',
           content: data.response,
+          isVoiceResponse: data.has_voice,
+          audioUrl: data.audio_url,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, aiMessage]);
         
-        // Озвучиваем ответ AI
-        speakText(data.response);
+        // Автоматически воспроизводим голосовой ответ
+        if (data.has_voice && data.audio_url) {
+          setTimeout(() => playAudioResponse(data.audio_url), 300); // Небольшая задержка для лучшего UX
+        } else {
+          // Fallback к встроенному TTS
+          setTimeout(() => speakText(data.response), 300);
+        }
         
       } else {
         throw new Error('server');
@@ -234,6 +248,59 @@ const AIDiagnosis = () => {
     return cleanText.trim();
   };
 
+  // Воспроизводим голосовой ответ от сервера
+  const playAudioResponse = (audioUrl) => {
+    try {
+      // Останавливаем текущую речь
+      window.speechSynthesis.cancel();
+      
+      // Приостанавливаем прослушивание во время речи AI
+      const wasListening = isListening;
+      if (wasListening) {
+        speechRecognition.stop();
+      }
+
+      // Создаем и воспроизводим аудио
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      
+      setIsSpeaking(true);
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        
+        // Возобновляем прослушивание после речи AI
+        if (wasListening) {
+          setTimeout(() => {
+            if (speechRecognition) {
+              speechRecognition.start();
+            }
+          }, 500);
+        }
+      };
+
+      audio.onerror = (error) => {
+        console.error('Ошибка воспроизведения аудио:', error);
+        setIsSpeaking(false);
+        
+        // Fallback к TTS
+        speakText(document.querySelector('.ai-diagnosis__message--ai:last-child .ai-diagnosis__message-text')?.textContent || 'Извините, не удалось воспроизвести ответ');
+      };
+
+      audio.play().catch(error => {
+        console.error('Не удалось воспроизвести аудио:', error);
+        setIsSpeaking(false);
+        
+        // Fallback к TTS
+        speakText(document.querySelector('.ai-diagnosis__message--ai:last-child .ai-diagnosis__message-text')?.textContent || 'Извините, не удалось воспроизвести ответ');
+      });
+      
+    } catch (error) {
+      console.error('Ошибка при настройке воспроизведения аудио:', error);
+      setIsSpeaking(false);
+    }
+  };
+
   // Озвучиваем текст с помощью Web Speech API
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) {
@@ -259,62 +326,68 @@ const AIDiagnosis = () => {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
-    // Более человеческие настройки голоса
-    utterance.rate = 0.9; // Естественная скорость
-    utterance.pitch = 1.0; // Нормальная высота
-    utterance.volume = 0.85; // Комфортная громкость
+    // Настройки для женского голоса
+    utterance.rate = 0.85; // Медленнее для более приятного звучания
+    utterance.pitch = 1.4; // Выше для женского голоса
+    utterance.volume = 0.9; // Громче
     utterance.lang = 'ru-RU'; // Русский язык
     
-    // Используем выбранный пользователем голос или автоматический
+    // Используем выбранный пользователем голос или лучший женский голос
     let selectedVoice = null;
     
     if (availableVoices.length > 0) {
       selectedVoice = availableVoices[currentVoiceIndex % availableVoices.length];
     } else {
-      // Fallback к автоматическому поиску
+      // Fallback к автоматическому поиску лучшего женского голоса
       const voices = window.speechSynthesis.getVoices();
-      selectedVoice = voices.find(voice => voice.lang.startsWith('ru'));
+      const russianVoices = voices.filter(voice => voice.lang.startsWith('ru'));
+      
+      // Ищем лучший женский голос
+      selectedVoice = russianVoices.find(voice => isFemaleVoice(voice.name)) || 
+                     russianVoices.find(voice => voice.name.includes('female')) ||
+                     russianVoices[0]; // Первый русский голос как fallback
     }
     
     if (selectedVoice) {
       utterance.voice = selectedVoice;
 
       
-      // Индивидуальные настройки для каждого голоса
+      // Индивидуальные настройки для женских голосов
       const voiceName = selectedVoice.name.toLowerCase();
+      const isFemaleName = isFemaleVoice(selectedVoice.name);
       
-      if (voiceName.includes('elena')) {
-        utterance.rate = 0.92;
-        utterance.pitch = 1.0;
+      if (isFemaleName) {
+        // Настройки для женских голосов
+        utterance.pitch = 1.3; // Высокий женский тон
+        utterance.rate = 0.8;   // Медленнее для более приятного звучания
+        utterance.volume = 0.95; // Громче
+        
+        // Особые настройки для конкретных женских голосов
+        if (voiceName.includes('elena')) {
+          utterance.pitch = 1.4;
+          utterance.rate = 0.85;
+        } else if (voiceName.includes('irina')) {
+          utterance.pitch = 1.35;
+          utterance.rate = 0.8;
+        } else if (voiceName.includes('anna') || voiceName.includes('anya')) {
+          utterance.pitch = 1.3;
+          utterance.rate = 0.85;
+        } else if (voiceName.includes('svetlana')) {
+          utterance.pitch = 1.25;
+          utterance.rate = 0.82;
+        } else if (voiceName.includes('maria')) {
+          utterance.pitch = 1.35;
+          utterance.rate = 0.88;
+        }
+      } else {
+        // Настройки для мужских голосов (делаем их более женственными)
+        utterance.pitch = 1.5; // Очень высокий тон для имитации женского голоса
+        utterance.rate = 0.75;  // Медленно
         utterance.volume = 0.9;
-      } else if (voiceName.includes('irina')) {
-        utterance.rate = 0.88;
-        utterance.pitch = 0.95;
-        utterance.volume = 0.85;
-      } else if (voiceName.includes('anna') || voiceName.includes('anya')) {
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        utterance.volume = 0.87;
-      } else if (voiceName.includes('svetlana')) {
-        utterance.rate = 0.85;
-        utterance.pitch = 0.98;
-        utterance.volume = 0.88;
-      } else if (voiceName.includes('maria')) {
-        utterance.rate = 0.9;
-        utterance.pitch = 1.02;
-        utterance.volume = 0.85;
-      } else if (voiceName.includes('pavel') || voiceName.includes('paul')) {
-        utterance.rate = 0.88;
-        utterance.pitch = 0.9;
-        utterance.volume = 0.9;
-      } else if (voiceName.includes('alexei') || voiceName.includes('alex')) {
-        utterance.rate = 0.9;
-        utterance.pitch = 0.92;
-        utterance.volume = 0.88;
       }
       
       // Дополнительные настройки для премиальных голосов
-      if (voiceName.includes('neural') || voiceName.includes('premium')) {
+      if (voiceName.includes('neural') || voiceName.includes('premium') || voiceName.includes('wavenet')) {
         utterance.rate *= 0.95; // Немного медленнее для лучшего качества
         utterance.volume = Math.min(utterance.volume + 0.05, 1.0);
       }
@@ -347,6 +420,33 @@ const AIDiagnosis = () => {
     } catch (error) {
       setIsSpeaking(false);
     }
+  };
+
+  // Функция определения женских голосов
+  const isFemaleVoice = (voiceName) => {
+    const name = voiceName.toLowerCase();
+    
+    // Женские имена
+    const femaleNames = [
+      'elena', 'irina', 'anna', 'anya', 'svetlana', 'maria', 'masha', 
+      'katarina', 'kate', 'olga', 'natasha', 'yulia', 'daria', 'victoria',
+      'tatiana', 'milena', 'vera', 'nina', 'alexandra', 'alina'
+    ];
+    
+    // Проверяем по именам
+    for (const femaleName of femaleNames) {
+      if (name.includes(femaleName)) return true;
+    }
+    
+    // Проверяем по стандартным обозначениям
+    if (name.includes('female')) return true;
+    if (name.includes('woman')) return true;
+    if (name.includes('girl')) return true;
+    
+    // Русские голоса - обычно A и C женские, B и D мужские
+    if (name.includes('ru-ru') && (name.includes('-a') || name.includes('-c'))) return true;
+    
+    return false;
   };
 
   // Функция оценки качества голоса
@@ -388,8 +488,11 @@ const AIDiagnosis = () => {
       const newVoice = availableVoices[newIndex];
       const quality = getVoiceQuality(newVoice.name);
       
-      // Тестируем новый голос более естественным текстом
-      speakText('Привет! Меня зовут Healzy. Я ваш медицинский помощник. Как этот голос?');
+      // Тестируем новый женский голос
+      const testText = isFemaleVoice(newVoice.name) 
+        ? 'Привет! Меня зовут Healzy. Я ваша медицинская помощница. Как мой женский голос?'
+        : 'Привет! Меня зовут Healzy. Я настроила этот голос как можно более женственно. Как звучу?';
+      speakText(testText);
     }
   };
 
@@ -433,8 +536,10 @@ const AIDiagnosis = () => {
         };
         setMessages(prev => [...prev, aiMessage]);
         
-        // Если активно прослушивание, озвучиваем ответ
-        if (isListening) {
+        // Если есть голосовой ответ, воспроизводим его, или если активно прослушивание
+        if (data.has_voice && data.audio_url) {
+          playAudioResponse(data.audio_url);
+        } else if (isListening) {
           speakText(data.response);
         }
         
@@ -557,10 +662,12 @@ const AIDiagnosis = () => {
   };
 
   const sendAudioMessage = async (audioBlob) => {
+    // Добавляем голосовое сообщение пользователя (показываем как аудио)
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: t('ai.voiceMessage', '🎤 Голосовое сообщение'),
+      content: 'Голосовое сообщение',
+      isVoiceMessage: true,
       timestamp: new Date()
     };
 
@@ -581,13 +688,32 @@ const AIDiagnosis = () => {
       const data = await response.json();
       
       if (response.ok) {
+        // Обновляем пользовательское сообщение с расшифровкой, если она есть
+        if (data.transcription) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === userMessage.id 
+              ? { ...msg, content: data.transcription }
+              : msg
+          ));
+        }
+
         const aiMessage = {
           id: Date.now() + 1,
           type: 'ai',
           content: data.response,
+          isVoiceResponse: data.has_voice,
+          audioUrl: data.audio_url,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, aiMessage]);
+        
+        // Автоматически воспроизводим голосовой ответ
+        if (data.has_voice && data.audio_url) {
+          setTimeout(() => playAudioResponse(data.audio_url), 300);
+        } else {
+          setTimeout(() => speakText(data.response), 300);
+        }
+        
       } else {
         throw new Error(data.error || 'server');
       }
@@ -642,9 +768,38 @@ const AIDiagnosis = () => {
                 {message.type === 'ai' ? '🤖' : '👤'}
               </div>
               <div className="ai-diagnosis__message-content">
-                <div className="ai-diagnosis__message-text">
-                  {message.content}
-                </div>
+                {message.isVoiceMessage ? (
+                  // Голосовое сообщение пользователя
+                  <div className="ai-diagnosis__voice-message">
+                    <div className="ai-diagnosis__voice-indicator">
+                      🎤 <span className="ai-diagnosis__voice-text">Голосовое сообщение</span>
+                      <div className="ai-diagnosis__voice-waves">
+                        <span></span><span></span><span></span><span></span>
+                      </div>
+                    </div>
+                  </div>
+                ) : message.isVoiceResponse && message.audioUrl ? (
+                  // Голосовой ответ AI
+                  <div className="ai-diagnosis__voice-response">
+                    <div className="ai-diagnosis__voice-indicator ai-diagnosis__voice-indicator--ai">
+                      🗣️ <span className="ai-diagnosis__voice-text">Healzy отвечает голосом</span>
+                      <div className="ai-diagnosis__voice-waves ai-diagnosis__voice-waves--playing">
+                        <span></span><span></span><span></span><span></span>
+                      </div>
+                    </div>
+                    <audio 
+                      controls 
+                      src={message.audioUrl}
+                      className="ai-diagnosis__audio-player"
+                      style={{marginTop: '8px', width: '100%', maxWidth: '300px'}}
+                    />
+                  </div>
+                ) : (
+                  // Обычное текстовое сообщение
+                  <div className="ai-diagnosis__message-text">
+                    {message.content}
+                  </div>
+                )}
                 <div className="ai-diagnosis__message-time">
                   {formatTime(message.timestamp)}
                 </div>
@@ -688,9 +843,9 @@ const AIDiagnosis = () => {
               className={`ai-diagnosis__action-btn ${isListening ? 'ai-diagnosis__action-btn--listening' : ''}`}
               onClick={startSmartListening}
               disabled={!isSupported}
-              title={isListening ? t('ai.voiceActive', 'Голосовое прослушивание активно - говорите! (нажмите для остановки)') : t('ai.startVoice', 'Начать голосовой диалог с AI')}
+              title={isListening ? t('ai.voiceActive', 'Говорю... (нажмите для остановки)') : t('ai.startVoice', 'Начать голосовой диалог с Healzy AI')}
             >
-              {isListening ? '🛑' : '🎤'}
+              {isListening ? '🔴' : '🎤'}
             </button>
 
             {availableVoices.length > 1 && (
@@ -698,9 +853,13 @@ const AIDiagnosis = () => {
                 className="ai-diagnosis__action-btn"
                 onClick={switchVoice}
                 disabled={isSpeaking}
-                title={t('ai.switchVoice', 'Сменить голос') + ` (${currentVoiceIndex + 1}/${availableVoices.length})`}
+                title={
+                  availableVoices[currentVoiceIndex] && isFemaleVoice(availableVoices[currentVoiceIndex].name)
+                    ? `Женский голос (${currentVoiceIndex + 1}/${availableVoices.length})`
+                    : `Голос настроен женственно (${currentVoiceIndex + 1}/${availableVoices.length})`
+                }
               >
-                🎭
+                👩‍⚕️
               </button>
             )}
 
@@ -740,6 +899,17 @@ const AIDiagnosis = () => {
         <div className="ai-diagnosis__disclaimer">
           ⚠️ {t('ai.disclaimer1', 'Внимание: AI диагностика не заменяет консультацию врача.')} 
           {t('ai.disclaimer2', 'При серьезных симптомах обратитесь к специалисту.')}
+          
+          {isSupported && availableVoices.length > 0 && (
+            <>
+              <br />
+              👩‍⚕️ {availableVoices[currentVoiceIndex] && isFemaleVoice(availableVoices[currentVoiceIndex].name)
+                ? 'Используется женский голос для ответов'
+                : 'Голос настроен максимально женственно'
+              }
+            </>
+          )}
+          
           {!isSupported && (
             <>
               <br />
