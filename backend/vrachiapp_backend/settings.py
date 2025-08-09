@@ -26,7 +26,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '296411a6e1177b3d3d96dc074cd15b83817
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'healzy.uz', '172.174.231.5']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'healzy.uz', 'www.healzy.uz', '172.174.231.5']
 
 
 # Application definition
@@ -151,7 +151,12 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # Отключаем CSRF для API endpoints
-CSRF_TRUSTED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://healzy.uz']
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://healzy.uz',
+    'https://www.healzy.uz',
+]
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
 
@@ -268,6 +273,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://healzy.uz",
+    "https://www.healzy.uz",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

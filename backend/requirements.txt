@@ -8,3 +8,5 @@ python-decouple==3.8
 daphne==4.0.0
 channels==4.0.0
 channels-redis==4.1.0 
+mysqlclient
+google.generativeai

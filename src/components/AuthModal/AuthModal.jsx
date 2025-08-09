@@ -136,64 +136,13 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   };
 
   const handleGoogleAuth = async () => {
-    setLoading(true);
     setError('');
-
-    try {
-      // Используем Google Identity Services (более современный подход)
-      if (window.google && window.google.accounts) {
-        const client = google.accounts.oauth2.initTokenClient({
-          client_id: '735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com',
-          scope: 'email profile',
-          callback: async (response) => {
-            if (response.access_token) {
-              try {
-                // Отправляем токен на сервер
-                const serverResponse = await fetch('https://healzy.uz/api/auth/google-auth/', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
-                  },
-                  credentials: 'include',
-                  body: JSON.stringify({ access_token: response.access_token })
-                });
-
-                const data = await serverResponse.json();
-
-                if (serverResponse.ok) {
-                  localStorage.setItem('user', JSON.stringify(data.user));
-                  onAuthSuccess(data.user);
-                  onClose();
-                } else {
-                  setError(data.error || 'Ошибка аутентификации через Google');
-                }
-              } catch (err) {
-                setError('Ошибка соединения с сервером');
-              }
-            }
-            setLoading(false);
-          },
-        });
-        
-        client.requestAccessToken();
-      } else {
-        // Fallback - простой redirect
-        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=token&scope=email profile`;
-        
-        // Сохраняем текущее состояние
-        localStorage.setItem('pendingGoogleAuth', 'true');
-        
-        // Перенаправляем на Google
-        window.location.href = googleAuthUrl;
-      }
-    } catch (err) {
-      setError('Ошибка при аутентификации через Google');
-      setLoading(false);
-    }
+    // Используем фиксированный redirect_uri, чтобы избежать mismatch (www / без www)
+    const redirectUri = 'https://healzy.uz';
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email profile`;
+    localStorage.setItem('pendingGoogleAuth', 'true');
+    window.location.href = googleAuthUrl;
   };
-
-
 
   if (!isOpen) return null;
 

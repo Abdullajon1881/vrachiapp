@@ -1,5 +1,8 @@
 from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from django.contrib.auth import login, logout
@@ -137,9 +140,11 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class GoogleAuthView(generics.GenericAPIView):
     """Google OAuth аутентификация"""
     permission_classes = (AllowAny,)
+    authentication_classes = ()  # отключаем SessionAuthentication/CSRF для этого эндпоинта
     serializer_class = GoogleAuthSerializer
 
     def post(self, request):
@@ -276,10 +281,21 @@ def check_auth(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@ensure_csrf_cookie
 def get_csrf_token(request):
-    """Получение CSRF токена"""
+    """Выдаёт CSRF токен и гарантированно устанавливает csrftoken cookie"""
     from django.middleware.csrf import get_token
-    return Response({'csrfToken': get_token(request)})
+    token = get_token(request)
+    resp = Response({'csrfToken': token})
+    # Явно выставляем cookie, чтобы избежать проблем на некоторых клиентах/браузерах
+    resp.set_cookie(
+        key='csrftoken',
+        value=token,
+        secure=True,
+        httponly=False,
+        samesite='Lax'
+    )
+    return resp
 
 
 @api_view(['GET'])
