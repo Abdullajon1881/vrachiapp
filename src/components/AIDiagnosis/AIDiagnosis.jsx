@@ -18,8 +18,7 @@ const AIDiagnosis = () => {
   const [isSpeaking, setIsSpeaking] = useState(false); // AI говорит
   const [speechRecognition, setSpeechRecognition] = useState(null); // Распознавание речи
   const [isSupported, setIsSupported] = useState(false); // Поддержка Speech API
-  const [availableVoices, setAvailableVoices] = useState([]); // Доступные голоса
-  const [currentVoiceIndex, setCurrentVoiceIndex] = useState(0); // Текущий голос
+  // Удалено: availableVoices и currentVoiceIndex больше не нужны
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -40,48 +39,16 @@ const AIDiagnosis = () => {
       
       const recognition = new SpeechRecognition();
       
-      // Настройки распознавания
-      recognition.continuous = true; // Непрерывное распознавание
+      // Улучшенные настройки распознавания для лучшей точности
+      recognition.continuous = false; // Разовое распознавание для лучшей точности
       recognition.interimResults = true; // Промежуточные результаты
-       const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru');
-       recognition.lang = lng; // язык распознавания
-      recognition.maxAlternatives = 1;
+      const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : 'ru-RU';
+      recognition.lang = lng; // Четкий язык распознавания
+      recognition.maxAlternatives = 3; // Больше альтернатив для лучшего распознавания
       
       setSpeechRecognition(recognition);
       
-      // Предзагружаем голоса для лучшего выбора
-      if ('speechSynthesis' in window) {
-        const loadVoices = () => {
-          const voices = window.speechSynthesis.getVoices();
-          
-          // Сортируем голоса по качеству (женские голоса сначала)
-          const russianVoices = voices
-            .filter(voice => voice.lang.startsWith('ru'))
-            .sort((a, b) => {
-              // Приоритет женским голосам
-              const aIsFemale = isFemaleVoice(a.name);
-              const bIsFemale = isFemaleVoice(b.name);
-              if (aIsFemale && !bIsFemale) return -1;
-              if (!aIsFemale && bIsFemale) return 1;
-              
-              // Приоритет облачным голосам
-              if (!a.localService && b.localService) return -1;
-              if (a.localService && !b.localService) return 1;
-              
-              // Приоритет качественным голосам
-              const qualityA = getVoiceQuality(a.name);
-              const qualityB = getVoiceQuality(b.name);
-              return qualityB - qualityA;
-            });
-          
-          setAvailableVoices(russianVoices);
-        };
-        
-        // Принудительно загружаем голоса
-        window.speechSynthesis.getVoices();
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-        setTimeout(loadVoices, 100);
-      }
+      // Удалено: предзагрузка голосов больше не нужна
       
       // Обработчики событий
       recognition.onstart = () => {
@@ -110,6 +77,7 @@ const AIDiagnosis = () => {
         if (event.error === 'not-allowed') {
           alert(t('ai.allowMic', 'Разрешите доступ к микрофону в настройках браузера'));
         }
+        // Остальные ошибки игнорируем для плавной работы
       };
       
       recognition.onend = () => {
@@ -120,17 +88,6 @@ const AIDiagnosis = () => {
       setIsSupported(false);
     }
     
-    // Инициализация голосов для синтеза
-    if ('speechSynthesis' in window) {
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-        }
-      };
-      
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
   }, []);
 
   // Новая система: Speech Recognition API (как в ChatGPT Voice)
@@ -150,7 +107,7 @@ const AIDiagnosis = () => {
       try {
       speechRecognition.start();
     } catch (error) {
-      alert(t('ai.cannotStart', 'Не удалось запустить распознавание речи. Убедитесь что микрофон доступен.'));
+      // Игнорируем ошибки запуска - пользователь может попробовать снова
     }
   };
 
@@ -197,7 +154,7 @@ const AIDiagnosis = () => {
         
         // Автоматически воспроизводим голосовой ответ
         if (data.has_voice && data.audio_url) {
-          setTimeout(() => playAudioResponse(data.audio_url), 300); // Небольшая задержка для лучшего UX
+          setTimeout(() => playAudioResponse(data.audio_url, data.response), 300); // Небольшая задержка для лучшего UX
         } else {
           // Fallback к встроенному TTS
           setTimeout(() => speakText(data.response), 300);
@@ -210,11 +167,10 @@ const AIDiagnosis = () => {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: t('ai.voiceProcessError', 'Извините, не удалось обработать голосовое сообщение. Попробуйте ещё раз.'),
+        content: 'Извините, не удалось обработать голосовое сообщение. Попробуйте ещё раз.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
-      speakText(t('ai.genericError', 'Извините, произошла ошибка. Попробуйте ещё раз.'));
     } finally {
       setIsLoading(false);
     }
@@ -248,253 +204,95 @@ const AIDiagnosis = () => {
     return cleanText.trim();
   };
 
-  // Воспроизводим голосовой ответ от сервера
-  const playAudioResponse = (audioUrl) => {
-    try {
-      // Останавливаем текущую речь
-      window.speechSynthesis.cancel();
-      
-      // Приостанавливаем прослушивание во время речи AI
-      const wasListening = isListening;
-      if (wasListening) {
-        speechRecognition.stop();
-      }
-
-      // Создаем и воспроизводим аудио
-      const audio = new Audio(audioUrl);
-      audio.preload = 'auto';
-      
-      setIsSpeaking(true);
-      
-      audio.onended = () => {
-        setIsSpeaking(false);
-        
-        // Возобновляем прослушивание после речи AI
-        if (wasListening) {
-          setTimeout(() => {
-            if (speechRecognition) {
-              speechRecognition.start();
-            }
-          }, 500);
-        }
-      };
-
-      audio.onerror = (error) => {
-        console.error('Ошибка воспроизведения аудио:', error);
-        setIsSpeaking(false);
-        
-        // Fallback к TTS
-        speakText(document.querySelector('.ai-diagnosis__message--ai:last-child .ai-diagnosis__message-text')?.textContent || 'Извините, не удалось воспроизвести ответ');
-      };
-
-      audio.play().catch(error => {
-        console.error('Не удалось воспроизвести аудио:', error);
-        setIsSpeaking(false);
-        
-        // Fallback к TTS
-        speakText(document.querySelector('.ai-diagnosis__message--ai:last-child .ai-diagnosis__message-text')?.textContent || 'Извините, не удалось воспроизвести ответ');
-      });
-      
-    } catch (error) {
-      console.error('Ошибка при настройке воспроизведения аудио:', error);
-      setIsSpeaking(false);
-    }
-  };
-
-  // Озвучиваем текст с помощью Web Speech API
-  const speakText = (text) => {
-    if (!('speechSynthesis' in window)) {
+  // Оптимизированное воспроизведение аудио
+  const playAudioResponse = (audioUrl, fallbackText = null) => {
+    if (!audioUrl || !fallbackText) {
       return;
     }
-
-    // Очищаем текст от всех нежелательных символов
-    const cleanText = cleanTextForSpeech(text);
-    
-        if (!cleanText.trim()) {
-      return;
-    }
-
 
     // Останавливаем текущую речь
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
+    // Сохраняем состояние прослушивания
+    const wasListening = isListening;
+    if (wasListening && speechRecognition) {
+      speechRecognition.stop();
+    }
+
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.src = audioUrl;
+    
+    setIsSpeaking(true);
+    
+    const cleanup = () => {
+      setIsSpeaking(false);
+      if (wasListening && speechRecognition) {
+        setTimeout(() => speechRecognition.start(), 300);
+      }
+    };
+
+    const fallbackToTTS = () => {
+      cleanup();
+      speakText(fallbackText);
+    };
+
+    audio.onended = cleanup;
+    audio.onerror = fallbackToTTS;
+    audio.onabort = fallbackToTTS;
+    
+    audio.play().catch(() => fallbackToTTS());
+  };
+
+  // Простая и надежная озвучка
+  const speakText = (text) => {
+    if (!window.speechSynthesis || !text?.trim()) return;
+
+    const cleanText = cleanTextForSpeech(text);
+    if (!cleanText.trim()) return;
+
     window.speechSynthesis.cancel();
     
-    // Приостанавливаем прослушивание во время речи AI
     const wasListening = isListening;
-    if (wasListening) {
+    if (wasListening && speechRecognition) {
       speechRecognition.stop();
     }
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
-    // Настройки для женского голоса
-    utterance.rate = 0.85; // Медленнее для более приятного звучания
-    utterance.pitch = 1.4; // Выше для женского голоса
-    utterance.volume = 0.9; // Громче
-    utterance.lang = 'ru-RU'; // Русский язык
+    // Оптимальные настройки для женского голоса
+    utterance.rate = 0.85;
+    utterance.pitch = 1.3;
+    utterance.volume = 0.9;
+    utterance.lang = 'ru-RU';
     
-    // Используем выбранный пользователем голос или лучший женский голос
-    let selectedVoice = null;
+    // Ищем лучший русский голос
+    const voices = window.speechSynthesis.getVoices();
+    const russianVoice = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes('female')) ||
+                        voices.find(v => v.lang.startsWith('ru')) ||
+                        null;
     
-    if (availableVoices.length > 0) {
-      selectedVoice = availableVoices[currentVoiceIndex % availableVoices.length];
-    } else {
-      // Fallback к автоматическому поиску лучшего женского голоса
-      const voices = window.speechSynthesis.getVoices();
-      const russianVoices = voices.filter(voice => voice.lang.startsWith('ru'));
-      
-      // Ищем лучший женский голос
-      selectedVoice = russianVoices.find(voice => isFemaleVoice(voice.name)) || 
-                     russianVoices.find(voice => voice.name.includes('female')) ||
-                     russianVoices[0]; // Первый русский голос как fallback
-    }
-    
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-
-      
-      // Индивидуальные настройки для женских голосов
-      const voiceName = selectedVoice.name.toLowerCase();
-      const isFemaleName = isFemaleVoice(selectedVoice.name);
-      
-      if (isFemaleName) {
-        // Настройки для женских голосов
-        utterance.pitch = 1.3; // Высокий женский тон
-        utterance.rate = 0.8;   // Медленнее для более приятного звучания
-        utterance.volume = 0.95; // Громче
-        
-        // Особые настройки для конкретных женских голосов
-        if (voiceName.includes('elena')) {
-          utterance.pitch = 1.4;
-          utterance.rate = 0.85;
-        } else if (voiceName.includes('irina')) {
-          utterance.pitch = 1.35;
-          utterance.rate = 0.8;
-        } else if (voiceName.includes('anna') || voiceName.includes('anya')) {
-          utterance.pitch = 1.3;
-          utterance.rate = 0.85;
-        } else if (voiceName.includes('svetlana')) {
-          utterance.pitch = 1.25;
-          utterance.rate = 0.82;
-        } else if (voiceName.includes('maria')) {
-          utterance.pitch = 1.35;
-          utterance.rate = 0.88;
-        }
-      } else {
-        // Настройки для мужских голосов (делаем их более женственными)
-        utterance.pitch = 1.5; // Очень высокий тон для имитации женского голоса
-        utterance.rate = 0.75;  // Медленно
-        utterance.volume = 0.9;
-      }
-      
-      // Дополнительные настройки для премиальных голосов
-      if (voiceName.includes('neural') || voiceName.includes('premium') || voiceName.includes('wavenet')) {
-        utterance.rate *= 0.95; // Немного медленнее для лучшего качества
-        utterance.volume = Math.min(utterance.volume + 0.05, 1.0);
-      }
-    } else {
+    if (russianVoice) {
+      utterance.voice = russianVoice;
     }
 
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-    };
-
+    utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
-      
-      // Возобновляем прослушивание после речи AI
-      if (wasListening) {
-        setTimeout(() => {
-          if (speechRecognition) {
-            speechRecognition.start();
-          }
-        }, 500);
+      if (wasListening && speechRecognition) {
+        setTimeout(() => speechRecognition.start(), 300);
       }
     };
+    utterance.onerror = () => setIsSpeaking(false);
 
-    utterance.onerror = (event) => {
-      setIsSpeaking(false);
-    };
-
-    try {
-      window.speechSynthesis.speak(utterance);
-    } catch (error) {
-      setIsSpeaking(false);
-    }
+    window.speechSynthesis.speak(utterance);
   };
 
-  // Функция определения женских голосов
-  const isFemaleVoice = (voiceName) => {
-    const name = voiceName.toLowerCase();
-    
-    // Женские имена
-    const femaleNames = [
-      'elena', 'irina', 'anna', 'anya', 'svetlana', 'maria', 'masha', 
-      'katarina', 'kate', 'olga', 'natasha', 'yulia', 'daria', 'victoria',
-      'tatiana', 'milena', 'vera', 'nina', 'alexandra', 'alina'
-    ];
-    
-    // Проверяем по именам
-    for (const femaleName of femaleNames) {
-      if (name.includes(femaleName)) return true;
-    }
-    
-    // Проверяем по стандартным обозначениям
-    if (name.includes('female')) return true;
-    if (name.includes('woman')) return true;
-    if (name.includes('girl')) return true;
-    
-    // Русские голоса - обычно A и C женские, B и D мужские
-    if (name.includes('ru-ru') && (name.includes('-a') || name.includes('-c'))) return true;
-    
-    return false;
-  };
+  // Удалено: функции анализа голосов больше не нужны
 
-  // Функция оценки качества голоса
-  const getVoiceQuality = (voiceName) => {
-    const name = voiceName.toLowerCase();
-    let score = 0;
-    
-    // Премиальные и нейронные голоса
-    if (name.includes('neural') || name.includes('wavenet') || name.includes('premium')) score += 50;
-    if (name.includes('enhanced') || name.includes('natural')) score += 40;
-    
-    // Качественные женские голоса (часто звучат естественнее)
-    if (name.includes('elena')) score += 30;
-    if (name.includes('irina')) score += 25;
-    if (name.includes('anna') || name.includes('anya')) score += 25;
-    if (name.includes('svetlana')) score += 20;
-    if (name.includes('maria') || name.includes('masha')) score += 20;
-    if (name.includes('katarina') || name.includes('kate')) score += 15;
-    
-    // Качественные мужские голоса
-    if (name.includes('pavel') || name.includes('paul')) score += 20;
-    if (name.includes('alexei') || name.includes('alex')) score += 15;
-    if (name.includes('vladimir') || name.includes('vlad')) score += 15;
-    
-    // Бренды с хорошим качеством
-    if (name.includes('microsoft')) score += 10;
-    if (name.includes('google')) score += 15;
-    if (name.includes('amazon')) score += 12;
-    if (name.includes('apple')) score += 8;
-    
-    return score;
-  };
 
-  // Переключение голоса
-  const switchVoice = () => {
-    if (availableVoices.length > 0) {
-      const newIndex = (currentVoiceIndex + 1) % availableVoices.length;
-      setCurrentVoiceIndex(newIndex);
-      const newVoice = availableVoices[newIndex];
-      const quality = getVoiceQuality(newVoice.name);
-      
-      // Тестируем новый женский голос
-      const testText = isFemaleVoice(newVoice.name) 
-        ? 'Привет! Меня зовут Healzy. Я ваша медицинская помощница. Как мой женский голос?'
-        : 'Привет! Меня зовут Healzy. Я настроила этот голос как можно более женственно. Как звучу?';
-      speakText(testText);
-    }
-  };
 
   // Отправка текстового сообщения
   const handleSendMessage = async () => {
@@ -538,7 +336,7 @@ const AIDiagnosis = () => {
         
         // Если есть голосовой ответ, воспроизводим его, или если активно прослушивание
         if (data.has_voice && data.audio_url) {
-          playAudioResponse(data.audio_url);
+          playAudioResponse(data.audio_url, data.response);
         } else if (isListening) {
           speakText(data.response);
         }
@@ -550,7 +348,7 @@ const AIDiagnosis = () => {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: t('ai.genericError', 'Извините, произошла ошибка. Попробуйте еще раз.'),
+        content: 'Извините, произошла ошибка. Попробуйте еще раз.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -612,7 +410,7 @@ const AIDiagnosis = () => {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: t('ai.fileAnalyzeError', 'Извините, не удалось проанализировать файл. Попробуйте еще раз.'),
+        content: 'Извините, не удалось проанализировать файл. Попробуйте еще раз.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -641,7 +439,7 @@ const AIDiagnosis = () => {
       recorder.start();
       setIsRecording(true);
     } catch (error) {
-      alert(t('ai.micAccessError', 'Не удалось получить доступ к микрофону'));
+      // Игнорируем ошибки доступа к микрофону
     }
   };
 
@@ -709,7 +507,7 @@ const AIDiagnosis = () => {
         
         // Автоматически воспроизводим голосовой ответ
         if (data.has_voice && data.audio_url) {
-          setTimeout(() => playAudioResponse(data.audio_url), 300);
+          setTimeout(() => playAudioResponse(data.audio_url, data.response), 300);
         } else {
           setTimeout(() => speakText(data.response), 300);
         }
@@ -721,7 +519,7 @@ const AIDiagnosis = () => {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: t('ai.voiceProcessError', 'Извините, не удалось обработать голосовое сообщение. Попробуйте еще раз.'),
+        content: 'Извините, не удалось обработать голосовое сообщение. Попробуйте еще раз.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -848,20 +646,7 @@ const AIDiagnosis = () => {
               {isListening ? '🔴' : '🎤'}
             </button>
 
-            {availableVoices.length > 1 && (
-              <button
-                className="ai-diagnosis__action-btn"
-                onClick={switchVoice}
-                disabled={isSpeaking}
-                title={
-                  availableVoices[currentVoiceIndex] && isFemaleVoice(availableVoices[currentVoiceIndex].name)
-                    ? `Женский голос (${currentVoiceIndex + 1}/${availableVoices.length})`
-                    : `Голос настроен женственно (${currentVoiceIndex + 1}/${availableVoices.length})`
-                }
-              >
-                👩‍⚕️
-              </button>
-            )}
+
 
 
           </div>
@@ -900,13 +685,10 @@ const AIDiagnosis = () => {
           ⚠️ {t('ai.disclaimer1', 'Внимание: AI диагностика не заменяет консультацию врача.')} 
           {t('ai.disclaimer2', 'При серьезных симптомах обратитесь к специалисту.')}
           
-          {isSupported && availableVoices.length > 0 && (
+          {isSupported && (
             <>
               <br />
-              👩‍⚕️ {availableVoices[currentVoiceIndex] && isFemaleVoice(availableVoices[currentVoiceIndex].name)
-                ? 'Используется женский голос для ответов'
-                : 'Голос настроен максимально женственно'
-              }
+              🎤 Нажмите микрофон для голосового общения с медицинской помощницей
             </>
           )}
           
