@@ -60,12 +60,26 @@ MIDDLEWARE = [
 # Channels configuration
 ASGI_APPLICATION = 'vrachiapp_backend.asgi.application'
 
-# Channel layers for WebSocket support
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
-}
+# Channel layers for WebSocket support (prod: Redis, fallback: InMemory)
+CHANNEL_LAYER_BACKEND = os.getenv('CHANNEL_LAYER', 'memory').lower()
+
+if CHANNEL_LAYER_BACKEND == 'redis':
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [(os.getenv('REDIS_HOST', '127.0.0.1'), int(os.getenv('REDIS_PORT', '6379')))],
+                'capacity': int(os.getenv('REDIS_CHANNEL_CAPACITY', '10000')),
+                'expiry': int(os.getenv('REDIS_CHANNEL_EXPIRY', '10')),
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 # Настройки логирования (уровень понижен в продакшене)
 LOGGING = {
@@ -179,6 +193,9 @@ DATABASES = {
         },
     }
 }
+
+# Persistent DB connections to reduce handshake cost under load
+DATABASES['default']['CONN_MAX_AGE'] = int(os.getenv('DB_CONN_MAX_AGE', '60'))
 
 
 # Password validation

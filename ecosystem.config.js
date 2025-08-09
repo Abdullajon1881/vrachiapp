@@ -1,28 +1,121 @@
 module.exports = {
-    apps: [
-      {
-        name: 'healzy-b',
-        cwd: '/var/www/healzy.app/backend',
-        interpreter: '/var/www/healzy.app/backend/venv/bin/python',
-        script: '/var/www/healzy.app/backend/manage.py',
-        args: 'runserver 127.0.0.1:8000 --noreload',
-        instances: 1,
-        autorestart: true,
-        watch: false,
-        max_memory_restart: '1G',
-        env: {
-          NODE_ENV: 'production',
-          DJANGO_SETTINGS_MODULE: 'vrachiapp_backend.settings',
-          PYTHONUNBUFFERED: '1',
-          PYTHONDONTWRITEBYTECODE: '1',
-          PYTHONPATH: '/var/www/healzy.app/backend'
-        },
-        error_file: '/var/log/pm2/healzy-backend-error.log',
-        out_file: '/var/log/pm2/healzy-backend-out.log',
-        log_file: '/var/log/pm2/healzy-backend.log',
-        time: true,
-        kill_timeout: 5000
-      }
-    ]
-  };
+  apps: [
+    {
+      name: 'healzy-asgi-8001',
+      cwd: '/var/www/healzy.app/backend',
+      interpreter: '/var/www/healzy.app/backend/venv/bin/python',
+      script: '/var/www/healzy.app/backend/venv/bin/daphne',
+      args: '-b 127.0.0.1 -p 8001 vrachiapp_backend.asgi:application',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        DJANGO_SETTINGS_MODULE: 'vrachiapp_backend.settings',
+        PYTHONUNBUFFERED: '1',
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONPATH: '/var/www/healzy.app/backend',
+        CHANNEL_LAYER: 'redis',
+        REDIS_HOST: '127.0.0.1',
+        REDIS_PORT: '6379',
+        REDIS_CHANNEL_CAPACITY: '10000',
+        REDIS_CHANNEL_EXPIRY: '10',
+        DB_CONN_MAX_AGE: '60'
+      },
+      error_file: '/var/log/pm2/healzy-asgi-8001-error.log',
+      out_file: '/var/log/pm2/healzy-asgi-8001-out.log',
+      log_file: '/var/log/pm2/healzy-asgi-8001.log',
+      time: true,
+      kill_timeout: 5000
+    },
+    {
+      name: 'healzy-asgi-8002',
+      cwd: '/var/www/healzy.app/backend',
+      interpreter: '/var/www/healzy.app/backend/venv/bin/python',
+      script: '/var/www/healzy.app/backend/venv/bin/daphne',
+      args: '-b 127.0.0.1 -p 8002 vrachiapp_backend.asgi:application',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        DJANGO_SETTINGS_MODULE: 'vrachiapp_backend.settings',
+        PYTHONUNBUFFERED: '1',
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONPATH: '/var/www/healzy.app/backend',
+        CHANNEL_LAYER: 'redis',
+        REDIS_HOST: '127.0.0.1',
+        REDIS_PORT: '6379',
+        REDIS_CHANNEL_CAPACITY: '10000',
+        REDIS_CHANNEL_EXPIRY: '10',
+        DB_CONN_MAX_AGE: '60'
+      },
+      error_file: '/var/log/pm2/healzy-asgi-8002-error.log',
+      out_file: '/var/log/pm2/healzy-asgi-8002-out.log',
+      log_file: '/var/log/pm2/healzy-asgi-8002.log',
+      time: true,
+      kill_timeout: 5000
+    },
+    {
+      name: 'healzy-asgi-8003',
+      cwd: '/var/www/healzy.app/backend',
+      interpreter: '/var/www/healzy.app/backend/venv/bin/python',
+      script: '/var/www/healzy.app/backend/venv/bin/daphne',
+      args: '-b 127.0.0.1 -p 8003 vrachiapp_backend.asgi:application',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        DJANGO_SETTINGS_MODULE: 'vrachiapp_backend.settings',
+        PYTHONUNBUFFERED: '1',
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONPATH: '/var/www/healzy.app/backend',
+        CHANNEL_LAYER: 'redis',
+        REDIS_HOST: '127.0.0.1',
+        REDIS_PORT: '6379',
+        REDIS_CHANNEL_CAPACITY: '10000',
+        REDIS_CHANNEL_EXPIRY: '10',
+        DB_CONN_MAX_AGE: '60'
+      },
+      error_file: '/var/log/pm2/healzy-asgi-8003-error.log',
+      out_file: '/var/log/pm2/healzy-asgi-8003-out.log',
+      log_file: '/var/log/pm2/healzy-asgi-8003.log',
+      time: true,
+      kill_timeout: 5000
+    },
+    {
+      name: 'healzy-asgi-8004',
+      cwd: '/var/www/healzy.app/backend',
+      interpreter: '/var/www/healzy.app/backend/venv/bin/python',
+      script: '/var/www/healzy.app/backend/venv/bin/daphne',
+      args: '-b 127.0.0.1 -p 8004 vrachiapp_backend.asgi:application',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+        DJANGO_SETTINGS_MODULE: 'vrachiapp_backend.settings',
+        PYTHONUNBUFFERED: '1',
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONPATH: '/var/www/healzy.app/backend',
+        CHANNEL_LAYER: 'redis',
+        REDIS_HOST: '127.0.0.1',
+        REDIS_PORT: '6379',
+        REDIS_CHANNEL_CAPACITY: '10000',
+        REDIS_CHANNEL_EXPIRY: '10',
+        DB_CONN_MAX_AGE: '60'
+      },
+      error_file: '/var/log/pm2/healzy-asgi-8004-error.log',
+      out_file: '/var/log/pm2/healzy-asgi-8004-out.log',
+      log_file: '/var/log/pm2/healzy-asgi-8004.log',
+      time: true,
+      kill_timeout: 5000
+    }
+  ]
+};
   
