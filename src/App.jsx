@@ -53,6 +53,15 @@ function App() {
     updateAuthState();
   }, []);
 
+  // Инициализация CSRF cookie для SPA (нужно до любых POST/PUT/DELETE)
+  useEffect(() => {
+    try {
+      fetch('https://healzy.uz/api/auth/csrf/', {
+        credentials: 'include'
+      });
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('darkTheme', JSON.stringify(isDarkTheme));
     const appElement = document.querySelector('.app');
