@@ -1,15 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Services.scss';
+import { useTranslation } from 'react-i18next';
 
 const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const services = [
     // Медицинские услуги
     {
       id: 1,
-      title: 'Консультация врача',
-      description: 'Онлайн и офлайн консультации с опытными специалистами',
+      title: t('services.items.consultation.title'),
+      description: t('services.items.consultation.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M12 2v20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -18,12 +20,12 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Медицинские услуги'
+      category: t('services.categories.medical')
     },
     {
       id: 2,
-      title: 'Анализы',
-      description: 'Лабораторные исследования с быстрыми результатами',
+      title: t('services.items.labs.title'),
+      description: t('services.items.labs.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -33,12 +35,12 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <polyline points="10,9 9,9 8,9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Медицинские услуги'
+      category: t('services.categories.medical')
     },
     {
       id: 3,
-      title: 'УЗИ',
-      description: 'Ультразвуковые исследования на современном оборудовании',
+      title: t('services.items.usg.title'),
+      description: t('services.items.usg.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -47,24 +49,24 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <line x1="15" y1="9" x2="15.01" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Медицинские услуги'
+      category: t('services.categories.medical')
     },
     {
       id: 4,
-      title: 'Стоматология',
-      description: 'Комплексные стоматологические услуги',
+      title: t('services.items.dentistry.title'),
+      description: t('services.items.dentistry.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Медицинские услуги'
+      category: t('services.categories.medical')
     },
     // Спортивные и диетические услуги
     {
       id: 5,
-      title: 'Спортивная медицина',
-      description: 'Консультации и лечение спортивных травм',
+      title: t('services.items.sports.title'),
+      description: t('services.items.sports.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M6 4h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -75,12 +77,12 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <path d="M6 18h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Спортивные и диетические'
+      category: t('services.categories.sportDiet')
     },
     {
       id: 6,
-      title: 'Диетология',
-      description: 'Персональные планы питания и консультации диетолога',
+      title: t('services.items.diet.title'),
+      description: t('services.items.diet.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M18 8h1a4 4 0 0 1 0 8h-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -90,38 +92,38 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <line x1="14" y1="1" x2="14" y2="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Спортивные и диетические'
+      category: t('services.categories.sportDiet')
     },
     // Физиотерапия
     {
       id: 7,
-      title: 'Физиотерапия',
-      description: 'Современные методы физиотерапевтического лечения',
+      title: t('services.items.physio.title'),
+      description: t('services.items.physio.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M12 2v20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Физиотерапия'
+      category: t('services.categories.physio')
     },
     // Массаж
     {
       id: 8,
-      title: 'Массаж',
-      description: 'Лечебный и расслабляющий массаж от профессионалов',
+      title: t('services.items.massage.title'),
+      description: t('services.items.massage.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Массаж'
+      category: t('services.categories.massage')
     },
     // Психологические консультации
     {
       id: 9,
-      title: 'Психологическая консультация',
-      description: 'Профессиональная психологическая поддержка',
+      title: t('services.items.psycho.title'),
+      description: t('services.items.psycho.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -129,13 +131,13 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <path d="M8 13h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Психологические консультации'
+      category: t('services.categories.psychology')
     },
     // Уход за пожилыми
     {
       id: 10,
-      title: 'Уход за пожилыми',
-      description: 'Комплексный уход и медицинское сопровождение',
+      title: t('services.items.elderlyCare.title'),
+      description: t('services.items.elderlyCare.description'),
       icon: (
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -144,7 +146,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           <path d="M2 12h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
-      category: 'Уход за пожилыми'
+      category: t('services.categories.elderly')
     }
   ];
 
@@ -164,10 +166,8 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
     <section className="services">
       <div className="container">
         <div className="services__header">
-          <h2 className="services__title">Наши услуги</h2>
-          <p className="services__subtitle">
-            Широкий спектр медицинских услуг для вашего здоровья и благополучия
-          </p>
+          <h2 className="services__title">{t('services.title')}</h2>
+          <p className="services__subtitle">{t('services.subtitle')}</p>
         </div>
 
         {/* Все услуги в одной сетке */}
@@ -185,7 +185,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
                 <p className="service-card__description">{service.description}</p>
                 {userData && userData.role !== 'doctor' && (
                   <button className="service-card__btn" onClick={() => navigate('/services')}>
-                    Подробнее
+                    {t('common.readMore')}
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                       <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -214,7 +214,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
                       <p className="service-card__description">{service.description}</p>
                       {userData && userData.role !== 'doctor' && (
                         <button className="service-card__btn" onClick={() => navigate('/services')}>
-                          Подробнее
+                          {t('common.readMore')}
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                             <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
@@ -231,7 +231,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
         <div className="services__cta">
           {userData && userData.role !== 'doctor' && (
             <button className="btn btn--primary" onClick={() => navigate('/services')}>
-              Все услуги
+              {t('common.allServices')}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -239,7 +239,7 @@ const Services = ({ onShowAllServices, onShowDoctors, userData }) => {
           )}
           {userData && userData.role === 'patient' && (
             <button className="btn btn--secondary" onClick={() => navigate('/doctors')}>
-              Найти врача
+              {t('common.findDoctor')}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="8.5" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

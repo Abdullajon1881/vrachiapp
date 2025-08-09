@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './MobileNav.scss';
+import { useTranslation } from 'react-i18next';
 
 const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [activeItem, setActiveItem] = useState('home');
   const [consultationsStats, setConsultationsStats] = useState({
     active: 0,
@@ -105,7 +107,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
   const baseNavigationItems = [
     {
       id: 'home',
-      label: 'Главная',
+      label: t('common.home'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -115,7 +117,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
     },
     {
       id: 'theme-toggle',
-      label: isDarkTheme ? 'Светлая' : 'Темная',
+      label: isDarkTheme ? t('common.themeLight') : t('common.themeDark'),
       icon: isDarkTheme ? (
         // Солнце для темной темы
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -142,7 +144,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
   const patientNavigationItems = [
     {
       id: 'doctors',
-      label: 'Врачи',
+      label: t('common.doctors'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -154,7 +156,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
     },
     {
       id: 'consultations',
-      label: 'Записи',
+      label: t('common.records'),
       badge: consultationsStats.active + consultationsStats.pending || 0,
       badgeType: consultationsStats.active > 0 ? 'active' : 'pending',
       icon: (
@@ -168,7 +170,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
     },
     {
       id: 'services',
-      label: 'Услуги',
+      label: t('common.services'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -177,7 +179,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
     },
     {
       id: 'profile',
-      label: 'Профиль',
+      label: t('common.profile'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -191,7 +193,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
   const adminNavigationItems = [
     {
       id: 'admin',
-      label: 'Панель',
+      label: t('common.adminPanel'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

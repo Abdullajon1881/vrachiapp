@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './AIDiagnosis.scss';
+import { useTranslation } from 'react-i18next';
 
 const AIDiagnosis = () => {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'ai',
-      content: 'Привет! 😊 Я Healzy AI - ваш дружелюбный помощник! Можете спросить меня о чем угодно: здоровье, симптомы, или просто поболтать! Отправляйте текст, голосовые сообщения или фото - я всегда рада помочь! ✨',
+       content: t('ai.welcome', 'Привет! 😊 Я Healzy AI - ваш дружелюбный помощник! Можете спросить меня о чем угодно: здоровье, симптомы, или просто поболтать! Отправляйте текст, голосовые сообщения или фото - я всегда рада помочь! ✨'),
       timestamp: new Date()
     }
   ]);
@@ -41,7 +43,8 @@ const AIDiagnosis = () => {
       // Настройки распознавания
       recognition.continuous = true; // Непрерывное распознавание
       recognition.interimResults = true; // Промежуточные результаты
-      recognition.lang = 'ru-RU'; // Русский язык
+       const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru');
+       recognition.lang = lng; // язык распознавания
       recognition.maxAlternatives = 1;
       
       setSpeechRecognition(recognition);
@@ -99,7 +102,7 @@ const AIDiagnosis = () => {
         setIsListening(false);
         
         if (event.error === 'not-allowed') {
-          alert('Разрешите доступ к микрофону в настройках браузера');
+          alert(t('ai.allowMic', 'Разрешите доступ к микрофону в настройках браузера'));
         }
       };
       
@@ -127,7 +130,7 @@ const AIDiagnosis = () => {
   // Новая система: Speech Recognition API (как в ChatGPT Voice)
   const startSmartListening = () => {
     if (!isSupported) {
-      alert('Speech Recognition не поддерживается в этом браузере. Попробуйте Chrome.');
+      alert(t('ai.noSpeech', 'Speech Recognition не поддерживается в этом браузере. Попробуйте Chrome.'));
       return;
     }
     
@@ -138,10 +141,10 @@ const AIDiagnosis = () => {
     }
 
     
-    try {
+      try {
       speechRecognition.start();
     } catch (error) {
-      alert('Не удалось запустить распознавание речи. Убедитесь что микрофон доступен.');
+      alert(t('ai.cannotStart', 'Не удалось запустить распознавание речи. Убедитесь что микрофон доступен.'));
     }
   };
 
@@ -187,17 +190,17 @@ const AIDiagnosis = () => {
         speakText(data.response);
         
       } else {
-        throw new Error('Ошибка сервера');
+        throw new Error('server');
       }
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: 'Извините, не удалось обработать голосовое сообщение. Попробуйте ещё раз.',
+        content: t('ai.voiceProcessError', 'Извините, не удалось обработать голосовое сообщение. Попробуйте ещё раз.'),
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
-      speakText('Извините, произошла ошибка. Попробуйте ещё раз.');
+      speakText(t('ai.genericError', 'Извините, произошла ошибка. Попробуйте ещё раз.'));
     } finally {
       setIsLoading(false);
     }
@@ -436,13 +439,13 @@ const AIDiagnosis = () => {
         }
         
       } else {
-        throw new Error(data.error || 'Ошибка при получении ответа');
+        throw new Error(data.error || 'server');
       }
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: 'Извините, произошла ошибка. Попробуйте еще раз.',
+        content: t('ai.genericError', 'Извините, произошла ошибка. Попробуйте еще раз.'),
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -461,7 +464,7 @@ const AIDiagnosis = () => {
     const isVideo = file.type.startsWith('video/');
     
     if (!isImage && !isVideo) {
-      alert('Пожалуйста, загрузите изображение или видео');
+      alert(t('ai.uploadImageOrVideo', 'Пожалуйста, загрузите изображение или видео'));
       return;
     }
 
@@ -498,13 +501,13 @@ const AIDiagnosis = () => {
         };
         setMessages(prev => [...prev, aiMessage]);
       } else {
-        throw new Error(data.error || 'Ошибка при анализе файла');
+        throw new Error(data.error || 'server');
       }
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: 'Извините, не удалось проанализировать файл. Попробуйте еще раз.',
+        content: t('ai.fileAnalyzeError', 'Извините, не удалось проанализировать файл. Попробуйте еще раз.'),
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -533,7 +536,7 @@ const AIDiagnosis = () => {
       recorder.start();
       setIsRecording(true);
     } catch (error) {
-      alert('Не удалось получить доступ к микрофону');
+      alert(t('ai.micAccessError', 'Не удалось получить доступ к микрофону'));
     }
   };
 
@@ -557,7 +560,7 @@ const AIDiagnosis = () => {
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: '🎤 Голосовое сообщение',
+      content: t('ai.voiceMessage', '🎤 Голосовое сообщение'),
       timestamp: new Date()
     };
 
@@ -586,13 +589,13 @@ const AIDiagnosis = () => {
         };
         setMessages(prev => [...prev, aiMessage]);
       } else {
-        throw new Error(data.error || 'Ошибка при обработке аудио');
+        throw new Error(data.error || 'server');
       }
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: 'Извините, не удалось обработать голосовое сообщение. Попробуйте еще раз.',
+        content: t('ai.voiceProcessError', 'Извините, не удалось обработать голосовое сообщение. Попробуйте еще раз.'),
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -603,7 +606,8 @@ const AIDiagnosis = () => {
 
   // Форматирование времени
   const formatTime = (date) => {
-    return date.toLocaleTimeString('ru-RU', { 
+    const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru');
+    return date.toLocaleTimeString(lng, { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
@@ -618,13 +622,13 @@ const AIDiagnosis = () => {
               🤖
             </div>
             <div>
-              <h1>Healzy AI Диагностика</h1>
-              <p>Персональный медицинский ассистент</p>
+              <h1>{t('ai.title', 'Healzy AI Диагностика')}</h1>
+              <p>{t('ai.subtitle', 'Персональный медицинский ассистент')}</p>
             </div>
           </div>
           <div className="ai-diagnosis__status">
             <span className="ai-diagnosis__status-indicator"></span>
-            Онлайн
+            {t('ai.online', 'Онлайн')}
           </div>
         </div>
 
@@ -660,7 +664,7 @@ const AIDiagnosis = () => {
                   </div>
                 ) : (
                   <div className="ai-diagnosis__speaking">
-                    🗣️ Говорю...
+                    {t('ai.speaking', '🗣️ Говорю...')}
                   </div>
                 )}
               </div>
@@ -675,7 +679,7 @@ const AIDiagnosis = () => {
             <button
               className="ai-diagnosis__action-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="Загрузить изображение или видео"
+              title={t('ai.uploadTitle', 'Загрузить изображение или видео')}
             >
               📷
             </button>
@@ -684,7 +688,7 @@ const AIDiagnosis = () => {
               className={`ai-diagnosis__action-btn ${isListening ? 'ai-diagnosis__action-btn--listening' : ''}`}
               onClick={startSmartListening}
               disabled={!isSupported}
-              title={isListening ? 'Голосовое прослушивание активно - говорите! (нажмите для остановки)' : 'Начать голосовой диалог с AI'}
+              title={isListening ? t('ai.voiceActive', 'Голосовое прослушивание активно - говорите! (нажмите для остановки)') : t('ai.startVoice', 'Начать голосовой диалог с AI')}
             >
               {isListening ? '🛑' : '🎤'}
             </button>
@@ -694,7 +698,7 @@ const AIDiagnosis = () => {
                 className="ai-diagnosis__action-btn"
                 onClick={switchVoice}
                 disabled={isSpeaking}
-                title={`Сменить голос (${currentVoiceIndex + 1}/${availableVoices.length})`}
+                title={t('ai.switchVoice', 'Сменить голос') + ` (${currentVoiceIndex + 1}/${availableVoices.length})`}
               >
                 🎭
               </button>
@@ -709,7 +713,7 @@ const AIDiagnosis = () => {
               value={currentMessage}
               onChange={(e) => setCurrentMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Опишите ваши симптомы или задайте медицинский вопрос..."
+              placeholder={t('ai.placeholder', 'Опишите ваши симптомы или задайте медицинский вопрос...')}
               className="ai-diagnosis__text-input"
               disabled={isLoading}
             />
@@ -734,12 +738,12 @@ const AIDiagnosis = () => {
         </div>
 
         <div className="ai-diagnosis__disclaimer">
-          ⚠️ Внимание: AI диагностика не заменяет консультацию врача. 
-          При серьезных симптомах обратитесь к специалисту.
+          ⚠️ {t('ai.disclaimer1', 'Внимание: AI диагностика не заменяет консультацию врача.')} 
+          {t('ai.disclaimer2', 'При серьезных симптомах обратитесь к специалисту.')}
           {!isSupported && (
             <>
               <br />
-              ❌ Голосовые функции недоступны в этом браузере. Попробуйте Chrome.
+              ❌ {t('ai.voiceUnavailable', 'Голосовые функции недоступны в этом браузере. Попробуйте Chrome.')}
             </>
           )}
         </div>

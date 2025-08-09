@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './DoctorProfile.scss';
+import { useTranslation } from 'react-i18next';
 
 const DoctorProfile = () => {
   const { id } = useParams();
@@ -15,6 +16,7 @@ const DoctorProfile = () => {
     description: ''
   });
   const [creatingConsultation, setCreatingConsultation] = useState(false);
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     const fetchDoctorProfile = async () => {
@@ -27,10 +29,10 @@ const DoctorProfile = () => {
           const data = await response.json();
           setDoctor(data);
         } else {
-          setError('Врач не найден');
+          setError(t('doctorProfile.notFoundTitle'));
         }
       } catch (error) {
-        setError('Ошибка соединения с сервером');
+        setError(t('doctorsPage.errorServer'));
       } finally {
         setLoading(false);
       }
@@ -89,7 +91,7 @@ const DoctorProfile = () => {
     e.preventDefault();
     
     if (!consultationData.title.trim()) {
-      alert('Пожалуйста, укажите тему консультации');
+      alert(t('doctorProfile.topicRequired', 'Пожалуйста, укажите тему консультации'));
       return;
     }
 
@@ -113,15 +115,15 @@ const DoctorProfile = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Консультация успешно создана!');
+        alert(t('doctorProfile.success'));
         closeConsultationModal();
         // Перенаправляем на страницу консультаций
         navigate('/consultations');
       } else {
-        alert(data.error || 'Ошибка создания консультации');
+        alert(data.error || t('doctorProfile.createError', 'Ошибка создания консультации'));
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     } finally {
       setCreatingConsultation(false);
     }
@@ -132,7 +134,7 @@ const DoctorProfile = () => {
       <div className="doctor-profile">
         <div className="doctor-profile__loading">
           <div className="loading-spinner"></div>
-          <p>Загрузка профиля врача...</p>
+          <p>{t('doctorProfile.loading')}</p>
         </div>
       </div>
     );
@@ -142,10 +144,10 @@ const DoctorProfile = () => {
     return (
       <div className="doctor-profile">
         <div className="doctor-profile__error">
-          <h2>Ошибка</h2>
+          <h2>{t('doctorProfile.errorTitle')}</h2>
           <p>{error}</p>
           <button onClick={() => navigate('/doctors')} className="doctor-profile__back-btn">
-            ← Вернуться к списку врачей
+            {t('doctorProfile.backToList')}
           </button>
         </div>
       </div>
@@ -156,10 +158,10 @@ const DoctorProfile = () => {
     return (
       <div className="doctor-profile">
         <div className="doctor-profile__error">
-          <h2>Врач не найден</h2>
-          <p>Запрошенный врач не существует или был удален</p>
+          <h2>{t('doctorProfile.notFoundTitle')}</h2>
+          <p>{t('doctorProfile.notFoundText')}</p>
           <button onClick={() => navigate('/doctors')} className="doctor-profile__back-btn">
-            ← Вернуться к списку врачей
+            {t('doctorProfile.backToList')}
           </button>
         </div>
       </div>
@@ -171,7 +173,7 @@ const DoctorProfile = () => {
       <div className="doctor-profile__container">
         {/* Кнопка назад */}
         <button onClick={() => navigate('/doctors')} className="doctor-profile__back-btn">
-          ← Вернуться к списку врачей
+          {t('doctorProfile.backToList')}
         </button>
 
         {/* Основная информация */}
@@ -213,7 +215,7 @@ const DoctorProfile = () => {
           <div className="doctor-profile__main-info">
             {doctor.experience && (
               <div className="doctor-profile__section">
-                <h2>💼 Опыт работы</h2>
+                <h2>{t('doctorProfile.workExperience')}</h2>
                 <div className="doctor-profile__section-content">
                   <p>{doctor.experience}</p>
                 </div>
@@ -222,7 +224,7 @@ const DoctorProfile = () => {
 
             {doctor.education && (
               <div className="doctor-profile__section">
-                <h2>🎓 Образование</h2>
+                <h2>{t('doctorProfile.education')}</h2>
                 <div className="doctor-profile__section-content">
                   <p>{doctor.education}</p>
                 </div>
@@ -231,7 +233,7 @@ const DoctorProfile = () => {
 
             {doctor.languages && doctor.languages.length > 0 && (
               <div className="doctor-profile__section">
-                <h2>🌍 Языки</h2>
+                <h2>{t('doctorProfile.languages')}</h2>
                 <div className="doctor-profile__section-content">
                   <div className="doctor-profile__languages">
                     {doctor.languages.map((language, index) => (
@@ -246,7 +248,7 @@ const DoctorProfile = () => {
 
             {doctor.additional_info && (
               <div className="doctor-profile__section">
-                <h2>ℹ️ Дополнительная информация</h2>
+                <h2>{t('doctorProfile.additionalInfo')}</h2>
                 <div className="doctor-profile__section-content">
                   <p>{doctor.additional_info}</p>
                 </div>
@@ -257,10 +259,10 @@ const DoctorProfile = () => {
           {/* Боковая панель с контактами */}
           <div className="doctor-profile__sidebar">
             <div className="doctor-profile__contact-card">
-              <h3>📞 Контакты</h3>
+              <h3>{t('doctorProfile.contacts')}</h3>
               {doctor.phone && (
                 <div className="doctor-profile__contact-item">
-                  <span className="doctor-profile__contact-label">Телефон:</span>
+                  <span className="doctor-profile__contact-label">{t('doctorProfile.phone')}</span>
                   <a href={`tel:${doctor.phone}`} className="doctor-profile__contact-value">
                     {doctor.phone}
                   </a>
@@ -268,7 +270,7 @@ const DoctorProfile = () => {
               )}
               {doctor.email && (
                 <div className="doctor-profile__contact-item">
-                  <span className="doctor-profile__contact-label">Email:</span>
+                  <span className="doctor-profile__contact-label">{t('doctorProfile.email')}</span>
                   <a href={`mailto:${doctor.email}`} className="doctor-profile__contact-value">
                     {doctor.email}
                   </a>
@@ -276,31 +278,31 @@ const DoctorProfile = () => {
               )}
               {doctor.address && (
                 <div className="doctor-profile__contact-item">
-                  <span className="doctor-profile__contact-label">Адрес:</span>
+                  <span className="doctor-profile__contact-label">{t('doctorProfile.address')}</span>
                   <span className="doctor-profile__contact-value">{doctor.address}</span>
                 </div>
               )}
             </div>
 
             <div className="doctor-profile__action-card">
-              <h3>Связаться с врачом</h3>
-              <p>Выберите удобный способ связи</p>
+              <h3>{t('doctorProfile.contactDoctor')}</h3>
+              <p>{t('doctorProfile.chooseMethod')}</p>
               <div className="doctor-profile__action-buttons">
                 {doctor.phone && (
                   <a href={`tel:${doctor.phone}`} className="doctor-profile__call-btn">
-                    📞 Позвонить
+                    {t('doctorProfile.call')}
                   </a>
                 )}
                 {doctor.email && (
                   <a href={`mailto:${doctor.email}`} className="doctor-profile__appointment-btn">
-                    ✉️ Написать на email
+                    {t('doctorProfile.writeEmail')}
                   </a>
                 )}
                 <button 
                   onClick={handleConsultation}
                   className="doctor-profile__consultation-btn"
                 >
-                  💬 Начать онлайн‑консультацию
+                  {t('doctorProfile.startConsultation')}
                 </button>
               </div>
             </div>
@@ -314,17 +316,17 @@ const DoctorProfile = () => {
           <div className="appointment-modal__overlay" onClick={closeAppointmentModal}></div>
           <div className="appointment-modal__content">
             <div className="appointment-modal__header">
-              <h3>Запись на прием</h3>
+              <h3>{t('doctorProfile.appointmentTitle')}</h3>
               <button onClick={closeAppointmentModal} className="appointment-modal__close">
                 ✕
               </button>
             </div>
             <div className="appointment-modal__body">
-              <p>Функция записи на прием будет доступна в ближайшее время.</p>
-              <p>Для записи на прием свяжитесь с врачом по телефону или email.</p>
+              <p>{t('doctorProfile.appointmentSoon')}</p>
+              <p>{t('doctorProfile.appointmentPhone')}</p>
               {doctor.phone && (
                 <a href={`tel:${doctor.phone}`} className="appointment-modal__phone-btn">
-                  📞 Позвонить {doctor.phone}
+                  {t('doctorProfile.call')} {doctor.phone}
                 </a>
               )}
             </div>
@@ -338,7 +340,7 @@ const DoctorProfile = () => {
           <div className="consultation-modal__overlay" onClick={closeConsultationModal}></div>
           <div className="consultation-modal__content">
             <div className="consultation-modal__header">
-              <h3>Создать консультацию</h3>
+              <h3>{t('doctorProfile.createConsultation')}</h3>
               <button onClick={closeConsultationModal} className="consultation-modal__close">
                 ✕
               </button>
@@ -346,29 +348,25 @@ const DoctorProfile = () => {
             <div className="consultation-modal__body">
               <form onSubmit={handleCreateConsultation}>
                 <div className="consultation-modal__form-group">
-                  <label htmlFor="title" className="consultation-modal__label">
-                    Тема консультации *
-                  </label>
+                  <label htmlFor="title" className="consultation-modal__label">{t('doctorProfile.topic')}</label>
                   <input
                     type="text"
                     id="title"
                     value={consultationData.title}
                     onChange={(e) => setConsultationData({...consultationData, title: e.target.value})}
                     className="consultation-modal__input"
-                    placeholder="Например: Консультация по здоровью"
+                    placeholder={t('doctorProfile.topicPlaceholder')}
                     required
                   />
                 </div>
                 <div className="consultation-modal__form-group">
-                  <label htmlFor="description" className="consultation-modal__label">
-                    Описание (необязательно)
-                  </label>
+                  <label htmlFor="description" className="consultation-modal__label">{t('doctorProfile.description')}</label>
                   <textarea
                     id="description"
                     value={consultationData.description}
                     onChange={(e) => setConsultationData({...consultationData, description: e.target.value})}
                     className="consultation-modal__textarea"
-                    placeholder="Опишите вашу проблему или вопрос..."
+                    placeholder={t('doctorProfile.descriptionPlaceholder')}
                     rows="4"
                   />
                 </div>
@@ -378,14 +376,14 @@ const DoctorProfile = () => {
                     onClick={closeConsultationModal}
                     className="consultation-modal__cancel-btn"
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button 
                     type="submit" 
                     className="consultation-modal__submit-btn"
                     disabled={creatingConsultation}
                   >
-                    {creatingConsultation ? 'Создание...' : 'Создать консультацию'}
+                    {creatingConsultation ? t('doctorProfile.creating') : t('doctorProfile.create')}
                   </button>
                 </div>
               </form>

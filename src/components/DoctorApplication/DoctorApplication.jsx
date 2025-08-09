@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './DoctorApplication.scss';
+import { useTranslation } from 'react-i18next';
 
 const DoctorApplication = () => {
   const [formData, setFormData] = useState({
@@ -33,6 +34,7 @@ const DoctorApplication = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
+  const { t } = useTranslation();
 
   const specializations = [
     'Терапевт',
@@ -268,18 +270,18 @@ const DoctorApplication = () => {
 
       <div className="doctor-application__content">
         <div className="doctor-application__header">
-          <h1>Подача заявки на роль врача</h1>
-          <p>Заполните форму ниже, чтобы стать врачом в нашей системе. Мы рассмотрим вашу заявку в течение 1-3 рабочих дней.</p>
+          <h1>{t('doctorApplication.title', 'Подача заявки на роль врача')}</h1>
+          <p>{t('doctorApplication.subtitle', 'Заполните форму ниже, чтобы стать врачом в нашей системе. Мы рассмотрим вашу заявку в течение 1-3 рабочих дней.')}</p>
         </div>
 
         <form className="doctor-application__form" onSubmit={handleSubmit}>
           <div className="doctor-application__section">
-            <h3 className="doctor-application__section-title">Данные для заявки</h3>
-            <p className="doctor-application__section-subtitle">Заполните форму ниже и предоставьте необходимые документы</p>
+            <h3 className="doctor-application__section-title">{t('doctorApplication.sectionData', 'Данные для заявки')}</h3>
+            <p className="doctor-application__section-subtitle">{t('doctorApplication.sectionDataSub', 'Заполните форму ниже и предоставьте необходимые документы')}</p>
             
             <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
-                <label htmlFor="first_name" className="required">Имя</label>
+                <label htmlFor="first_name" className="required">{t('profile.firstName', 'Имя')}</label>
                 <input
                   type="text"
                   id="first_name"
@@ -288,12 +290,12 @@ const DoctorApplication = () => {
                   onChange={handleInputChange}
                   required
                   className="doctor-application__input"
-                  placeholder="Иван"
+                  placeholder={t('doctorApplication.placeholderFirst', 'Иван')}
                 />
               </div>
               
               <div className="doctor-application__form-group">
-                <label htmlFor="last_name" className="required">Фамилия</label>
+                <label htmlFor="last_name" className="required">{t('profile.lastName', 'Фамилия')}</label>
                 <input
                   type="text"
                   id="last_name"
@@ -302,14 +304,14 @@ const DoctorApplication = () => {
                   onChange={handleInputChange}
                   required
                   className="doctor-application__input"
-                  placeholder="Иванов"
+                  placeholder={t('doctorApplication.placeholderLast', 'Иванов')}
                 />
               </div>
             </div>
 
             <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
-                <label htmlFor="specialization" className="required">Специализация</label>
+                <label htmlFor="specialization" className="required">{t('doctorsPage.specialization', 'Специализация')}</label>
                 <select
                   id="specialization"
                   name="specialization"
@@ -318,7 +320,7 @@ const DoctorApplication = () => {
                   required
                   className="doctor-application__select"
                 >
-                  <option value="">Выберите специализацию</option>
+                  <option value="">{t('doctorApplication.chooseSpecialization', 'Выберите специализацию')}</option>
                   <option value="Терапевт">Терапевт</option>
                   <option value="Кардиолог">Кардиолог</option>
                   <option value="Невролог">Невролог</option>
@@ -342,7 +344,7 @@ const DoctorApplication = () => {
 
             <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
-                <label htmlFor="region" className="required">Регион</label>
+                <label htmlFor="region" className="required">{t('doctorsPage.region', 'Регион')}</label>
                 <select
                   id="region"
                   name="region"
@@ -351,7 +353,7 @@ const DoctorApplication = () => {
                   required
                   className="doctor-application__select"
                 >
-                  <option value="">Выберите регион</option>
+                  <option value="">{t('doctorApplication.chooseRegion', 'Выберите регион')}</option>
                   {regions.map(region => (
                     <option key={region.id} value={region.id}>
                       {region.name}
@@ -361,7 +363,7 @@ const DoctorApplication = () => {
               </div>
               
               <div className="doctor-application__form-group">
-                <label htmlFor="city" className="required">Город</label>
+                <label htmlFor="city" className="required">{t('profile.city', 'Город')}</label>
                 <select
                   id="city"
                   name="city"
@@ -371,7 +373,7 @@ const DoctorApplication = () => {
                   className="doctor-application__select"
                   disabled={!formData.region}
                 >
-                  <option value="">Выберите город</option>
+                  <option value="">{t('doctorApplication.chooseCity', 'Выберите город')}</option>
                   {cities.map(city => (
                     <option key={city.id} value={city.id}>
                       {city.name}
@@ -381,7 +383,7 @@ const DoctorApplication = () => {
               </div>
               
               <div className="doctor-application__form-group">
-                <label htmlFor="district" className="required">Район практики</label>
+                <label htmlFor="district" className="required">{t('doctorApplication.district', 'Район практики')}</label>
                 <select
                   id="district"
                   name="district"
@@ -391,7 +393,7 @@ const DoctorApplication = () => {
                   className="doctor-application__select"
                   disabled={!formData.region}
                 >
-                  <option value="">Выберите район</option>
+                  <option value="">{t('doctorApplication.chooseDistrict', 'Выберите район')}</option>
                   {districts.map(district => (
                     <option key={district.id} value={district.id}>
                       {district.name}
@@ -403,7 +405,7 @@ const DoctorApplication = () => {
 
             <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
-                <label htmlFor="phone" className="required">Телефон</label>
+                <label htmlFor="phone" className="required">{t('doctorProfile.phone', 'Телефон:').replace(':','')}</label>
                 <input
                   type="tel"
                   id="phone"
@@ -412,12 +414,12 @@ const DoctorApplication = () => {
                   onChange={handleInputChange}
                   required
                   className="doctor-application__input"
-                  placeholder="+998 XX XXX XX XX"
+                  placeholder={t('profile.phoneMask', '+998 XX XXX XX XX')}
                 />
               </div>
               
               <div className="doctor-application__form-group">
-                <label htmlFor="date_of_birth">Дата рождения</label>
+                <label htmlFor="date_of_birth">{t('profile.birthdate', 'Дата рождения')}</label>
                 <input
                   type="date"
                   id="date_of_birth"
@@ -429,7 +431,7 @@ const DoctorApplication = () => {
               </div>
               
               <div className="doctor-application__form-group">
-                <label htmlFor="gender">Пол</label>
+                <label htmlFor="gender">{t('profile.gender', 'Пол')}</label>
                 <select
                   id="gender"
                   name="gender"
@@ -437,42 +439,42 @@ const DoctorApplication = () => {
                   onChange={handleInputChange}
                   className="doctor-application__select"
                 >
-                  <option value="">Выберите пол</option>
-                  <option value="male">Мужской</option>
-                  <option value="female">Женский</option>
-                  <option value="other">Другой</option>
+                  <option value="">{t('profile.chooseGender', 'Выберите пол')}</option>
+                  <option value="male">{t('profile.male', 'Мужской')}</option>
+                  <option value="female">{t('profile.female', 'Женский')}</option>
+                  <option value="other">{t('profile.other', 'Другой')}</option>
                 </select>
               </div>
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="address">Адрес</label>
+                <label htmlFor="address">{t('doctorProfile.address', 'Адрес:').replace(':','')}</label>
               <textarea
                 id="address"
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
                 className="doctor-application__textarea"
-                placeholder="Введите полный адрес"
+                  placeholder={t('doctorApplication.fullAddress', 'Введите полный адрес')}
                 rows="3"
               />
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="medical_info">Медицинская информация</label>
+                <label htmlFor="medical_info">{t('profile.medInfo', 'Медицинская информация')}</label>
               <textarea
                 id="medical_info"
                 name="medical_info"
                 value={formData.medical_info}
                 onChange={handleInputChange}
                 className="doctor-application__textarea"
-                placeholder="Информация о заболеваниях, аллергиях и т.д."
+                  placeholder={t('doctorApplication.medInfoPlaceholder', 'Информация о заболеваниях, аллергиях и т.д.')}
                 rows="3"
               />
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="emergency_contact">Экстренный контакт</label>
+                <label htmlFor="emergency_contact">{t('profile.emergency', 'Экстренный контакт')}</label>
               <input
                 type="tel"
                 id="emergency_contact"
@@ -485,7 +487,7 @@ const DoctorApplication = () => {
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="languages" className="required">Языки консультаций</label>
+                <label htmlFor="languages" className="required">{t('doctorApplication.languages', 'Языки консультаций')}</label>
               <div className="doctor-application__checkbox-group">
                 {['ru', 'uz', 'en'].map(lang => (
                   <label key={lang} className="doctor-application__checkbox">
@@ -496,7 +498,7 @@ const DoctorApplication = () => {
                       onChange={handleLanguageChange}
                     />
                     <span className="doctor-application__checkbox-text">
-                      {lang === 'ru' ? 'Русский' : lang === 'uz' ? 'Узбекский' : 'Английский'}
+                      {lang === 'ru' ? t('language.ru', 'Русский') : lang === 'uz' ? t('language.uz', 'Узбекский') : t('language.en', 'Английский')}
                     </span>
                   </label>
                 ))}
@@ -504,7 +506,7 @@ const DoctorApplication = () => {
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="experience" className="required">Опыт работы</label>
+                <label htmlFor="experience" className="required">{t('doctorProfile.workExperience', '💼 Опыт работы')}</label>
               <textarea
                 id="experience"
                 name="experience"
@@ -512,13 +514,13 @@ const DoctorApplication = () => {
                 onChange={handleInputChange}
                 required
                 className="doctor-application__textarea"
-                placeholder="Опишите ваш опыт работы в медицине"
+                  placeholder={t('doctorApplication.experiencePlaceholder', 'Опишите ваш опыт работы в медицине')}
                 rows="4"
               />
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="education" className="required">Образование</label>
+                <label htmlFor="education" className="required">{t('doctorProfile.education', '🎓 Образование')}</label>
               <textarea
                 id="education"
                 name="education"
@@ -526,13 +528,13 @@ const DoctorApplication = () => {
                 onChange={handleInputChange}
                 required
                 className="doctor-application__textarea"
-                placeholder="Укажите ваше медицинское образование"
+                  placeholder={t('doctorApplication.educationPlaceholder', 'Укажите ваше медицинское образование')}
                 rows="4"
               />
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="license_number" className="required">Номер лицензии</label>
+                <label htmlFor="license_number" className="required">{t('doctorProfile.license', 'Номер лицензии')}</label>
               <input
                 type="text"
                 id="license_number"
@@ -541,31 +543,31 @@ const DoctorApplication = () => {
                 onChange={handleInputChange}
                 required
                 className="doctor-application__input"
-                placeholder="Введите номер лицензии"
+                  placeholder={t('doctorApplication.licensePlaceholder', 'Введите номер лицензии')}
               />
             </div>
 
             <div className="doctor-application__form-group">
-              <label htmlFor="additional_info">Дополнительная информация</label>
+                <label htmlFor="additional_info">{t('doctorProfile.additionalInfo', 'ℹ️ Дополнительная информация')}</label>
               <textarea
                 id="additional_info"
                 name="additional_info"
                 value={formData.additional_info}
                 onChange={handleInputChange}
                 className="doctor-application__textarea"
-                placeholder="Любая дополнительная информация о вас"
+                  placeholder={t('doctorApplication.additionalPlaceholder', 'Любая дополнительная информация о вас')}
                 rows="4"
               />
             </div>
           </div>
 
           <div className="doctor-application__section">
-            <h3 className="doctor-application__section-title">Загрузка документов</h3>
-            <p className="doctor-application__section-subtitle">Загрузите необходимые документы для подтверждения вашей квалификации</p>
+            <h3 className="doctor-application__section-title">{t('doctorApplication.uploadTitle', 'Загрузка документов')}</h3>
+            <p className="doctor-application__section-subtitle">{t('doctorApplication.uploadSubtitle', 'Загрузите необходимые документы для подтверждения вашей квалификации')}</p>
             
             <div className="doctor-application__file-section">
               <div className="doctor-application__file-group">
-                <label className="doctor-application__file-label required">Фотография</label>
+                <label className="doctor-application__file-label required">{t('doctorApplication.photo', 'Фотография')}</label>
                 <div className={`doctor-application__file-upload ${formData.photo ? 'has-file' : ''}`}>
                   <input
                     type="file"
@@ -580,8 +582,8 @@ const DoctorApplication = () => {
                       <polyline points="7,10 12,15 17,10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span>Нажмите для загрузки</span>
-                    <small>Фото для профиля</small>
+                    <span>{t('doctorApplication.clickToUpload', 'Нажмите для загрузки')}</span>
+                    <small>{t('doctorApplication.photoHint', 'Фото для профиля')}</small>
                   </div>
                 </div>
                 {formData.photo && (
@@ -593,7 +595,7 @@ const DoctorApplication = () => {
               </div>
 
               <div className="doctor-application__file-group">
-                <label className="doctor-application__file-label required">Скан диплома</label>
+                <label className="doctor-application__file-label required">{t('doctorApplication.diploma', 'Скан диплома')}</label>
                 <div className={`doctor-application__file-upload ${formData.diploma ? 'has-file' : ''}`}>
                   <input
                     type="file"
@@ -607,8 +609,8 @@ const DoctorApplication = () => {
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span>Нажмите для загрузки</span>
-                    <small>PDF, JPG или PNG</small>
+                    <span>{t('doctorApplication.clickToUpload', 'Нажмите для загрузки')}</span>
+                    <small>PDF, JPG or PNG</small>
                   </div>
                 </div>
                 {formData.diploma && (
@@ -619,7 +621,7 @@ const DoctorApplication = () => {
               </div>
 
               <div className="doctor-application__file-group">
-                <label className="doctor-application__file-label required">Скан лицензии</label>
+                <label className="doctor-application__file-label required">{t('doctorApplication.license', 'Скан лицензии')}</label>
                 <div className={`doctor-application__file-upload ${formData.license ? 'has-file' : ''}`}>
                   <input
                     type="file"
@@ -633,8 +635,8 @@ const DoctorApplication = () => {
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <polyline points="14,2 14,8 20,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span>Нажмите для загрузки</span>
-                    <small>PDF, JPG или PNG</small>
+                    <span>{t('doctorApplication.clickToUpload', 'Нажмите для загрузки')}</span>
+                    <small>PDF, JPG or PNG</small>
                   </div>
                 </div>
                 {formData.license && (
@@ -652,7 +654,7 @@ const DoctorApplication = () => {
               className="doctor-application__submit"
               disabled={loading}
             >
-              {loading ? 'Отправка...' : 'Отправить заявку'}
+              {loading ? t('doctorApplication.sending', 'Отправка...') : t('doctorApplication.submit', 'Отправить заявку')}
             </button>
           </div>
         </form>

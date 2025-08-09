@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './Chat.scss';
+import { useTranslation } from 'react-i18next';
 
 const Chat = () => {
   const { consultationId } = useParams();
@@ -20,6 +21,7 @@ const Chat = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [justSentMessage, setJustSentMessage] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     fetchConsultation();
@@ -59,11 +61,10 @@ const Chat = () => {
         const data = await response.json();
         setConsultation(data);
       } else {
-        setError('Консультация не найдена');
+        setError(t('chat.notFoundTitle'));
       }
-    } catch (error) {
-      
-      setError('Ошибка соединения с сервером');
+      } catch (error) {
+        setError(t('doctorsPage.errorServer'));
     }
   };
 
@@ -79,7 +80,7 @@ const Chat = () => {
         // При первой загрузке сообщений прокручиваем вниз
         setTimeout(() => scrollToBottom(), 100);
       } else {
-        setError('Ошибка загрузки сообщений');
+        setError(t('consultations.loading'));
       }
     } catch (error) {
       
@@ -264,8 +265,7 @@ const Chat = () => {
         showNotification(error.error || 'Ошибка принятия консультации', 'error');
       }
     } catch (error) {
-      
-      showNotification('Ошибка соединения с сервером', 'error');
+      showNotification(t('doctorsPage.errorServer'), 'error');
     } finally {
       setActionLoading(false);
     }
@@ -293,8 +293,7 @@ const Chat = () => {
         showNotification(error.error || 'Ошибка завершения консультации', 'error');
       }
     } catch (error) {
-      
-      showNotification('Ошибка соединения с сервером', 'error');
+      showNotification(t('doctorsPage.errorServer'), 'error');
     } finally {
       setActionLoading(false);
     }
@@ -318,7 +317,8 @@ const Chat = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
+    const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru');
+    return date.toLocaleDateString(lng, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -383,7 +383,8 @@ const Chat = () => {
 
   const formatConsultationDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleString('ru-RU', {
+    const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru');
+    return date.toLocaleString(lng, {
       month: 'numeric',
       day: 'numeric',
       year: 'numeric',
@@ -396,7 +397,8 @@ const Chat = () => {
 
   const formatMessageTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('ru-RU', {
+    const lng = (localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru');
+    return date.toLocaleTimeString(lng, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
@@ -408,7 +410,7 @@ const Chat = () => {
       <div className="chat">
         <div className="chat__loading">
           <div className="loading-spinner"></div>
-          <p>Загрузка чата...</p>
+          <p>{t('chat.loading')}</p>
         </div>
       </div>
     );
@@ -418,10 +420,10 @@ const Chat = () => {
     return (
       <div className="chat">
         <div className="chat__error">
-          <h2>Ошибка</h2>
+          <h2>{t('chat.errorTitle')}</h2>
           <p>{error}</p>
           <button onClick={() => navigate('/consultations')} className="chat__back-btn">
-            ← Вернуться к консультациям
+            {t('common.back')}
           </button>
         </div>
       </div>
@@ -432,10 +434,10 @@ const Chat = () => {
     return (
       <div className="chat">
         <div className="chat__error">
-          <h2>Консультация не найдена</h2>
-          <p>Запрошенная консультация не существует или была удалена</p>
+          <h2>{t('chat.notFoundTitle')}</h2>
+          <p>{t('chat.notFoundText')}</p>
           <button onClick={() => navigate('/consultations')} className="chat__back-btn">
-            ← Вернуться к консультациям
+            {t('common.back')}
           </button>
         </div>
       </div>
@@ -446,7 +448,7 @@ const Chat = () => {
     <div className="chat">
       <div className="chat__header">
         <button onClick={() => navigate('/consultations')} className="chat__back-btn">
-          ← Назад
+          {t('chat.back')}
         </button>
         
         <div className="chat__consultation-title">

@@ -18,8 +18,10 @@ import DoctorApplication from './components/DoctorApplication/DoctorApplication'
 import Consultations from './components/Consultations/Consultations';
 import Chat from './components/Chat/Chat';
 import Footer from './components/Footer/Footer';
+import { useTranslation } from 'react-i18next';
 
 function App() {
+  const { t } = useTranslation();
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
     const saved = localStorage.getItem('darkTheme');
     return saved ? JSON.parse(saved) : false;
@@ -141,15 +143,15 @@ function App() {
 
             if (response.ok) {
               // Показываем сообщение об успешной верификации
-              alert('Email успешно подтвержден! Теперь вы можете войти в систему.');
+              alert(t('app.emailVerified', 'Email successfully confirmed! Now you can log in.'));
             } else {
-              alert('Ошибка подтверждения email: ' + (data.error || 'Неизвестная ошибка'));
+              alert(t('app.emailVerifyError', 'Ошибка подтверждения email') + ': ' + (data.error || t('app.unknownError', 'Неизвестная ошибка')));
             }
             
             // Перенаправляем на главную страницу
             window.location.href = '/';
           } catch (err) {
-            alert('Ошибка соединения с сервером');
+            alert(t('common.serverError', 'Ошибка соединения с сервером'));
             window.location.href = '/';
           }
         }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import './AuthModal.scss';
+import { useTranslation } from 'react-i18next';
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,6 +18,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const { t } = useTranslation();
 
   const handleInputChange = (e) => {
     setFormData({
@@ -43,7 +45,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccessMessage('Email для подтверждения отправлен повторно. Проверьте вашу почту.');
+        setSuccessMessage(t('auth.resendSuccess', 'Confirmation email resent. Please check your email..'));
         setNeedsVerification(false);
         // Очищаем сообщение через 5 секунд
         setTimeout(() => setSuccessMessage(''), 5000);
@@ -97,7 +99,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
         }
       } else {
         // Обрабатываем конкретные ошибки
-        let errorMessage = 'Произошла ошибка';
+         let errorMessage = t('auth.genericError', 'Произошла ошибка');
         
         if (response.status === 400) {
           if (data.needs_verification) {
@@ -117,13 +119,13 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
             errorMessage = data.non_field_errors[0];
           }
         } else if (response.status === 401) {
-          errorMessage = 'Неверный email или пароль';
+          errorMessage = t('auth.invalidCredentials', 'Неверный email или пароль');
         } else if (response.status === 403) {
-          errorMessage = 'Аккаунт заблокирован';
+          errorMessage = t('auth.blocked', 'Аккаунт заблокирован');
         } else if (response.status === 404) {
-          errorMessage = 'Пользователь не найден';
+          errorMessage = t('auth.notFound', 'Пользователь не найден');
         } else if (response.status === 500) {
-          errorMessage = 'Ошибка сервера. Попробуйте позже';
+          errorMessage = t('auth.serverError', 'Ошибка сервера. Попробуйте позже');
         }
         
         setError(errorMessage);
@@ -165,7 +167,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
         <div className="auth-modal__content">
           <h2 className="auth-modal__title">
-            {isLogin ? 'Войти в аккаунт' : 'Создать аккаунт'}
+           {isLogin ? t('common.login') : t('auth.createAccount', 'Создать аккаунт')}
           </h2>
 
           {error && (
@@ -182,13 +184,13 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
           {needsVerification && (
             <div className="auth-modal__verification-message">
-              <p>Пожалуйста, подтвердите ваш email: {verificationEmail}</p>
+              <p>{t('auth.verifyPlease', 'Пожалуйста, подтвердите ваш email')}: {verificationEmail}</p>
               <button 
                 className="auth-modal__resend-verification"
                 onClick={handleResendVerification}
                 disabled={loading}
               >
-                {loading ? 'Отправка...' : 'Отправить повторно'}
+                {loading ? t('auth.sending', 'Отправка...') : t('auth.resend', 'Отправить повторно')}
               </button>
             </div>
           )}
@@ -198,7 +200,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
               <>
                 <div className="auth-modal__form-row">
                   <div className="auth-modal__form-group">
-                    <label htmlFor="first_name">Имя</label>
+                    <label htmlFor="first_name">{t('profile.firstName', 'Имя')}</label>
                     <input
                       type="text"
                       id="first_name"
@@ -209,7 +211,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                     />
                   </div>
                   <div className="auth-modal__form-group">
-                    <label htmlFor="last_name">Фамилия</label>
+                    <label htmlFor="last_name">{t('profile.lastName', 'Фамилия')}</label>
                     <input
                       type="text"
                       id="last_name"
@@ -221,7 +223,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                   </div>
                 </div>
                 <div className="auth-modal__form-group">
-                  <label htmlFor="username">Имя пользователя</label>
+                  <label htmlFor="username">{t('auth.username', 'Имя пользователя')}</label>
                   <input
                     type="text"
                     id="username"
@@ -247,7 +249,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
             </div>
 
             <div className="auth-modal__form-group">
-              <label htmlFor="password">Пароль</label>
+              <label htmlFor="password">{t('auth.password', 'Пароль')}</label>
               <input
                 type="password"
                 id="password"
@@ -260,7 +262,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
 
             {!isLogin && (
               <div className="auth-modal__form-group">
-                <label htmlFor="password_confirm">Подтвердите пароль</label>
+                <label htmlFor="password_confirm">{t('auth.passwordConfirm', 'Подтвердите пароль')}</label>
                 <input
                   type="password"
                   id="password_confirm"
@@ -277,12 +279,12 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
               className="auth-modal__submit"
               disabled={loading}
             >
-              {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
+              {loading ? t('auth.loading', 'Загрузка...') : (isLogin ? t('common.login') : t('auth.register', 'Зарегистрироваться'))}
             </button>
           </form>
 
           <div className="auth-modal__divider">
-            <span>или</span>
+            <span>{t('auth.or', 'или')}</span>
           </div>
 
           <button 
@@ -296,12 +298,12 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
-            {isLogin ? 'Войти через Google' : 'Зарегистрироваться через Google'}
+            {isLogin ? t('auth.loginWithGoogle', 'Войти через Google') : t('auth.registerWithGoogle', 'Зарегистрироваться через Google')}
           </button>
 
           <div className="auth-modal__footer">
             <p>
-              {isLogin ? 'Нет аккаунта?' : 'Уже есть аккаунт?'}
+              {isLogin ? t('auth.noAccount', 'Нет аккаунта?') : t('auth.haveAccount', 'Уже есть аккаунт?')}
               <button 
                 className="auth-modal__toggle"
                 onClick={() => {
@@ -320,7 +322,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
                   setSuccessMessage(''); // Очищаем сообщение при переключении
                 }}
               >
-                {isLogin ? 'Зарегистрироваться' : 'Войти'}
+                {isLogin ? t('auth.register', 'Зарегистрироваться') : t('common.login')}
               </button>
             </p>
           </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./AdminPanel.scss";
+import { useTranslation } from 'react-i18next';
 
 const AdminPanel = ({ updateUserData }) => {
   const [applications, setApplications] = useState([]);
@@ -19,6 +20,7 @@ const AdminPanel = ({ updateUserData }) => {
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState(null);
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
+  const { t } = useTranslation();
   
   const handleLogout = async () => {
     try {
@@ -45,7 +47,7 @@ const AdminPanel = ({ updateUserData }) => {
         fetchUsers();
       }
     } catch (error) {
-      setError('Ошибка загрузки данных');
+        setError(t('common.loadError', 'Ошибка загрузки данных'));
     }
   }, [activeSection, activeTab, hasAdminAccess]);
 
@@ -64,14 +66,14 @@ const AdminPanel = ({ updateUserData }) => {
         setHasAdminAccess(isAdmin);
         
         if (!isAdmin) {
-          setError('У вас нет прав для доступа к панели администратора');
+          setError(t('admin.noAccess', 'У вас нет прав для доступа к панели администратора'));
         }
       } else {
-        setError('Ошибка проверки прав доступа');
+        setError(t('admin.checkError', 'Ошибка проверки прав доступа'));
         setHasAdminAccess(false);
       }
     } catch (error) {
-      setError('Ошибка соединения с сервером');
+      setError(t('common.serverError', 'Ошибка соединения с сервером'));
       setHasAdminAccess(false);
     }
   };
@@ -92,11 +94,11 @@ const AdminPanel = ({ updateUserData }) => {
         const data = await response.json();
         setApplications(data);
       } else {
-        setError('Ошибка загрузки заявок');
+         setError(t('admin.loadApplicationsError', 'Ошибка загрузки заявок'));
         setApplications([]);
       }
     } catch (error) {
-      setError('Ошибка соединения с сервером');
+      setError(t('common.serverError', 'Ошибка соединения с сервером'));
       setApplications([]);
     } finally {
       setLoading(false);
@@ -124,21 +126,21 @@ const AdminPanel = ({ updateUserData }) => {
             
             setUsers(usersArray);
           } else {
-            setError('Неверный формат данных');
+            setError(t('admin.badData', 'Неверный формат данных'));
             setUsers([]);
           }
         } else {
-          setError('Неверный формат данных');
+          setError(t('admin.badData', 'Неверный формат данных'));
           setUsers([]);
         }
         } else {
         const errorData = await response.json();
-        setError(`Ошибка загрузки пользователей: ${response.status}`);
+        setError(t('admin.loadUsersError', 'Ошибка загрузки пользователей') + `: ${response.status}`);
         setUsers([]);
       }
     } catch (error) {
       
-      setError('Ошибка соединения с сервером');
+      setError(t('common.serverError', 'Ошибка соединения с сервером'));
       setUsers([]);
     } finally {
       setLoading(false);
@@ -284,10 +286,10 @@ const AdminPanel = ({ updateUserData }) => {
           
         }
       } else {
-        alert('Ошибка при загрузке профиля пользователя');
+       alert(t('admin.userProfileLoadError', 'Ошибка при загрузке профиля пользователя'));
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     }
   };
 
@@ -306,7 +308,7 @@ const AdminPanel = ({ updateUserData }) => {
       });
       
       if (response.ok) {
-        alert('Заявка одобрена!');
+        alert(t('admin.applicationApproved', 'Заявка одобрена!'));
         fetchApplications();
         fetchUsers();
         
@@ -315,15 +317,15 @@ const AdminPanel = ({ updateUserData }) => {
           await updateUserData();
         }
       } else {
-        alert('Ошибка при одобрении заявки');
+        alert(t('admin.approveError', 'Ошибка при одобрении заявки'));
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     }
   };
 
   const handleReject = async (applicationId) => {
-    const reason = prompt('Укажите причину отклонения:');
+    const reason = prompt(t('admin.rejectReason', 'Укажите причину отклонения:'));
     if (!reason) return;
     
     try {
@@ -341,14 +343,14 @@ const AdminPanel = ({ updateUserData }) => {
       });
       
       if (response.ok) {
-        alert('Заявка отклонена!');
+        alert(t('admin.applicationRejected', 'Заявка отклонена!'));
         fetchApplications();
         fetchUsers();
       } else {
-        alert('Ошибка при отклонении заявки');
+        alert(t('admin.rejectError', 'Ошибка при отклонении заявки'));
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     }
   };
 
@@ -362,7 +364,7 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
-        alert(`Имя врача обновлено: ${data.new_name}`);
+        alert(t('admin.nameUpdated', 'Имя врача обновлено') + `: ${data.new_name}`);
         fetchUsers(); // Обновляем список пользователей
         
         // Обновляем данные пользователя в Header
@@ -371,10 +373,10 @@ const AdminPanel = ({ updateUserData }) => {
         }
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+         alert(t('common.error', 'Ошибка') + `: ${error.error}`);
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     }
   };
 
@@ -454,7 +456,7 @@ const AdminPanel = ({ updateUserData }) => {
       
       if (response.ok) {
         const data = await response.json();
-        alert('Профиль пользователя успешно обновлен!');
+         alert(t('admin.userUpdated', 'Профиль пользователя успешно обновлен!'));
         setSelectedUser(data.profile);
         setEditingUser({ ...data.profile });
         setIsEditing(false);
@@ -466,10 +468,10 @@ const AdminPanel = ({ updateUserData }) => {
         }
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${JSON.stringify(error)}`);
+         alert(t('common.error', 'Ошибка') + `: ${JSON.stringify(error)}`);
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     }
   };
 
@@ -477,7 +479,7 @@ const AdminPanel = ({ updateUserData }) => {
     if (!selectedUser) return;
     
     const confirmed = window.confirm(
-      `Вы уверены, что хотите удалить пользователя ${selectedUser.user.email}?\n\nЭто действие нельзя отменить!`
+      t('admin.deleteConfirm', 'Вы уверены, что хотите удалить пользователя') + ` ${selectedUser.user.email}?\n\n` + t('admin.cannotUndo', 'Это действие нельзя отменить!')
     );
     
     if (!confirmed) return;
@@ -499,10 +501,10 @@ const AdminPanel = ({ updateUserData }) => {
         fetchUsers();
       } else {
         const error = await response.json();
-        alert(`Ошибка: ${error.error}`);
+        alert(t('common.error', 'Ошибка') + `: ${error.error}`);
       }
     } catch (error) {
-      alert('Ошибка соединения с сервером');
+      alert(t('common.serverError', 'Ошибка соединения с сервером'));
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Profile.scss';
+import { useTranslation } from 'react-i18next';
 
 const Profile = () => {
   const [userData, setUserData] = useState(null);
@@ -14,6 +15,7 @@ const Profile = () => {
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
+  const { t } = useTranslation();
 
   const handleLogout = async () => {
     try {
@@ -65,10 +67,10 @@ const Profile = () => {
           await fetchDistricts(data.profile.region.id);
         }
       } else {
-        setError('Ошибка загрузки данных профиля');
+        setError(t('profile.loadError', 'Ошибка загрузки данных профиля'));
       }
     } catch (err) {
-      setError('Ошибка соединения с сервером');
+      setError(t('common.serverError', 'Ошибка соединения с сервером'));
     } finally {
       setLoading(false);
     }
@@ -81,8 +83,7 @@ const Profile = () => {
         const data = await response.json();
         setRegions(data);
       }
-    } catch (err) {
-    }
+    } catch (err) { }
   };
 
   const fetchCities = async (regionId) => {
@@ -104,8 +105,7 @@ const Profile = () => {
           }));
         }
       }
-    } catch (err) {
-    }
+    } catch (err) { }
   };
 
   const fetchDistricts = async (regionId) => {
@@ -209,10 +209,10 @@ const Profile = () => {
         setError(null);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Ошибка сохранения профиля');
+        setError(errorData.error || t('profile.saveError', 'Ошибка сохранения профиля'));
       }
     } catch (err) {
-      setError('Ошибка соединения с сервером');
+      setError(t('common.serverError', 'Ошибка соединения с сервером'));
     } finally {
       setLoading(false);
     }
@@ -220,7 +220,7 @@ const Profile = () => {
 
   const handleAvatarSubmit = async () => {
     if (!avatarFile) {
-      setError('Пожалуйста, выберите файл аватарки');
+      setError(t('profile.pickAvatar', 'Пожалуйста, выберите файл аватарки'));
       return;
     }
 
@@ -245,10 +245,10 @@ const Profile = () => {
         localStorage.setItem('user', JSON.stringify(data));
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Ошибка сохранения аватарки');
+        setError(errorData.error || t('profile.saveAvatarError', 'Ошибка сохранения аватарки'));
       }
     } catch (err) {
-      setError('Ошибка соединения с сервером');
+      setError(t('common.serverError', 'Ошибка соединения с сервером'));
     } finally {
       setLoading(false);
     }
@@ -259,7 +259,7 @@ const Profile = () => {
       <div className="profile">
         <div className="profile__loading">
           <div className="loading-spinner"></div>
-          <p>Загрузка профиля...</p>
+          <p>{t('profile.loading', 'Загрузка профиля...')}</p>
         </div>
       </div>
     );
@@ -269,10 +269,10 @@ const Profile = () => {
     return (
       <div className="profile">
         <div className="profile__error">
-          <h2>Ошибка</h2>
+          <h2>{t('common.error', 'Ошибка')}</h2>
           <p>{error}</p>
           <button onClick={fetchUserData} className="btn btn--primary">
-            Попробовать снова
+            {t('common.tryAgain', 'Попробовать снова')}
           </button>
         </div>
       </div>
@@ -299,7 +299,7 @@ const Profile = () => {
               <button 
                 className="profile__avatar-edit-btn"
                 onClick={() => setIsEditingAvatar(true)}
-                title="Изменить аватарку"
+                 title={t('profile.changeAvatar', 'Изменить аватарку')}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -309,12 +309,12 @@ const Profile = () => {
             )}
           </div>
           <div className="profile__info">
-            <h1 className="profile__name">{userData?.full_name || 'Пользователь'}</h1>
+            <h1 className="profile__name">{userData?.full_name || t('profile.user', 'Пользователь')}</h1>
             <p className="profile__email">{userData?.email}</p>
             <div className="profile__role">
               <span className={`role-badge role-badge--${userData?.role}`}>
-                {userData?.role === 'patient' ? 'Пациент' : 
-                 userData?.role === 'doctor' ? 'Врач' : 'Администратор'}
+                 {userData?.role === 'patient' ? t('role.patient') : 
+                  userData?.role === 'doctor' ? t('role.doctor') : t('role.admin')}
               </span>
             </div>
           </div>
@@ -326,7 +326,7 @@ const Profile = () => {
                   onClick={() => setIsEditing(true)}
                   className="btn btn--primary"
                 >
-                  Редактировать
+                  {t('profile.edit', 'Редактировать')}
                 </button>
               ) : (
                 <div className="profile__edit-actions">
@@ -334,21 +334,21 @@ const Profile = () => {
                     onClick={() => setIsEditing(false)}
                     className="btn btn--secondary"
                   >
-                    Отмена
+                    {t('common.cancel', 'Отмена')}
                   </button>
                   <button 
                     onClick={handleSubmit}
                     className="btn btn--primary"
                     disabled={loading}
                   >
-                    {loading ? 'Сохранение...' : 'Сохранить'}
+                    {loading ? t('profile.saving', 'Сохранение...') : t('common.save', 'Сохранить')}
                   </button>
                 </div>
               )
             )}
             {userData?.role === 'doctor' && (
               <div className="profile__doctor-notice">
-                <p>Врачи могут изменять только аватарку. Остальные данные может изменить только администратор.</p>
+                <p>{t('profile.doctorNotice', 'Врачи могут изменять только аватарку. Остальные данные может изменить только администратор.')}</p>
               </div>
             )}
           </div>
@@ -358,10 +358,10 @@ const Profile = () => {
         <div className="profile__content">
           <form onSubmit={handleSubmit} className="profile__form">
             <div className="profile__section">
-              <h2 className="profile__section-title">Основная информация</h2>
+              <h2 className="profile__section-title">{t('profile.mainInfo', 'Основная информация')}</h2>
               <div className="profile__form-grid">
                 <div className="profile__form-group">
-                  <label htmlFor="first_name">Имя</label>
+                  <label htmlFor="first_name">{t('profile.firstName', 'Имя')}</label>
                   <input
                     type="text"
                     id="first_name"
@@ -372,7 +372,7 @@ const Profile = () => {
                   />
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="last_name">Фамилия</label>
+                  <label htmlFor="last_name">{t('profile.lastName', 'Фамилия')}</label>
                   <input
                     type="text"
                     id="last_name"
@@ -383,7 +383,7 @@ const Profile = () => {
                   />
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="phone">Телефон</label>
+                  <label htmlFor="phone">{t('doctorProfile.phone', 'Телефон:').replace(':','')}</label>
                   <input
                     type="tel"
                     id="phone"
@@ -394,7 +394,7 @@ const Profile = () => {
                   />
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="date_of_birth">Дата рождения</label>
+                  <label htmlFor="date_of_birth">{t('profile.birthdate', 'Дата рождения')}</label>
                   <input
                     type="date"
                     id="date_of_birth"
@@ -405,7 +405,7 @@ const Profile = () => {
                   />
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="gender">Пол</label>
+                  <label htmlFor="gender">{t('profile.gender', 'Пол')}</label>
                   <select
                     id="gender"
                     name="gender"
@@ -413,20 +413,20 @@ const Profile = () => {
                     onChange={handleInputChange}
                     disabled={!isEditing}
                   >
-                    <option value="">Выберите пол</option>
-                    <option value="male">Мужской</option>
-                    <option value="female">Женский</option>
-                    <option value="other">Другой</option>
+                    <option value="">{t('profile.chooseGender', 'Выберите пол')}</option>
+                    <option value="male">{t('profile.male', 'Мужской')}</option>
+                    <option value="female">{t('profile.female', 'Женский')}</option>
+                    <option value="other">{t('profile.other', 'Другой')}</option>
                   </select>
                 </div>
               </div>
             </div>
 
             <div className="profile__section">
-              <h2 className="profile__section-title">Адрес</h2>
+              <h2 className="profile__section-title">{t('profile.address', 'Адрес')}</h2>
               <div className="profile__form-grid">
                 <div className="profile__form-group">
-                  <label htmlFor="region">Регион</label>
+                  <label htmlFor="region">{t('doctorsPage.region', 'Регион')}</label>
                   <select
                     id="region"
                     name="region"
@@ -443,7 +443,7 @@ const Profile = () => {
                   </select>
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="city">Город</label>
+                  <label htmlFor="city">{t('profile.city', 'Город')}</label>
                   <select
                     id="city"
                     name="city"
@@ -460,7 +460,7 @@ const Profile = () => {
                   </select>
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="district">Район</label>
+                  <label htmlFor="district">{t('profile.district', 'Район')}</label>
                   <select
                     id="district"
                     name="district"
@@ -477,7 +477,7 @@ const Profile = () => {
                   </select>
                 </div>
                 <div className="profile__form-group profile__form-group--full">
-                  <label htmlFor="address">Адрес</label>
+                  <label htmlFor="address">{t('doctorProfile.address', 'Адрес:').replace(':','')}</label>
                   <textarea
                     id="address"
                     name="address"
@@ -491,10 +491,10 @@ const Profile = () => {
             </div>
 
             <div className="profile__section">
-              <h2 className="profile__section-title">Медицинская информация</h2>
+              <h2 className="profile__section-title">{t('profile.medInfo', 'Медицинская информация')}</h2>
               <div className="profile__form-grid">
                 <div className="profile__form-group profile__form-group--full">
-                  <label htmlFor="medical_info">Медицинская информация</label>
+                  <label htmlFor="medical_info">{t('profile.medInfo', 'Медицинская информация')}</label>
                   <textarea
                     id="medical_info"
                     name="medical_info"
@@ -502,11 +502,11 @@ const Profile = () => {
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     rows="4"
-                    placeholder="Аллергии, хронические заболевания, принимаемые лекарства..."
+                    placeholder={t('profile.medInfoPlaceholder', 'Аллергии, хронические заболевания, принимаемые лекарства...')}
                   />
                 </div>
                 <div className="profile__form-group">
-                  <label htmlFor="emergency_contact">Экстренный контакт</label>
+                  <label htmlFor="emergency_contact">{t('profile.emergency', 'Экстренный контакт')}</label>
                   <input
                     type="tel"
                     id="emergency_contact"
@@ -514,7 +514,7 @@ const Profile = () => {
                     value={formData.emergency_contact}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    placeholder="+998 XX XXX XX XX"
+                    placeholder={t('profile.phoneMask', '+998 XX XXX XX XX')}
                   />
                 </div>
               </div>
@@ -523,43 +523,43 @@ const Profile = () => {
             {/* Секция для врачей */}
             {userData?.role === 'doctor' && profileData && (
               <div className="profile__section">
-                <h2 className="profile__section-title">Информация врача</h2>
+                <h2 className="profile__section-title">{t('profile.doctorInfo', 'Информация врача')}</h2>
                 <div className="profile__form-grid">
                   <div className="profile__form-group">
-                    <label>Специализация</label>
+                     <label>{t('doctorsPage.specialization', 'Специализация')}</label>
                     <div className="profile__info-display">
-                      {profileData.specialization || 'Не указана'}
+                       {profileData.specialization || t('profile.notSpecified', 'Не указана')}
                     </div>
                   </div>
                   <div className="profile__form-group">
-                    <label>Номер лицензии</label>
+                     <label>{t('doctorProfile.license', 'Номер лицензии')}</label>
                     <div className="profile__info-display">
-                      {profileData.license_number || 'Не указан'}
+                       {profileData.license_number || t('profile.notSpecifiedM', 'Не указан')}
                     </div>
                   </div>
                   <div className="profile__form-group profile__form-group--full">
-                    <label>Образование</label>
+                     <label>{t('doctorProfile.education', '🎓 Образование')}</label>
                     <div className="profile__info-display">
-                      {profileData.education || 'Не указано'}
+                       {profileData.education || t('profile.notSpecifiedN', 'Не указано')}
                     </div>
                   </div>
                   <div className="profile__form-group profile__form-group--full">
-                    <label>Опыт работы</label>
+                     <label>{t('doctorProfile.workExperience', '💼 Опыт работы')}</label>
                     <div className="profile__info-display">
-                      {profileData.experience || 'Не указан'}
+                       {profileData.experience || t('profile.notSpecifiedM', 'Не указан')}
                     </div>
                   </div>
                   <div className="profile__form-group">
-                    <label>Языки</label>
+                     <label>{t('doctorProfile.languages', '🌍 Языки')}</label>
                     <div className="profile__info-display">
-                      {profileData.languages && profileData.languages.length > 0 
-                        ? profileData.languages.join(', ') 
-                        : 'Не указаны'}
+                       {profileData.languages && profileData.languages.length > 0 
+                         ? profileData.languages.join(', ') 
+                         : t('profile.notSpecifiedPlural', 'Не указаны')}
                     </div>
                   </div>
                   {profileData.additional_info && (
                     <div className="profile__form-group profile__form-group--full">
-                      <label>Дополнительная информация</label>
+                       <label>{t('doctorProfile.additionalInfo', 'ℹ️ Дополнительная информация')}</label>
                       <div className="profile__info-display">
                         {profileData.additional_info}
                       </div>
@@ -571,10 +571,10 @@ const Profile = () => {
 
             {/* Настройки / выход */}
             <div className="profile__section">
-              <h2 className="profile__section-title">Настройки</h2>
+             <h2 className="profile__section-title">{t('profile.settings', 'Настройки')}</h2>
               <div className="profile__settings-actions">
                 <button type="button" className="btn btn--secondary profile__logout-btn" onClick={handleLogout}>
-                  Выйти из аккаунта
+                  {t('profile.logout', 'Выйти из аккаунта')}
                 </button>
               </div>
             </div>
@@ -587,7 +587,7 @@ const Profile = () => {
         <div className="profile__modal-overlay">
           <div className="profile__modal">
             <div className="profile__modal-header">
-              <h3>Изменить аватарку</h3>
+              <h3>{t('profile.changeAvatar', 'Изменить аватарку')}</h3>
               <button 
                 className="profile__modal-close"
                 onClick={() => {
@@ -600,7 +600,7 @@ const Profile = () => {
             </div>
             <div className="profile__modal-content">
               <div className="profile__form-group">
-                <label htmlFor="avatar_file">Выберите файл аватарки</label>
+                <label htmlFor="avatar_file">{t('profile.chooseAvatar', 'Выберите файл аватарки')}</label>
                 <input
                   type="file"
                   id="avatar_file"
@@ -612,9 +612,7 @@ const Profile = () => {
                     }
                   }}
                 />
-                <small>
-                  Выберите изображение (JPG, PNG, GIF). Максимальный размер: 5MB
-                </small>
+                <small>{t('profile.avatarHint', 'Выберите изображение (JPG, PNG, GIF). Максимальный размер: 5MB')}</small>
               </div>
               <div className="profile__modal-actions">
                 <button 
@@ -624,14 +622,14 @@ const Profile = () => {
                     setAvatarFile(null);
                   }}
                 >
-                  Отмена
+                  {t('common.cancel', 'Отмена')}
                 </button>
                 <button 
                   className="btn btn--primary"
                   onClick={handleAvatarSubmit}
                   disabled={loading}
                 >
-                  {loading ? 'Сохранение...' : 'Сохранить'}
+                  {loading ? t('profile.saving', 'Сохранение...') : t('common.save', 'Сохранить')}
                 </button>
               </div>
             </div>

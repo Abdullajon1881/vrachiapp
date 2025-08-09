@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './Doctors.scss';
+import { useTranslation } from 'react-i18next';
 
 const Doctors = () => {
   const [doctors, setDoctors] = useState([]);
@@ -12,6 +13,7 @@ const Doctors = () => {
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [userData, setUserData] = useState(null);
+  const { t, i18n } = useTranslation();
 
 
 
@@ -111,15 +113,15 @@ const Doctors = () => {
             fetchDoctors();
           } else {
             setLoading(false);
-            setError('Доступ запрещен. Только пациенты могут просматривать список врачей.');
+            setError(t('doctorsPage.accessDeniedTitle'));
           }
         } else {
           setLoading(false);
-          setError('Ошибка получения данных пользователя');
+          setError(t('doctorsPage.errorUser'));
         }
       } catch (error) {
         setLoading(false);
-        setError('Ошибка соединения с сервером');
+        setError(t('doctorsPage.errorServer'));
       }
     };
     
@@ -336,13 +338,13 @@ const Doctors = () => {
     return (
       <div className="doctors">
         <div className="doctors__error">
-          <h2>Доступ ограничен</h2>
+          <h2>{t('doctorsPage.accessDeniedTitle')}</h2>
           <p>{error}</p>
           {userData?.role === 'doctor' && (
-            <p>Врачи не могут просматривать список других врачей.</p>
+            <p>{t('doctorsPage.doctorsOnly')}</p>
           )}
           {userData?.role === 'admin' && (
-            <p>Администраторы могут управлять врачами через админ панель.</p>
+            <p>{t('doctorsPage.adminsOnly')}</p>
           )}
         </div>
       </div>
@@ -352,15 +354,15 @@ const Doctors = () => {
   return (
     <div className="doctors">
       <div className="doctors__header">
-        <h1>Наши врачи</h1>
-        <p>Найдите подходящего специалиста для решения ваших проблем со здоровьем</p>
+        <h1>{t('doctorsPage.title')}</h1>
+        <p>{t('doctorsPage.subtitle')}</p>
       </div>
 
       <div className="doctors__filters">
         <div className="doctors__search">
           <input
             type="text"
-            placeholder="Поиск по имени, специализации или городу..."
+            placeholder={t('doctorsPage.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="doctors__search-input"
@@ -368,19 +370,19 @@ const Doctors = () => {
         </div>
 
         <div className="doctors__filter-hint">
-          <p>Выберите услугу, затем специализацию и регион для точного поиска</p>
+          <p>{t('doctorsPage.filterHint')}</p>
           <button 
             onClick={resetFilters}
             className="doctors__reset-btn"
             disabled={selectedService === 'all' && selectedSpecialization === 'all' && selectedRegion === 'all' && !searchQuery}
           >
-            Сбросить фильтры
+            {t('doctorsPage.resetFilters')}
           </button>
         </div>
 
         <div className="doctors__filter-controls">
           <div className="doctors__filter-group">
-            <label className="doctors__filter-label">Услуга</label>
+            <label className="doctors__filter-label">{t('doctorsPage.service')}</label>
             <select
               value={selectedService}
               onChange={(e) => setSelectedService(e.target.value)}
@@ -388,21 +390,21 @@ const Doctors = () => {
             >
               {services.map(service => (
                 <option key={service} value={service}>
-                  {service === 'all' ? 'Все услуги' : service}
+                  {service === 'all' ? t('doctorsPage.allServices') : service}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="doctors__filter-group">
-            <label className="doctors__filter-label">Специализация</label>
+            <label className="doctors__filter-label">{t('doctorsPage.specialization')}</label>
             <select
               value={selectedSpecialization}
               onChange={(e) => setSelectedSpecialization(e.target.value)}
               className="doctors__filter-select"
               disabled={selectedService === 'all'}
             >
-              <option value="all">Все специализации</option>
+              <option value="all">{t('doctorsPage.allSpecializations')}</option>
               {selectedService !== 'all' && specializationsByService[selectedService]?.map(spec => (
                 <option key={spec} value={spec}>
                   {spec}
@@ -412,14 +414,14 @@ const Doctors = () => {
           </div>
 
           <div className="doctors__filter-group">
-            <label className="doctors__filter-label">Регион</label>
+            <label className="doctors__filter-label">{t('doctorsPage.region')}</label>
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
               className="doctors__filter-select"
               disabled={selectedSpecialization === 'all'}
             >
-              <option value="all">Все регионы</option>
+              <option value="all">{t('doctorsPage.allRegions')}</option>
               {selectedSpecialization !== 'all' && regions.filter(region => region !== 'all').map(region => (
                 <option key={region} value={region}>
                   {region}
@@ -431,14 +433,14 @@ const Doctors = () => {
       </div>
 
       <div className="doctors__stats">
-        <p>Найдено врачей: <strong>{filteredDoctors.length}</strong></p>
+        <p>{t('doctorsPage.foundDoctors', { count: filteredDoctors.length })}</p>
       </div>
 
       {filteredDoctors.length === 0 ? (
         <div className="doctors__empty">
           <div className="doctors__empty-icon"></div>
-          <h3>Врачи не найдены</h3>
-          <p>Попробуйте изменить параметры поиска или фильтры</p>
+          <h3>{t('doctorsPage.notFoundTitle')}</h3>
+          <p>{t('doctorsPage.notFoundSubtitle')}</p>
         </div>
       ) : (
         <div className="doctors__grid">
@@ -491,7 +493,6 @@ const Doctors = () => {
           ))}
         </div>
       )}
-
     </div>
   );
 };

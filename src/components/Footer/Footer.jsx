@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Footer.scss';
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   return (
     <footer className="footer">
       <div className="container">
@@ -31,40 +33,40 @@ const Footer = () => {
           </div>
 
           <div className="footer__links">
-            <div className="footer__section">
-              <h4>Услуги</h4>
+          <div className="footer__section">
+            <h4>{t('footer.services')}</h4>
               <ul>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Терапия</button></li>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Кардиология</button></li>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Неврология</button></li>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Офтальмология</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.therapy')}</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.cardiology')}</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.neurology')}</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.ophthalmology')}</button></li>
               </ul>
             </div>
 
             <div className="footer__section">
-              <h4>Диагностика</h4>
+            <h4>{t('footer.diagnostics')}</h4>
               <ul>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Лабораторные анализы</button></li>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">УЗИ диагностика</button></li>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">ЭКГ</button></li>
-                <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">Рентген</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.labTests')}</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.usg')}</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.ecg')}</button></li>
+              <li><button type="button" onClick={() => navigate('/services')} className="footer__link-btn">{t('footer.xray')}</button></li>
               </ul>
             </div>
 
             <div className="footer__section">
-              <h4>Информация</h4>
+            <h4>{t('footer.info')}</h4>
               <ul>
-                <li><Link to="/about">О нас</Link></li>
-                <li><Link to="/doctors">Врачи</Link></li>
-                <li><Link to="/services">Услуги</Link></li>
-                <li><button type="button" onClick={() => navigate('/contact')} className="footer__link-btn">Контакты</button></li>
+              <li><Link to="/about">{t('footer.about')}</Link></li>
+              <li><Link to="/doctors">{t('common.doctors')}</Link></li>
+              <li><Link to="/services">{t('common.services')}</Link></li>
+              <li><button type="button" onClick={() => navigate('/contact')} className="footer__link-btn">{t('footer.contacts')}</button></li>
               </ul>
             </div>
 
             <div className="footer__section">
-              <h4>Контакты</h4>
+            <h4>{t('footer.contacts')}</h4>
               <div className="footer__contact">
-                <p>Круглосуточная связь:</p>
+              <p>{t('footer.hotline')}</p>
                 <a href="tel:+79991234567">+7 (999) 123-45-67</a>
                 <a href="tel:1188">1188</a>
                 <a href="mailto:info@medcenter.ru">info@medcenter.ru</a>
@@ -76,9 +78,7 @@ const Footer = () => {
         <div className="footer__divider"></div>
 
         <div className="footer__bottom">
-          <p>
-            © 2024 МедЦентр. Все права защищены. Лицензия №123456 от 01.01.2024
-          </p>
+          <p>{t('footer.copyright')}</p>
         </div>
       </div>
     </footer>

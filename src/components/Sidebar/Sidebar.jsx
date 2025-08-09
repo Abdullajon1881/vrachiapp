@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.scss';
+import { useTranslation } from 'react-i18next';
 
 const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [consultationsStats, setConsultationsStats] = useState({
     active: 0,
     completed: 0,
@@ -98,7 +100,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   const baseNavigationItems = [
     {
       id: 'home',
-      label: 'Главная',
+      label: t('common.home'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -108,7 +110,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     },
     {
       id: 'about',
-      label: 'О нас',
+      label: t('common.about'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -121,7 +123,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   const patientNavigationItems = [
     {
       id: 'doctors',
-      label: 'Врачи',
+      label: t('common.doctors'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -133,7 +135,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     },
     {
       id: 'consultations',
-      label: 'Консультации',
+      label: t('common.consultations'),
       badge: consultationsStats.active + consultationsStats.pending || 0,
       badgeType: consultationsStats.active > 0 ? 'active' : 'pending',
       icon: (
@@ -146,7 +148,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     },
     {
       id: 'services',
-      label: 'Услуги',
+      label: t('common.services'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -155,7 +157,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     },
     {
       id: 'profile',
-      label: 'Профиль',
+      label: t('common.profile'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -169,7 +171,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   const doctorNavigationItems = [
     {
       id: 'consultations',
-      label: 'Консультации',
+      label: t('common.consultations'),
       badge: consultationsStats.active + consultationsStats.pending || 0,
       badgeType: consultationsStats.active > 0 ? 'active' : 'pending',
       icon: (
@@ -182,7 +184,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     },
     {
       id: 'services',
-      label: 'Услуги',
+      label: t('common.services'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -191,7 +193,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
     },
     {
       id: 'profile',
-      label: 'Профиль',
+      label: t('common.profile'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -205,7 +207,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
   const adminNavigationItems = [
     {
       id: 'admin',
-      label: 'Панель управления',
+      label: t('common.adminPanel'),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -239,7 +241,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
         <button 
           className="sidebar__theme-toggle"
           onClick={toggleTheme}
-          title={isDarkTheme ? "Переключить на светлую тему" : "Переключить на темную тему"}
+          title={isDarkTheme ? t('sidebar.themeToLight') : t('sidebar.themeToDark')}
         >
           {isDarkTheme ? (
             // Солнце для темной темы
@@ -292,7 +294,7 @@ const Sidebar = ({ toggleTheme, isDarkTheme, isAuthenticated, userData }) => {
             <button
               className="sidebar__doctor-btn"
               onClick={() => handleItemClick('doctor-application')}
-              title="Стать врачом"
+              title={t('sidebar.becomeDoctor')}
             >
               <div className="sidebar__doctor-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

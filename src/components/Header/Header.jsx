@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import healzyLogo from '../../assets/images/healzy.svg';
 import AuthModal from '../AuthModal/AuthModal';
 import './Header.scss';
+import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 
 const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkTheme, toggleTheme }) => {
   const navigate = useNavigate();
-  const [currentLanguage, setCurrentLanguage] = useState('RU');
+  const { t } = useTranslation();
+  const [currentLanguage, setCurrentLanguage] = useState(() => (i18n.language || 'ru').slice(0,2).toUpperCase());
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
 
@@ -34,9 +37,9 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
   };
 
   const languages = [
-    { code: 'RU', name: 'Русский' },
-    { code: 'UZ', name: 'Узбекский' },
-    { code: 'EN', name: 'Английский' }
+    { code: 'ru', name: 'Русский' },
+    { code: 'uz', name: 'O‘zbekcha' },
+    { code: 'en', name: 'English' }
   ];
 
   const handleAuthSuccess = (user) => {
@@ -56,17 +59,17 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
   // Определяем роль пользователя
   const getUserRole = () => {
     const data = currentUserData || userData;
-    if (!data) return 'Гость';
+    if (!data) return t('role.guest');
     
     if (data.is_staff || data.is_superuser) {
-      return 'Администратор';
+      return t('role.admin');
     }
     
     if (data.role === 'doctor') {
-      return 'Врач';
+      return t('role.doctor');
     }
     
-    return 'Пациент';
+    return t('role.patient');
   };
 
   return (
@@ -87,7 +90,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <span className="header__phone-number">1188</span>
+              <span className="header__phone-number">{t('header.phoneNumber')}</span>
             </div>
 
             {/* Смена языка */}
@@ -104,10 +107,14 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
                   <button
                     className="header__language-btn"
                     onClick={() => {
-                      const currentIndex = languages.findIndex(lang => lang.code === currentLanguage);
-                      const nextIndex = (currentIndex + 1) % languages.length;
-                      setCurrentLanguage(languages[nextIndex].code);
+                      const currentIdx = languages.findIndex(l => l.code === (i18n.language || 'ru').slice(0,2));
+                      const nextIdx = (currentIdx + 1) % languages.length;
+                      const next = languages[nextIdx].code;
+                      i18n.changeLanguage(next);
+                      localStorage.setItem('i18nextLng', next);
+                      setCurrentLanguage(next.toUpperCase());
                     }}
+                    title={languages.find(l => l.code === (i18n.language || 'ru').slice(0,2))?.name}
                   >
                     {currentLanguage}
                   </button>
@@ -133,7 +140,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
                   <div className="header__user-name">{(currentUserData || userData).full_name || (currentUserData || userData).first_name || (currentUserData || userData).username}</div>
                   <div className="header__user-status">{getUserRole()}</div>
                 </div>
-                <button className="header__logout-btn" onClick={handleLogout} title="Выйти">
+                <button className="header__logout-btn" onClick={handleLogout} title={t('common.logout')}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <polyline points="16,17 21,12 16,7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -151,7 +158,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
                   <polyline points="10,17 15,12 10,7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span>Войти</span>
+                <span>{t('common.login')}</span>
               </button>
             )}
 
@@ -161,7 +168,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
                 <path d="M22 2H2v8h20V2zM2 14h20v8H2v-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M6 6h.01M10 6h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span>Поддержка</span>
+              <span>{t('common.support')}</span>
             </button>
           </div>
         </div>

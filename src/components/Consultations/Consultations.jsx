@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Consultations.scss';
+import { useTranslation } from 'react-i18next';
 
 const Consultations = () => {
   const [consultations, setConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     fetchConsultations();
@@ -22,10 +24,10 @@ const Consultations = () => {
         const data = await response.json();
         setConsultations(data);
       } else {
-        setError('Ошибка загрузки консультаций');
+        setError(t('consultations.loadingError'));
       }
     } catch (error) {
-      setError('Ошибка соединения с сервером');
+      setError(t('doctorsPage.errorServer'));
     } finally {
       setLoading(false);
     }
@@ -49,13 +51,13 @@ const Consultations = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'pending':
-        return 'Ожидание';
+        return t('consultations.pending');
       case 'active':
-        return 'Активна';
+        return t('consultations.active');
       case 'completed':
-        return 'Завершена';
+        return t('consultations.completed');
       case 'cancelled':
-        return 'Отменена';
+        return t('consultations.cancelled');
       default:
         return status;
     }
@@ -63,7 +65,7 @@ const Consultations = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
+    return date.toLocaleDateString((localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru'), {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -81,7 +83,7 @@ const Consultations = () => {
       <div className="consultations">
         <div className="consultations__loading">
           <div className="loading-spinner"></div>
-          <p>Загрузка консультаций...</p>
+          <p>{t('consultations.loading')}</p>
         </div>
       </div>
     );
@@ -91,10 +93,10 @@ const Consultations = () => {
     return (
       <div className="consultations">
         <div className="consultations__error">
-          <h2>Ошибка</h2>
+          <h2>{t('consultations.errorTitle')}</h2>
           <p>{error}</p>
           <button onClick={fetchConsultations} className="consultations__retry-btn">
-            Попробовать снова
+            {t('common.tryAgain')}
           </button>
         </div>
       </div>
@@ -134,7 +136,7 @@ const Consultations = () => {
 
   const formatCreationDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
+    return date.toLocaleDateString((localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru'), {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -143,7 +145,7 @@ const Consultations = () => {
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('ru-RU', {
+    return date.toLocaleTimeString((localStorage.getItem('i18nextLng') || 'ru').startsWith('uz') ? 'uz-UZ' : (localStorage.getItem('i18nextLng') || 'ru'), {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -152,7 +154,7 @@ const Consultations = () => {
   return (
     <div className="consultations">
       <div className="consultations__header">
-        <h1 className="consultations__title">История</h1>
+        <h1 className="consultations__title">{t('consultations.history')}</h1>
       </div>
 
       {consultations.length === 0 ? (
@@ -164,13 +166,13 @@ const Consultations = () => {
               <path d="M8 13h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h3>Консультаций пока нет</h3>
-          <p>У вас пока нет консультаций. Запишитесь к врачу, чтобы начать консультацию.</p>
+          <h3>{t('consultations.emptyTitle')}</h3>
+          <p>{t('consultations.emptySubtitle')}</p>
           <button 
             onClick={() => navigate('/doctors')} 
             className="consultations__find-doctor-btn"
           >
-            Найти врача
+            {t('common.findDoctor')}
           </button>
         </div>
       ) : (
@@ -200,14 +202,14 @@ const Consultations = () => {
 
                 <div className="consultations__card-details">
                   <div className="consultations__detail-row">
-                    <span className="consultations__detail-label">Статус:</span>
+                    <span className="consultations__detail-label">{t('consultations.status')}</span>
                     <span className={`consultations__detail-value consultations__status--${getStatusColor(consultation.status)}`}>
                       {getStatusText(consultation.status)}
                     </span>
                   </div>
 
                   <div className="consultations__detail-row">
-                    <span className="consultations__detail-label">Дата создания:</span>
+                    <span className="consultations__detail-label">{t('consultations.createdAt')}</span>
                     <span className="consultations__detail-value">
                       {formatCreationDate(consultation.created_at)}
                     </span>
@@ -215,7 +217,7 @@ const Consultations = () => {
 
                   {consultation.started_at && (
                     <div className="consultations__detail-row">
-                      <span className="consultations__detail-label">Время начала:</span>
+                    <span className="consultations__detail-label">{t('chat.statusActive')}</span>
                       <span className="consultations__detail-value">
                         {formatTime(consultation.started_at)}
                       </span>
@@ -223,7 +225,7 @@ const Consultations = () => {
                   )}
 
                   <div className="consultations__detail-row">
-                    <span className="consultations__detail-label">Сообщения:</span>
+                    <span className="consultations__detail-label">{t('consultations.messages')}</span>
                     <span className="consultations__detail-value">
                       {consultation.messages_count || 0} / 50
                     </span>
@@ -234,7 +236,7 @@ const Consultations = () => {
                   className="consultations__chat-btn"
                   onClick={() => handleConsultationClick(consultation.id)}
                 >
-                  Открыть чат
+                  {t('common.openChat')}
                 </button>
               </div>
             );
