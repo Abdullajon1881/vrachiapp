@@ -67,9 +67,9 @@ const Footer = () => {
             <h4>{t('footer.contacts')}</h4>
               <div className="footer__contact">
               <p>{t('footer.hotline')}</p>
-                <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                <a href="tel:+998936744994">+998 (93) 6744994</a>
                 <a href="tel:1188">1188</a>
-                <a href="mailto:info@medcenter.ru">info@medcenter.ru</a>
+                <a href="mailto:ymarumar502@gmail.com">ymarumar502@gmail.com</a>
               </div>
             </div>
           </div>
