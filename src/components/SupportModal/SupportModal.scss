@@ -1,0 +1,126 @@
+.support-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: saturate(120%) blur(2px);
+}
+
+.support-modal {
+  background: var(--modal-bg, #fff);
+  color: var(--modal-fg, #000);
+  width: min(560px, 92vw);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  overflow: hidden;
+  border: 1px solid var(--modal-border, rgba(0,0,0,0.06));
+  animation: support-modal-in 160ms ease-out;
+}
+
+.support-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--modal-border, rgba(0,0,0,0.06));
+}
+
+.support-modal__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-modal__icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--modal-icon-bg, rgba(47,106,255,0.1));
+  color: var(--modal-icon-fg, #2f6aff);
+}
+
+.support-modal__close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  transition: opacity .15s ease;
+}
+.support-modal__close:hover { opacity: 1; }
+.support-modal__close:focus-visible { outline: 2px solid var(--button-primary-bg, #2f6aff); outline-offset: 2px; }
+
+.support-modal__subtitle {
+  margin: 0 0 8px 0;
+  font-size: 0.92rem;
+  opacity: 0.8;
+}
+
+.support-modal__body {
+  padding: 12px 16px;
+}
+
+.support-modal__textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--modal-textarea-bg, #fff);
+  color: inherit;
+  border: 1px solid var(--modal-border, rgba(0,0,0,0.1));
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.support-modal__textarea:focus {
+  outline: none;
+  border-color: var(--button-primary-bg, #2f6aff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--button-primary-bg, #2f6aff) 20%, transparent);
+}
+
+.support-modal__footer {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--modal-border, rgba(0,0,0,0.06));
+}
+
+.support-modal__send {
+  background: var(--button-primary-bg, #2f6aff);
+  color: var(--button-primary-fg, #fff);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform .06s ease, filter .15s ease, opacity .15s ease;
+}
+
+.support-modal__send:hover { filter: brightness(1.05); }
+.support-modal__send:active { transform: translateY(1px); }
+.support-modal__send:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Тёмная тема через класс в корне (как у вас .dark-theme на body/html) */
+.dark-theme {
+  --modal-bg: #111317;
+  --modal-fg: #e9eef7;
+  --modal-border: rgba(255,255,255,0.08);
+  --modal-textarea-bg: #0b0d10;
+  --button-primary-bg: #3b6cff;
+  --button-primary-fg: #fff;
+  --modal-icon-bg: rgba(59,108,255,0.15);
+  --modal-icon-fg: #6e96ff;
+}
+
+@keyframes support-modal-in {
+  from { transform: translateY(6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+

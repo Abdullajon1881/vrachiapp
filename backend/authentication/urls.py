@@ -57,4 +57,7 @@ urlpatterns = [
     # AI диагностика
     path('ai/diagnosis/', views.ai_diagnosis, name='ai_diagnosis'),
     path('ai/history/', views.ai_dialogue_history, name='ai_dialogue_history'),
+
+    # Поддержка
+    path('support/send/', views.send_support_message, name='send_support_message'),
 ] 

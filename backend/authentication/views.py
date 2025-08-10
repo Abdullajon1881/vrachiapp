@@ -1,4 +1,5 @@
 from rest_framework import status, generics
+import uuid
 from rest_framework.decorators import api_view, permission_classes
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
@@ -19,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 from asgiref.sync import sync_to_async
 import asyncio
 from .ai_service import ai_service
+import html
 
 from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message
 from .serializers import (
@@ -39,12 +41,9 @@ class RegisterView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        
-        # Логируем данные для отладки
-        print(f"Registration data: {request.data}")
-        
+                
         if not serializer.is_valid():
-            print(f"Validation errors: {serializer.errors}")
+            # Не логируем чувствительные ошибки со входными данными
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         # Получаем данные из сериализатора
@@ -94,9 +93,7 @@ class RegisterView(generics.CreateAPIView):
         else:
             # Если email не отправлен, удаляем пользователя
             user.delete()
-            return Response({
-                'error': 'Ошибка отправки email для подтверждения. Попробуйте позже.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Ошибка отправки email для подтверждения. Попробуйте позже.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LoginView(generics.GenericAPIView):
@@ -183,8 +180,7 @@ class GoogleAuthView(generics.GenericAPIView):
                 'user': user_data
             })
             
-        except Exception as e:
-            print(f"Google auth error: {e}")
+        except Exception:
             return Response({
                 'error': 'Ошибка аутентификации через Google'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -201,10 +197,8 @@ class GoogleAuthView(generics.GenericAPIView):
             if response.status_code == 200:
                 return response.json()
             else:
-                print(f"Google API error: {response.status_code} - {response.text}")
                 return None
-        except Exception as e:
-            print(f"Error getting Google user info: {e}")
+        except Exception:
             return None
 
     def get_or_create_google_user(self, google_user_info):
@@ -353,6 +347,107 @@ def get_districts(request):
 @permission_classes([AllowAny])
 def detect_location(request):
     """Определение местоположения по IP"""
+    
+    # Локальные хелперы (объявлены до использования)
+    def extract_nominatim_address(data):
+        try:
+            country = data.get('country', '')
+            region = data.get('regionName', '')
+            city = data.get('city', '')
+            # Ищем регион в базе данных
+            region_obj = None
+            if region:
+                try:
+                    region_obj = Region.objects.filter(name__icontains=region).first()
+                except:
+                    pass
+            # Ищем город в базе данных
+            city_obj = None
+            if city and region_obj:
+                try:
+                    city_obj = City.objects.filter(
+                        name__icontains=city,
+                        region=region_obj
+                    ).first()
+                except:
+                    pass
+            return {
+                'country': country,
+                'region': region,
+                'city': city,
+                'region_id': region_obj.id if region_obj else None,
+                'city_id': city_obj.id if city_obj else None,
+                'ip': data.get('query', '')
+            }
+        except Exception:
+            return None
+
+    def extract_bigdatacloud_address(data):
+        try:
+            location = data.get('location', {})
+            country = location.get('country', {}).get('name', '')
+            region = location.get('region', {}).get('name', '')
+            city = location.get('city', {}).get('name', '')
+            # Ищем регион в базе данных
+            region_obj = None
+            if region:
+                try:
+                    region_obj = Region.objects.filter(name__icontains=region).first()
+                except:
+                    pass
+            # Ищем город в базе данных
+            city_obj = None
+            if city and region_obj:
+                try:
+                    city_obj = City.objects.filter(
+                        name__icontains=city,
+                        region=region_obj
+                    ).first()
+                except:
+                    pass
+            return {
+                'country': country,
+                'region': region,
+                'city': city,
+                'region_id': region_obj.id if region_obj else None,
+                'city_id': city_obj.id if city_obj else None,
+                'ip': data.get('ip', '')
+            }
+        except Exception:
+            return None
+
+    def extract_locationiq_address(data):
+        try:
+            country = data.get('country', '')
+            region = data.get('region', '')
+            city = data.get('city', '')
+            # Ищем регион в базе данных
+            region_obj = None
+            if region:
+                try:
+                    region_obj = Region.objects.filter(name__icontains=region).first()
+                except:
+                    pass
+            # Ищем город в базе данных
+            city_obj = None
+            if city and region_obj:
+                try:
+                    city_obj = City.objects.filter(
+                        name__icontains=city,
+                        region=region_obj
+                    ).first()
+                except:
+                    pass
+            return {
+                'country': country,
+                'region': region,
+                'city': city,
+                'region_id': region_obj.id if region_obj else None,
+                'city_id': city_obj.id if city_obj else None,
+                'ip': data.get('ip', '')
+            }
+        except Exception:
+            return None
     try:
         # Получаем IP адрес
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -370,7 +465,7 @@ def detect_location(request):
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
-                    location_data = self.extract_nominatim_address(data)
+                    location_data = extract_nominatim_address(data)
         except:
             pass
         
@@ -380,7 +475,7 @@ def detect_location(request):
                 response = requests.get(f'https://api.bigdatacloud.net/data/ip-geolocation?ip={ip}&key=free', timeout=3)
                 if response.status_code == 200:
                     data = response.json()
-                    location_data = self.extract_bigdatacloud_address(data)
+                    location_data = extract_bigdatacloud_address(data)
             except:
                 pass
         
@@ -399,134 +494,16 @@ def detect_location(request):
         if location_data:
             return Response(location_data)
         else:
-            return Response({
-                'error': 'Не удалось определить местоположение'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
-    except Exception as e:
-        print(f"Location detection error: {e}")
-        return Response({
-            'error': 'Ошибка определения местоположения'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Не удалось определить местоположение'}, status=status.HTTP_400_BAD_REQUEST)
 
-    def extract_nominatim_address(self, data):
-        """Извлекает адрес из ответа Nominatim"""
-        try:
-            country = data.get('country', '')
-            region = data.get('regionName', '')
-            city = data.get('city', '')
-            
-            # Ищем регион в базе данных
-            region_obj = None
-            if region:
-                try:
-                    region_obj = Region.objects.filter(name__icontains=region).first()
-                except:
-                    pass
-            
-            # Ищем город в базе данных
-            city_obj = None
-            if city and region_obj:
-                try:
-                    city_obj = City.objects.filter(
-                        name__icontains=city,
-                        region=region_obj
-                    ).first()
-                except:
-                    pass
-            
-            return {
-                'country': country,
-                'region': region,
-                'city': city,
-                'region_id': region_obj.id if region_obj else None,
-                'city_id': city_obj.id if city_obj else None,
-                'ip': data.get('query', '')
-            }
-        except Exception as e:
-            print(f"Error extracting Nominatim address: {e}")
-            return None
+    except Exception:
+        return Response({'error': 'Ошибка определения местоположения'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def extract_bigdatacloud_address(self, data):
-        """Извлекает адрес из ответа BigDataCloud"""
-        try:
-            location = data.get('location', {})
-            country = location.get('country', {}).get('name', '')
-            region = location.get('region', {}).get('name', '')
-            city = location.get('city', {}).get('name', '')
-            
-            # Ищем регион в базе данных
-            region_obj = None
-            if region:
-                try:
-                    region_obj = Region.objects.filter(name__icontains=region).first()
-                except:
-                    pass
-            
-            # Ищем город в базе данных
-            city_obj = None
-            if city and region_obj:
-                try:
-                    city_obj = City.objects.filter(
-                        name__icontains=city,
-                        region=region_obj
-                    ).first()
-                except:
-                    pass
-            
-            return {
-                'country': country,
-                'region': region,
-                'city': city,
-                'region_id': region_obj.id if region_obj else None,
-                'city_id': city_obj.id if city_obj else None,
-                'ip': data.get('ip', '')
-            }
-        except Exception as e:
-            print(f"Error extracting BigDataCloud address: {e}")
-            return None
-
-    def extract_locationiq_address(self, data):
-        """Извлекает адрес из ответа LocationIQ"""
-        try:
-            country = data.get('country', '')
-            region = data.get('region', '')
-            city = data.get('city', '')
-            
-            # Ищем регион в базе данных
-            region_obj = None
-            if region:
-                try:
-                    region_obj = Region.objects.filter(name__icontains=region).first()
-                except:
-                    pass
-            
-            # Ищем город в базе данных
-            city_obj = None
-            if city and region_obj:
-                try:
-                    city_obj = City.objects.filter(
-                        name__icontains=city,
-                        region=region_obj
-                    ).first()
-                except:
-                    pass
-            
-            return {
-                'country': country,
-                'region': region,
-                'city': city,
-                'region_id': region_obj.id if region_obj else None,
-                'city_id': city_obj.id if city_obj else None,
-                'ip': data.get('ip', '')
-            }
-        except Exception as e:
-            print(f"Error extracting LocationIQ address: {e}")
-            return None
+    # (локальные хелперы перенесены наверх функции)
 
 
 @api_view(['GET', 'PUT'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def user_profile(request):
     """Профиль пользователя"""
     if request.method == 'GET':
@@ -540,9 +517,7 @@ def user_profile(request):
                     'error': 'Профиль не найден'
                 }, status=status.HTTP_404_NOT_FOUND)
         else:
-            return Response({
-                'error': 'Пользователь не авторизован'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'Пользователь не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
     
     elif request.method == 'PUT':
         if request.user.is_authenticated:
@@ -554,9 +529,6 @@ def user_profile(request):
                     serializer.save()
                     return Response(serializer.data)
                 else:
-                    print(f"Ошибки валидации профиля: {serializer.errors}")
-                    print(f"Данные запроса: {request.data}")
-                    print(f"Роль пользователя: {request.user.role}")
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             except UserProfile.DoesNotExist:
                 return Response({
@@ -572,19 +544,15 @@ def user_profile(request):
 @permission_classes([IsAuthenticated])
 def submit_doctor_application(request):
     """Подача заявки на роль врача"""
-    print(f"Данные запроса: {request.data}")
-    print(f"Файлы: {request.FILES}")
-    print(f"Тип данных: {type(request.data)}")
     
     serializer = DoctorApplicationCreateSerializer(data=request.data)
-    print(f"Сериализатор создан")
+    # сериализатор создан
     
     if serializer.is_valid():
-        print("Сериализатор валиден")
-        print(f"Валидные данные: {serializer.validated_data}")
+        # сериализатор валиден
         # Привязываем заявку к текущему пользователю
         application = serializer.save(user=request.user)
-        print(f"Заявка создана с ID: {application.id}")
+        # заявка создана
         
         # Возвращаем полную информацию о заявке
         full_serializer = DoctorApplicationSerializer(application)
@@ -593,7 +561,6 @@ def submit_doctor_application(request):
             'application': full_serializer.data
         }, status=status.HTTP_201_CREATED)
     else:
-        print(f"Ошибки валидации: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -645,26 +612,19 @@ def update_doctor_application(request, application_id):
             # Обновляем имя пользователя из заявки
             if application.first_name:
                 user.first_name = application.first_name
-                print(f"Установлено first_name: '{user.first_name}'")
             
             if application.last_name:
                 user.last_name = application.last_name
-                print(f"Установлено last_name: '{user.last_name}'")
             
             user.save()
-            print(f"Сохранено в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
             
             # Проверяем, что сохранилось
             user.refresh_from_db()
-            print(f"После refresh: first_name='{user.first_name}', last_name='{user.last_name}'")
             
             # Обновляем или создаем профиль пользователя
             profile, created = UserProfile.objects.get_or_create(user=user)
             
-            print(f"Одобряем заявку для пользователя {user.email}")
-            print(f"Данные из заявки: specialization={application.specialization}, experience={application.experience}")
-            print(f"Имя из заявки: first_name='{application.first_name}', last_name='{application.last_name}'")
-            print(f"Адресные данные из заявки: region={application.region}, city={application.city}, district={application.district}")
+            # убраны избыточные логи с персональными данными
             
             # Копируем все поля из заявки в профиль
             profile.specialization = application.specialization
@@ -697,7 +657,6 @@ def update_doctor_application(request, application_id):
                 profile.district = application.district
             
             profile.save()
-            print(f"Профиль обновлен: {profile}")
         
         # Обновляем заявку
         serializer.save(reviewed_by=request.user, reviewed_at=timezone.now())
@@ -904,18 +863,14 @@ def update_doctor_name_from_application(request, application_id):
     # Обновляем имя пользователя из заявки
     if application.first_name:
         user.first_name = application.first_name
-        print(f"Установлено first_name: '{user.first_name}'")
     
     if application.last_name:
         user.last_name = application.last_name
-        print(f"Установлено last_name: '{user.last_name}'")
     
     user.save()
-    print(f"Сохранено в базе: first_name='{user.first_name}', last_name='{user.last_name}'")
     
     # Проверяем, что сохранилось
     user.refresh_from_db()
-    print(f"После refresh: first_name='{user.first_name}', last_name='{user.last_name}'")
     
     return Response({
         'message': 'Имя пользователя обновлено',
@@ -1417,10 +1372,73 @@ def ai_dialogue_history(request):
                 'messages': []
             })
             
-    except Exception as e:
-        print(f"Error in ai_dialogue_history: {e}")
-        return Response({
-            'error': 'Ошибка получения истории диалогов'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+    except Exception:
+        return Response({'error': 'Ошибка получения истории диалогов'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
- 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_support_message(request):
+    """Получает сообщение поддержки от авторизованного пользователя и пересылает в Telegram группу"""
+    try:
+        user = request.user
+        message_text = request.data.get('message', '').strip()
+        if not message_text:
+            return Response({'error': 'Сообщение не может быть пустым'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Собираем информацию о пользователе
+        profile_data = {}
+        try:
+            profile = UserProfile.objects.get(user=user)
+            profile_data = {
+                'specialization': getattr(profile, 'specialization', None),
+                'phone': getattr(profile, 'phone', None),
+                'region': getattr(profile.region, 'name', None) if getattr(profile, 'region', None) else None,
+                'city': getattr(profile.city, 'name', None) if getattr(profile, 'city', None) else None,
+            }
+        except UserProfile.DoesNotExist:
+            pass
+
+        # Подготовка текста для Telegram (экранируем спецсимволы)
+        def esc(s):
+            return html.escape(str(s or ''))
+
+        tg_lines = [
+            f"🆘 Новое обращение в поддержку",
+            f"👤 Пользователь: {esc(user.full_name)} (ID: {user.id})",
+            f"📧 Email: {esc(user.email)}",
+            f"📱 Phone: {esc(profile_data.get('phone'))}",
+            f"🌍 Регион: {esc(profile_data.get('region'))}, Город: {esc(profile_data.get('city'))}",
+            f"🔖 Роль: {esc(user.role)}",
+            "",
+            f"✉️ Сообщение:\n{esc(message_text)}",
+        ]
+
+        tg_text = "\n".join(tg_lines)
+
+        bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+        chat_id = getattr(settings, 'TELEGRAM_SUPPORT_CHAT_ID', '')
+        if not bot_token or not chat_id:
+            return Response({'error': 'Не настроены параметры Telegram'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Отправляем в Telegram
+        try:
+            resp = requests.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={
+                    'chat_id': chat_id,
+                    'text': tg_text,
+                    'parse_mode': 'HTML',
+                    'disable_web_page_preview': True,
+                },
+                timeout=5
+            )
+        except Exception:
+            return Response({'error': 'Ошибка отправки в Telegram'}, status=status.HTTP_502_BAD_GATEWAY)
+
+        if resp.status_code != 200:
+            return Response({'error': 'Не удалось отправить сообщение в Telegram'}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response({'message': 'Сообщение отправлено в поддержку'}, status=status.HTTP_200_OK)
+    except Exception:
+        return Response({'error': 'Внутренняя ошибка'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

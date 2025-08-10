@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import healzyLogo from '../../assets/images/healzy.svg';
 import AuthModal from '../AuthModal/AuthModal';
+import SupportModal from '../SupportModal/SupportModal';
 import './Header.scss';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
@@ -12,6 +13,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
   const [currentLanguage, setCurrentLanguage] = useState(() => (i18n.language || 'ru').slice(0,2).toUpperCase());
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   // Получаем актуальные данные пользователя с сервера
   useEffect(() => {
@@ -162,14 +164,16 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
               </button>
             )}
 
-            {/* Кнопка поддержки */}
-            <button className="header__support-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            {/* Кнопка поддержки на одном уровне с иконкой */}
+            <div className="header__support-btn" onClick={() => {
+              if (isAuthenticated) setShowSupportModal(true); else setShowAuthModal(true);
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path d="M22 2H2v8h20V2zM2 14h20v8H2v-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M6 6h.01M10 6h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span>{t('common.support')}</span>
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -179,6 +183,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={handleAuthSuccess}
       />
+      <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
     </header>
   );
 };

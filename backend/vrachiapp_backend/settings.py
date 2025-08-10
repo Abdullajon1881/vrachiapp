@@ -57,7 +57,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'authentication.middleware.DisableCSRFMiddleware',
 ]
 
 # Channels configuration
@@ -123,45 +122,7 @@ LOGGING = {
     },
 }
 
-# CORS настройки
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://healzy.uz",
-]
-
-CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-]
-
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
-
-# Отключаем CSRF для API endpoints
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'https://healzy.uz',
-    'https://www.healzy.uz',
-]
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = True
+# (удалён дублирующийся и противоречивый блок CORS/CSRF)
 
 ROOT_URLCONF = 'vrachiapp_backend.urls'
 
@@ -287,6 +248,16 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF settings for SPA (X-CSRFToken)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://healzy.uz',
+    'https://www.healzy.uz',
+]
+
 # Google OAuth settings
 GOOGLE_CLIENT_ID = '735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com'
 GOOGLE_CLIENT_SECRET = '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'
@@ -323,6 +294,14 @@ SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# Telegram support bot settings
+# В продакшене лучше брать из переменных окружения:
+# TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+# TELEGRAM_SUPPORT_CHAT_ID = os.getenv('TELEGRAM_SUPPORT_CHAT_ID', '')
+# Для текущего запуска используем значения, предоставленные вами:
+TELEGRAM_BOT_TOKEN = '8120853924:AAE8QVugXnKY3Ax_uiDDWE9OP1wjlQHztMQ'
+TELEGRAM_SUPPORT_CHAT_ID = '-1002756008326'
 
 # DRF throttling (защита от брутфорса/флуда)
 REST_FRAMEWORK.update({
