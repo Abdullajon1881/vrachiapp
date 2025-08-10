@@ -8,6 +8,7 @@ const DoctorApplication = () => {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
+    service: 'all',
     specialization: '',
     region: '',
     city: '',
@@ -38,34 +39,77 @@ const DoctorApplication = () => {
   const [messageType, setMessageType] = useState('success');
   const { t } = useTranslation();
 
-  const specializations = [
-    'Терапевт',
-    'Кардиолог',
-    'Невролог',
-    'Офтальмолог',
-    'Отоларинголог',
-    'Хирург',
-    'Ортопед',
-    'Дерматолог',
-    'Педиатр',
-    'Гинеколог',
-    'Уролог',
-    'Психиатр',
-    'Стоматолог',
-    'Онколог',
-    'Эндокринолог',
-    'Гастроэнтеролог',
-    'Пульмонолог',
-    'Ревматолог',
-    'Аллерголог',
-    'Инфекционист'
+  // Услуги и специализации как на странице врачей
+  const serviceKeys = [
+    'Медицинские услуги',
+    'Спортивные и диетические',
+    'Физиотерапия',
+    'Массаж',
+    'Психологические консультации',
+    'Уход за пожилыми'
   ];
+  const serviceKeyMap = {
+    'Медицинские услуги': 'medical',
+    'Спортивные и диетические': 'sportDiet',
+    'Физиотерапия': 'physio',
+    'Массаж': 'massage',
+    'Психологические консультации': 'psychology',
+    'Уход за пожилыми': 'elderly'
+  };
+  const services = ['all', ...serviceKeys];
+
+  const specializationsByService = {
+    'Медицинские услуги': [
+      'Терапевт',
+      'Кардиолог',
+      'Невролог',
+      'Офтальмолог',
+      'Дерматолог',
+      'Ортопед',
+      'Ревматолог',
+      'Педиатр',
+      'Гинеколог',
+      'Уролог',
+      'Эндокринолог',
+      'Психиатр',
+      'Хирург',
+      'Стоматолог',
+      'Онколог',
+      'Аллерголог',
+      'Иммунолог',
+      'Гастроэнтеролог',
+      'Пульмонолог',
+      'Нефролог',
+      'Гематолог',
+      'Инфекционист',
+      'Травматолог',
+      'Анестезиолог',
+      'Реаниматолог'
+    ],
+    'Спортивные и диетические': [
+      'Спортивный врач',
+      'Диетолог'
+    ],
+    'Физиотерапия': [
+      'Физиотерапевт'
+    ],
+    'Массаж': [
+      'Массажист'
+    ],
+    'Психологические консультации': [
+      'Психолог',
+      'Психиатр'
+    ],
+    'Уход за пожилыми': [
+      'Гериатр'
+    ]
+  };
 
   const languages = [
     { code: 'ru', name: 'Русский' },
     { code: 'uz', name: 'Узбекский' },
     { code: 'en', name: 'Английский' },
-    { code: 'kk', name: 'Казахский' },
+    { code: 'kz', name: 'Казахский' },
     { code: 'ky', name: 'Киргизский' },
     { code: 'tg', name: 'Таджикский' },
     { code: 'tk', name: 'Туркменский' }
@@ -139,6 +183,14 @@ const DoctorApplication = () => {
       [name]: value
     }));
 
+    // Смена услуги — сбрасываем специализацию
+    if (name === 'service') {
+      setFormData(prev => ({
+        ...prev,
+        specialization: ''
+      }));
+    }
+
     // Если изменился регион, загружаем города и районы
     if (name === 'region' && value) {
       loadCities(value);
@@ -207,7 +259,14 @@ const DoctorApplication = () => {
         } else if (key === 'date_of_birth' && formData[key]) {
           // Форматируем дату
           formDataToSend.append(key, formData[key]);
-        } else if (formData[key] !== null && formData[key] !== '' && key !== 'photo' && key !== 'diploma' && key !== 'license') {
+        } else if (
+          formData[key] !== null &&
+          formData[key] !== '' &&
+          key !== 'photo' &&
+          key !== 'diploma' &&
+          key !== 'license' &&
+          key !== 'service'
+        ) {
           formDataToSend.append(key, formData[key]);
         }
       });
@@ -230,6 +289,7 @@ const DoctorApplication = () => {
         setFormData({
           first_name: '',
           last_name: '',
+          service: 'all',
           specialization: '',
           region: '',
           city: '',
@@ -313,6 +373,23 @@ const DoctorApplication = () => {
 
             <div className="doctor-application__form-row">
               <div className="doctor-application__form-group">
+                <label htmlFor="service" className="required">{t('doctorsPage.service', 'Услуга')}</label>
+                <select
+                  id="service"
+                  name="service"
+                  value={formData.service}
+                  onChange={handleInputChange}
+                  className="doctor-application__select"
+                >
+                  {services.map(service => (
+                    <option key={service} value={service}>
+                      {service === 'all' ? t('doctorApplication.chooseService', 'Выберите услугу') : t(`services.categories.${serviceKeyMap[service]}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="doctor-application__form-group">
                 <label htmlFor="specialization" className="required">{t('doctorsPage.specialization', 'Специализация')}</label>
                 <select
                   id="specialization"
@@ -321,10 +398,16 @@ const DoctorApplication = () => {
                   onChange={handleInputChange}
                   required
                   className="doctor-application__select"
+                  disabled={formData.service === 'all'}
                 >
                   <option value="">{t('doctorApplication.chooseSpecialization', 'Выберите специализацию')}</option>
-                  {specializations.map(spec => (
-                    <option key={spec} value={spec}>{translateSpec(spec, (typeof window !== 'undefined' && localStorage.getItem('i18nextLng')) || 'ru')}</option>
+                  {formData.service !== 'all' && specializationsByService[formData.service]?.map(spec => (
+                    <option key={spec} value={spec}>
+                      {translateSpec(
+                        spec,
+                        (typeof window !== 'undefined' && localStorage.getItem('i18nextLng')) || 'ru'
+                      )}
+                    </option>
                   ))}
                 </select>
               </div>

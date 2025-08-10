@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./AdminPanel.scss";
 import { useTranslation } from 'react-i18next';
 
@@ -21,6 +21,35 @@ const AdminPanel = ({ updateUserData }) => {
   const [userData, setUserData] = useState(null);
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
   const { t } = useTranslation();
+  
+  // Маппинг специализаций к услуге (как в Doctors.jsx)
+  const specializationsByService = useMemo(() => ({
+    'Медицинские услуги': [
+      'Терапевт','Кардиолог','Невролог','Офтальмолог','Дерматолог','Ортопед','Ревматолог','Педиатр','Гинеколог','Уролог','Эндокринолог','Психиатр','Хирург','Стоматолог','Онколог','Аллерголог','Иммунолог','Гастроэнтеролог','Пульмонолог','Нефролог','Гематолог','Инфекционист','Травматолог','Анестезиолог','Реаниматолог'
+    ],
+    'Спортивные и диетические': ['Спортивный врач','Диетолог'],
+    'Физиотерапия': ['Физиотерапевт'],
+    'Массаж': ['Массажист'],
+    'Психологические консультации': ['Психолог','Психиатр'],
+    'Уход за пожилыми': ['Гериатр']
+  }), []);
+
+  const serviceKeyMap = useMemo(() => ({
+    'Медицинские услуги': 'medical',
+    'Спортивные и диетические': 'sportDiet',
+    'Физиотерапия': 'physio',
+    'Массаж': 'massage',
+    'Психологические консультации': 'psychology',
+    'Уход за пожилыми': 'elderly'
+  }), []);
+
+  const getServiceBySpecialization = (spec) => {
+    if (!spec) return null;
+    for (const [service, list] of Object.entries(specializationsByService)) {
+      if (list.includes(spec)) return service;
+    }
+    return null;
+  };
   
   const handleLogout = async () => {
     try {
@@ -626,6 +655,11 @@ const AdminPanel = ({ updateUserData }) => {
                     <p className="admin-panel__application-specialization">
                       {application.specialization}
                     </p>
+                    {getServiceBySpecialization(application.specialization) && (
+                      <p className="admin-panel__application-service">
+                        Категория: {t(`services.categories.${serviceKeyMap[getServiceBySpecialization(application.specialization)]}`)}
+                      </p>
+                    )}
                     <p className="admin-panel__application-location">
                       {application.region_name && `${application.region_name}, `}{application.city_name}, {application.district_name}
                     </p>
