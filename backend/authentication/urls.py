@@ -60,4 +60,7 @@ urlpatterns = [
 
     # Поддержка
     path('support/send/', views.send_support_message, name='send_support_message'),
+
+    # Защищённый доступ к медиа (только для админов)
+    path('protected-media/<path:subpath>/', views.protected_media, name='protected_media'),
 ] 

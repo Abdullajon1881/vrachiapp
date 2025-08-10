@@ -748,9 +748,29 @@ const AdminPanel = ({ updateUserData }) => {
               <div className="admin-panel__modal-section">
                 <h3>Основная информация</h3>
                 <p><strong>ФИО:</strong> {selectedApplication.full_name}</p>
-                <p><strong>Специализация:</strong> {selectedApplication.specialization}</p>
+                <p><strong>Специализация:</strong> {selectedApplication.specialization || 'Не указана'}</p>
+                <p><strong>Категория услуги:</strong> {
+                  (() => {
+                    const svc = getServiceBySpecialization(selectedApplication.specialization);
+                    return svc ? t(`services.categories.${serviceKeyMap[svc]}`) : 'Не указана';
+                  })()
+                }</p>
                 <p><strong>Местоположение:</strong> {selectedApplication.region_name && `${selectedApplication.region_name}, `}{selectedApplication.city_name}, {selectedApplication.district_name}</p>
-                <p><strong>Языки:</strong> {selectedApplication.languages.join(', ')}</p>
+                <p><strong>Языки:</strong> {Array.isArray(selectedApplication.languages) && selectedApplication.languages.length > 0 ? selectedApplication.languages.join(', ') : 'Не указаны'}</p>
+                <p><strong>Телефон:</strong> {selectedApplication.phone || 'Не указан'}</p>
+                <p><strong>Дата рождения:</strong> {selectedApplication.date_of_birth || 'Не указана'}</p>
+                <p><strong>Пол:</strong> {
+                  selectedApplication.gender === 'male' ? 'Мужской' :
+                  selectedApplication.gender === 'female' ? 'Женский' :
+                  selectedApplication.gender === 'other' ? 'Другой' : 'Не указан'
+                }</p>
+                <p><strong>Адрес:</strong> {selectedApplication.address || 'Не указан'}</p>
+                {selectedApplication.emergency_contact && (
+                  <p><strong>Экстренный контакт:</strong> {selectedApplication.emergency_contact}</p>
+                )}
+                {selectedApplication.medical_info && (
+                  <p><strong>Медицинская информация:</strong> {selectedApplication.medical_info}</p>
+                )}
               </div>
               
               <div className="admin-panel__modal-section">
@@ -770,22 +790,22 @@ const AdminPanel = ({ updateUserData }) => {
               <div className="admin-panel__modal-section">
                 <h3>Документы</h3>
                 <div className="admin-panel__documents">
-                  {selectedApplication.photo && (
+                      {selectedApplication.photo && (
                     <div className="admin-panel__document">
                       <h4>Фотография</h4>
-                      <img 
-                        src={`https://healzy.uz${selectedApplication.photo}`}
-                        alt="Фото врача" 
-                        className="admin-panel__document-image"
-                      />
+                          <img
+                            src={`https://healzy.uz/api/auth/protected-media/${selectedApplication.photo.replace(/^\/media\//, '')}`}
+                            alt="Фото врача"
+                            className="admin-panel__document-image"
+                          />
                     </div>
                   )}
                   
-                  {selectedApplication.diploma && (
+                      {selectedApplication.diploma && (
                     <div className="admin-panel__document">
                       <h4>Диплом</h4>
                       <a 
-                         href={`https://healzy.uz${selectedApplication.diploma}`}
+                             href={`https://healzy.uz/api/auth/protected-media/${selectedApplication.diploma.replace(/^\/media\//, '')}`}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="admin-panel__document-link"
@@ -795,11 +815,11 @@ const AdminPanel = ({ updateUserData }) => {
                     </div>
                   )}
                   
-                  {selectedApplication.license && (
+                      {selectedApplication.license && (
                     <div className="admin-panel__document">
                       <h4>Лицензия</h4>
                       <a 
-                         href={`https://healzy.uz${selectedApplication.license}`}
+                             href={`https://healzy.uz/api/auth/protected-media/${selectedApplication.license.replace(/^\/media\//, '')}`}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="admin-panel__document-link"
@@ -1025,15 +1045,38 @@ const AdminPanel = ({ updateUserData }) => {
                   <h3>Информация врача</h3>
                   {isEditing ? (
                     <div className="admin-panel__form">
-                      <div className="admin-panel__form-group">
-                        <label>Специализация</label>
-                        <input
-                          type="text"
-                          name="specialization"
-                          value={editingUser.specialization || ''}
-                          onChange={handleInputChange}
-                          className="admin-panel__input"
-                        />
+                      <div className="admin-panel__form-row">
+                        <div className="admin-panel__form-group">
+                          <label>Категория услуги</label>
+                          <select
+                            name="service"
+                            value={getServiceBySpecialization(editingUser.specialization) || ''}
+                            onChange={(e) => {
+                              const service = e.target.value;
+                              setEditingUser(prev => ({ ...prev, specialization: '' , service }));
+                            }}
+                            className="admin-panel__select"
+                          >
+                            <option value="">Выберите услугу</option>
+                            {Object.keys(specializationsByService).map(service => (
+                              <option key={service} value={service}>{t(`services.categories.${serviceKeyMap[service]}`)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="admin-panel__form-group">
+                          <label>Специализация</label>
+                          <select
+                            name="specialization"
+                            value={editingUser.specialization || ''}
+                            onChange={handleInputChange}
+                            className="admin-panel__select"
+                          >
+                            <option value="">Выберите специализацию</option>
+                            {(specializationsByService[getServiceBySpecialization(editingUser.specialization)] || []).map(spec => (
+                              <option key={spec} value={spec}>{spec}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div className="admin-panel__form-group">
                         <label>Образование</label>
@@ -1068,6 +1111,12 @@ const AdminPanel = ({ updateUserData }) => {
                     </div>
                   ) : (
                     <div className="admin-panel__info">
+                      <p><strong>Категория услуги:</strong> {
+                        (() => {
+                          const svc = getServiceBySpecialization(selectedUser.specialization);
+                          return svc ? t(`services.categories.${serviceKeyMap[svc]}`) : 'Не указана';
+                        })()
+                      }</p>
                       <p><strong>Специализация:</strong> {selectedUser.specialization || 'Не указана'}</p>
                       <p><strong>Образование:</strong> {selectedUser.education || 'Не указано'}</p>
                       <p><strong>Опыт работы:</strong> {selectedUser.experience || 'Не указан'}</p>

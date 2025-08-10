@@ -16,6 +16,7 @@ from django.db import models
 from django.urls import reverse
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.http import FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from asgiref.sync import sync_to_async
 import asyncio
@@ -1442,3 +1443,26 @@ def send_support_message(request):
         return Response({'message': 'Сообщение отправлено в поддержку'}, status=status.HTTP_200_OK)
     except Exception:
         return Response({'error': 'Внутренняя ошибка'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protected_media(request, subpath):
+    """Выдаёт файл из MEDIA только админам; остальным 403. Путь указывается относительно MEDIA_ROOT."""
+    user = request.user
+    if not (user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'):
+        return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Нормализуем путь, не даём выходить выше MEDIA_ROOT
+    from django.conf import settings as dj_settings
+    import os
+    safe_subpath = os.path.normpath(subpath).lstrip('/\\')
+    abs_path = os.path.join(dj_settings.MEDIA_ROOT, safe_subpath)
+    if not abs_path.startswith(str(dj_settings.MEDIA_ROOT)):
+        return Response({'error': 'Некорректный путь'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not os.path.exists(abs_path):
+        raise Http404()
+
+    # Отдаём файл безопасно
+    return FileResponse(open(abs_path, 'rb'))

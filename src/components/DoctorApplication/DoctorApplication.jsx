@@ -277,8 +277,12 @@ const DoctorApplication = () => {
       if (formData.license) formDataToSend.append('license', formData.license);
 
 
+      const csrfToken = (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || '';
       const response = await fetch('https://healzy.uz/api/auth/doctor-applications/', {
         method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken
+        },
         credentials: 'include',
         body: formDataToSend
       });
