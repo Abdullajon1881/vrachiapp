@@ -273,17 +273,21 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_FROM = os.getenv('EMAIL_FROM', EMAIL_HOST_USER)
 DEFAULT_FROM_EMAIL = EMAIL_FROM
 
-# Session settings
-SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_COOKIE_SECURE = True  # secure cookies в продакшене
+# Session settings (30 дней, скользящая сессия)
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_SAVE_EVERY_REQUEST = True  # Save session on every request
+# Если используете субдомены — раскомментируйте:
+# SESSION_COOKIE_DOMAIN = '.healzy.uz'
+SESSION_SAVE_EVERY_REQUEST = True
 
 # CSRF tightening (SPA должен слать X-CSRFToken)
 CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = False  # разрешить фронту читать csrftoken
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
+# Делаем CSRF cookie долгоживущей, чтобы не терять её на мобильном
+CSRF_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 
 # Security hardening
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

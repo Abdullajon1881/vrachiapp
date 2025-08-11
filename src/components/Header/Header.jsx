@@ -182,6 +182,7 @@ const Header = ({ isAuthenticated, userData, onLogout, onAuthSuccess, isDarkThem
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={handleAuthSuccess}
+        isDarkTheme={isDarkTheme}
       />
       <SupportModal isOpen={showSupportModal} onClose={() => setShowSupportModal(false)} />
     </header>

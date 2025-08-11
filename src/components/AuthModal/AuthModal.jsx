@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import './AuthModal.scss';
 import { useTranslation } from 'react-i18next';
 
-const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
+const AuthModal = ({ isOpen, onClose, onAuthSuccess, isDarkTheme }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     email: '',
@@ -157,8 +157,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="auth-modal-overlay" onClick={onClose}>
-      <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
+    <div className={`auth-modal-overlay ${isDarkTheme ? 'dark-theme' : ''}`} onClick={onClose}>
+      <div className={`auth-modal ${isDarkTheme ? 'dark-theme' : ''}`} onClick={(e) => e.stopPropagation()}>
         <button className="auth-modal__close" onClick={onClose}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
