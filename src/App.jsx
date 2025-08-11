@@ -31,28 +31,52 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userData, setUserData] = useState(null);
 
-  // Функция для обновления состояния авторизации
-  const updateAuthState = () => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        const parsedUser = JSON.parse(user);
-        setUserData(parsedUser);
-        setIsAuthenticated(true);
-      } catch (error) {
-        localStorage.removeItem('user');
+  // Серверная проверка сессии: истинный источник авторизации
+  const validateAuth = async () => {
+    try {
+      const resp = await fetch('https://healzy.uz/api/auth/check-auth/', { credentials: 'include' });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+          setUserData(data.user || null);
+          if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+        } else {
+          setIsAuthenticated(false);
+          setUserData(null);
+          localStorage.removeItem('user');
+        }
+      } else {
         setIsAuthenticated(false);
         setUserData(null);
+        localStorage.removeItem('user');
       }
-    } else {
-      setIsAuthenticated(false);
-      setUserData(null);
+    } catch (_) {
+      // В оффлайне не меняем состояние резко, но не повышаем привилегии
     }
   };
 
-  // Проверяем авторизацию при загрузке
+  // Проверяем авторизацию при загрузке и при возвращении в приложение
   useEffect(() => {
-    updateAuthState();
+    // Быстрый первичный рендер из localStorage (опционально), затем серверная валидация
+    try {
+      const cached = localStorage.getItem('user');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setUserData(parsed);
+        setIsAuthenticated(true);
+      }
+    } catch (_) {}
+    validateAuth();
+
+    const onFocus = () => validateAuth();
+    const onVisibility = () => { if (document.visibilityState === 'visible') validateAuth(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   // Инициализация CSRF cookie для SPA (нужно до любых POST/PUT/DELETE)
@@ -275,7 +299,7 @@ function App() {
           isAuthenticated={isAuthenticated}
           userData={userData}
           onLogout={handleLogout}
-          onAuthSuccess={updateAuthState}
+          onAuthSuccess={validateAuth}
           isDarkTheme={isDarkTheme}
           toggleTheme={toggleTheme}
         />
