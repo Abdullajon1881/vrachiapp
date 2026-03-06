@@ -1467,11 +1467,9 @@ def protected_media(request, subpath):
     # Отдаём файл безопасно
     return FileResponse(open(abs_path, 'rb'))
 
-# ============================================
 # APPOINTMENT BOOKING SYSTEM
-# ============================================
 
-from .models import Appointment, DoctorSchedule, MedicalRecord, VitalSigns
+from .models import Appointment, DoctorSchedule, MedicalRecord, VitalSigns, Notification 
 from datetime import datetime, date, timedelta
 
 @api_view(['GET', 'POST'])
@@ -1912,3 +1910,75 @@ def vital_signs(request, patient_id=None):
             notes=request.data.get('notes', ''),
         )
         return Response({'id': vital.id, 'bmi': vital.bmi, 'message': 'Vitals recorded'}, status=201)
+
+# NOTIFICATIONS SYSTEM
+
+def create_notification(recipient, notification_type, title, message, sender=None, link=None, data=None):
+    """Helper function to create a notification"""
+    Notification.objects.create(
+        recipient=recipient,
+        sender=sender,
+        notification_type=notification_type,
+        title=title,
+        message=message,
+        link=link or '',
+        data=data or {},
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def notifications(request):
+    """Get all notifications for the current user"""
+    notifs = Notification.objects.filter(recipient=request.user)[:50]
+    unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+
+    data = [{
+        'id': n.id,
+        'type': n.notification_type,
+        'title': n.title,
+        'message': n.message,
+        'is_read': n.is_read,
+        'link': n.link,
+        'data': n.data,
+        'created_at': n.created_at.isoformat(),
+    } for n in notifs]
+
+    return Response({
+        'notifications': data,
+        'unread_count': unread_count,
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def mark_notification_read(request, notification_id):
+    """Mark a single notification as read"""
+    try:
+        notif = Notification.objects.get(id=notification_id, recipient=request.user)
+        notif.mark_as_read()
+        return Response({'message': 'Marked as read'})
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=404)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def mark_all_notifications_read(request):
+    """Mark all notifications as read"""
+    Notification.objects.filter(
+        recipient=request.user, is_read=False
+    ).update(is_read=True, read_at=timezone.now())
+    return Response({'message': 'All notifications marked as read'})
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_notification(request, notification_id):
+    """Delete a notification"""
+    try:
+        notif = Notification.objects.get(id=notification_id, recipient=request.user)
+        notif.delete()
+        return Response({'message': 'Notification deleted'})
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=404)

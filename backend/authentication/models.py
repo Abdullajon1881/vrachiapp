@@ -479,3 +479,50 @@ class VitalSigns(models.Model):
             height_m = float(self.height_cm) / 100
             return round(float(self.weight_kg) / (height_m ** 2), 1)
         return None
+
+class Notification(models.Model):
+    """In-app notification system"""
+    NOTIFICATION_TYPES = [
+        ('appointment_booked', 'Appointment Booked'),
+        ('appointment_confirmed', 'Appointment Confirmed'),
+        ('appointment_cancelled', 'Appointment Cancelled'),
+        ('appointment_reminder', 'Appointment Reminder'),
+        ('new_message', 'New Message'),
+        ('consultation_started', 'Consultation Started'),
+        ('consultation_completed', 'Consultation completed'),
+        ('medical_record_added', 'Medical Record Added'),
+        ('prescription_issued', 'Prescription Issued'),
+        ('doctor_approved', 'Doctor Application Approved'),
+        ('doctor_rejected', 'Doctor Application Rejected'),
+        ('general', 'General'),
+    ]
+
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications'
+    )
+    sender = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='sent_notifications'
+    )
+    notification_type = models.CharField(max_length=40, choices=NOTIFICATION_TYPES, default='general')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    link = models.CharField(max_length=255, blank=True, null=True)
+    data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Notification'
+        verbose_name_plural = 'Notifications'
+
+    def __str__(self):
+        return f"Notification for {self.recipient.full_name}: {self.title}"
+
+    def mark_as_read(self):
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()

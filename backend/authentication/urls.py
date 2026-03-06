@@ -77,4 +77,10 @@ urlpatterns = [
     path('vital-signs/', views.vital_signs, name='vital_signs'),
     path('vital-signs/<int:patient_id>/', views.vital_signs, name='vital_signs_patient'),
 
+    # Notifications system
+    path('notifications/', views.notifications, name='notifications'),
+    path('notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/read-all/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
+    path('notifications/<int:notification_id>/delete/', views.delete_notification, name='delete_notification'),
+
 ] 
