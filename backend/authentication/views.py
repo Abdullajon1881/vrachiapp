@@ -2461,3 +2461,207 @@ def review_detail(request, review_id):
     if request.method == 'DELETE':
         review.delete()
         return Response({'message': 'Review deleted'})
+    
+
+
+# ============================================
+# ADMIN PANEL & DOCTOR APPROVAL SYSTEM
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_dashboard(request):
+    """Admin overview stats"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    today = date.today()
+
+    total_users = User.objects.count()
+    total_patients = User.objects.filter(role='patient').count()
+    total_doctors = User.objects.filter(role='doctor').count()
+    pending_doctors = User.objects.filter(role='doctor', is_active=False).count()
+    total_consultations = Consultation.objects.count()
+    total_appointments = Appointment.objects.count()
+    today_appointments = Appointment.objects.filter(appointment_date=today).count()
+    total_reviews = Review.objects.count()
+
+    recent_users = User.objects.order_by('-date_joined')[:5]
+    pending_doctor_list = User.objects.filter(
+        role='doctor', is_active=False
+    ).select_related('profile').order_by('-date_joined')[:10]
+
+    return Response({
+        'stats': {
+            'total_users': total_users,
+            'total_patients': total_patients,
+            'total_doctors': total_doctors,
+            'pending_doctors': pending_doctors,
+            'total_consultations': total_consultations,
+            'total_appointments': total_appointments,
+            'today_appointments': today_appointments,
+            'total_reviews': total_reviews,
+        },
+        'recent_users': [{
+            'id': u.id,
+            'full_name': u.full_name,
+            'email': u.email,
+            'role': u.role,
+            'is_active': u.is_active,
+            'date_joined': u.date_joined.isoformat(),
+        } for u in recent_users],
+        'pending_doctors': [{
+            'id': d.id,
+            'full_name': d.full_name,
+            'email': d.email,
+            'specialization': getattr(d.profile, 'specialization', None) if hasattr(d, 'profile') else None,
+            'license_number': getattr(d.profile, 'license_number', None) if hasattr(d, 'profile') else None,
+            'date_joined': d.date_joined.isoformat(),
+        } for d in pending_doctor_list],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_users_list(request):
+    """List all users with filters"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    queryset = User.objects.all().order_by('-date_joined')
+
+    role = request.query_params.get('role')
+    if role:
+        queryset = queryset.filter(role=role)
+
+    is_active = request.query_params.get('is_active')
+    if is_active is not None:
+        queryset = queryset.filter(is_active=is_active == 'true')
+
+    search = request.query_params.get('search')
+    if search:
+        queryset = queryset.filter(
+            models.Q(first_name__icontains=search) |
+            models.Q(last_name__icontains=search) |
+            models.Q(email__icontains=search)
+        )
+
+    data = [{
+        'id': u.id,
+        'full_name': u.full_name,
+        'email': u.email,
+        'role': u.role,
+        'is_active': u.is_active,
+        'date_joined': u.date_joined.isoformat(),
+        'last_login': u.last_login.isoformat() if u.last_login else None,
+    } for u in queryset[:100]]
+
+    return Response({'count': len(data), 'users': data})
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def admin_approve_doctor(request, doctor_id):
+    """Approve or reject a doctor application"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    action = request.data.get('action')  # 'approve' or 'reject'
+    if action not in ['approve', 'reject']:
+        return Response({'error': 'action must be approve or reject'}, status=400)
+
+    if action == 'approve':
+        doctor.is_active = True
+        doctor.save()
+        create_notification(
+            recipient=doctor,
+            sender=request.user,
+            notification_type='doctor_approved',
+            title='Your application has been approved!',
+            message='Congratulations! Your doctor profile has been approved. You can now receive patients.',
+            link='/doctor/dashboard/',
+        )
+        return Response({'message': f'Dr. {doctor.full_name} has been approved'})
+
+    if action == 'reject':
+        reason = request.data.get('reason', 'Your application did not meet our requirements.')
+        doctor.is_active = False
+        doctor.save()
+        create_notification(
+            recipient=doctor,
+            sender=request.user,
+            notification_type='doctor_rejected',
+            title='Your application was not approved',
+            message=reason,
+        )
+        return Response({'message': f'Dr. {doctor.full_name} has been rejected'})
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def admin_toggle_user(request, user_id):
+    """Activate or deactivate any user account"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    if user == request.user:
+        return Response({'error': 'You cannot deactivate your own account'}, status=400)
+
+    user.is_active = not user.is_active
+    user.save()
+
+    status_text = 'activated' if user.is_active else 'deactivated'
+    return Response({'message': f'User {user.full_name} has been {status_text}', 'is_active': user.is_active})
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def admin_delete_user(request, user_id):
+    """Delete a user account"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    if user == request.user:
+        return Response({'error': 'You cannot delete your own account'}, status=400)
+
+    name = user.full_name
+    user.delete()
+    return Response({'message': f'User {name} has been deleted'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_consultations_list(request):
+    """List all consultations for admin"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    queryset = Consultation.objects.all().select_related(
+        'patient', 'doctor'
+    ).order_by('-created_at')[:100]
+
+    data = [{
+        'id': c.id,
+        'patient_name': c.patient.full_name,
+        'doctor_name': c.doctor.full_name,
+        'status': c.status,
+        'created_at': c.created_at.isoformat(),
+        'completed_at': c.completed_at.isoformat() if c.completed_at else None,
+    } for c in queryset]
+
+    return Response({'count': len(data), 'consultations': data})

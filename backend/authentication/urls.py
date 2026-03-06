@@ -95,5 +95,14 @@ urlpatterns = [
     # Reviews & ratings system
     path('doctors/<int:doctor_id>/reviews/', views.doctor_reviews, name='doctor_reviews'),
     path('reviews/<int:review_id>/', views.review_detail, name='review_detail'),
-    
+
+    # Admin panel & doctor approval
+    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('admin/users/', views.admin_users_list, name='admin_users_list'),
+    path('admin/doctors/<int:doctor_id>/approve/', views.admin_approve_doctor, name='admin_approve_doctor'),
+    path('admin/users/<int:user_id>/toggle/', views.admin_toggle_user, name='admin_toggle_user'),
+    path('admin/users/<int:user_id>/delete/', views.admin_delete_user, name='admin_delete_user'),
+    path('admin/consultations/', views.admin_consultations_list, name='admin_consultations_list'),
+
+
 ] 
