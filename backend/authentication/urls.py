@@ -83,4 +83,8 @@ urlpatterns = [
     path('notifications/read-all/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
     path('notifications/<int:notification_id>/delete/', views.delete_notification, name='delete_notification'),
 
+    # Dashboard APIs
+    path('dashboard/patient/', views.patient_dashboard, name='patient_dashboard'),
+    path('dashboard/doctor/', views.doctor_dashboard, name='doctor_dashboard'),
+
 ] 

@@ -1981,4 +1981,195 @@ def delete_notification(request, notification_id):
         notif.delete()
         return Response({'message': 'Notification deleted'})
     except Notification.DoesNotExist:
-        return Response({'error': 'Notification not found'}, status=404)
+        return Response({'error': 'Notification not found'}, status=404) 
+
+# PATIENT DASHBOARD API
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_dashboard(request):
+    """Complete dashboard summary for a patient"""
+    if request.user.role != 'patient':
+        return Response({'error': 'Only patients can access this dashboard'}, status=403)
+
+    user = request.user
+    today = date.today()
+
+    # Upcoming appointments
+    upcoming_appointments = Appointment.objects.filter(
+        patient=user,
+        status__in=['pending', 'confirmed'],
+        appointment_date__gte=today
+    ).select_related('doctor', 'doctor__profile').order_by('appointment_date', 'appointment_time')[:5]
+
+    # Recent medical records
+    recent_records = MedicalRecord.objects.filter(
+        patient=user,
+        is_visible_to_patient=True
+    ).select_related('doctor').order_by('-created_at')[:5]
+
+    # Active prescriptions
+    active_prescriptions = Prescription.objects.filter(
+        patient=user,
+        status='active'
+    ).select_related('doctor', 'medical_record').order_by('-prescribed_at')[:5]
+
+    # Latest vital signs
+    latest_vitals = VitalSigns.objects.filter(patient=user).order_by('-recorded_at').first()
+
+    # Unread notifications
+    unread_notifications = Notification.objects.filter(
+        recipient=user, is_read=False
+    ).order_by('-created_at')[:5]
+
+    # Stats
+    total_consultations = user.patient_consultations.count()
+    total_appointments = user.patient_appointments.count()
+    total_records = user.medical_records.filter(is_visible_to_patient=True).count()
+    unread_count = Notification.objects.filter(recipient=user, is_read=False).count()
+
+    return Response({
+        'user': {
+            'id': user.id,
+            'full_name': user.full_name,
+            'email': user.email,
+            'avatar': user.avatar,
+        },
+        'stats': {
+            'total_consultations': total_consultations,
+            'total_appointments': total_appointments,
+            'total_medical_records': total_records,
+            'unread_notifications': unread_count,
+        },
+        'upcoming_appointments': [{
+            'id': a.id,
+            'doctor_name': a.doctor.full_name,
+            'doctor_avatar': a.doctor.avatar,
+            'specialization': getattr(a.doctor.profile, 'specialization', None) if hasattr(a.doctor, 'profile') else None,
+            'appointment_date': str(a.appointment_date),
+            'appointment_time': str(a.appointment_time),
+            'status': a.status,
+            'reason': a.reason,
+        } for a in upcoming_appointments],
+        'recent_medical_records': [{
+            'id': r.id,
+            'record_type': r.record_type,
+            'title': r.title,
+            'doctor_name': r.doctor.full_name,
+            'created_at': r.created_at.isoformat(),
+        } for r in recent_records],
+        'active_prescriptions': [{
+            'id': p.id,
+            'medication_name': p.medication_name,
+            'dosage': p.dosage,
+            'frequency': p.frequency,
+            'duration_days': p.duration_days,
+            'doctor_name': p.doctor.full_name,
+            'prescribed_at': p.prescribed_at.isoformat(),
+            'expires_at': str(p.expires_at) if p.expires_at else None,
+        } for p in active_prescriptions],
+        'latest_vitals': {
+            'blood_pressure': f"{latest_vitals.blood_pressure_systolic}/{latest_vitals.blood_pressure_diastolic}" if latest_vitals and latest_vitals.blood_pressure_systolic else None,
+            'heart_rate': latest_vitals.heart_rate if latest_vitals else None,
+            'temperature': float(latest_vitals.temperature) if latest_vitals and latest_vitals.temperature else None,
+            'weight_kg': float(latest_vitals.weight_kg) if latest_vitals and latest_vitals.weight_kg else None,
+            'bmi': latest_vitals.bmi if latest_vitals else None,
+            'recorded_at': latest_vitals.recorded_at.isoformat() if latest_vitals else None,
+        },
+        'unread_notifications': [{
+            'id': n.id,
+            'type': n.notification_type,
+            'title': n.title,
+            'message': n.message,
+            'created_at': n.created_at.isoformat(),
+        } for n in unread_notifications],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_dashboard(request):
+    """Complete dashboard summary for a doctor"""
+    if request.user.role != 'doctor':
+        return Response({'error': 'Only doctors can access this dashboard'}, status=403)
+
+    user = request.user
+    today = date.today()
+
+    # Today's appointments
+    todays_appointments = Appointment.objects.filter(
+        doctor=user,
+        appointment_date=today,
+        status__in=['pending', 'confirmed']
+    ).select_related('patient', 'patient__profile').order_by('appointment_time')
+
+    # Upcoming appointments (next 7 days)
+    upcoming_appointments = Appointment.objects.filter(
+        doctor=user,
+        status__in=['pending', 'confirmed'],
+        appointment_date__gt=today,
+        appointment_date__lte=today + timedelta(days=7)
+    ).select_related('patient').order_by('appointment_date', 'appointment_time')[:10]
+
+    # Recent patients (distinct patients from consultations)
+    recent_consultations = user.doctor_consultations.filter(
+        status='completed'
+    ).select_related('patient').order_by('-completed_at')[:5]
+
+    # Unread notifications
+    unread_notifications = Notification.objects.filter(
+        recipient=user, is_read=False
+    ).order_by('-created_at')[:5]
+
+    # Stats
+    total_patients = user.doctor_consultations.values('patient').distinct().count()
+    total_consultations = user.doctor_consultations.count()
+    total_appointments = user.doctor_appointments.count()
+    pending_appointments = user.doctor_appointments.filter(status='pending').count()
+    unread_count = Notification.objects.filter(recipient=user, is_read=False).count()
+
+    return Response({
+        'user': {
+            'id': user.id,
+            'full_name': user.full_name,
+            'email': user.email,
+            'avatar': user.avatar,
+            'specialization': getattr(user.profile, 'specialization', None) if hasattr(user, 'profile') else None,
+        },
+        'stats': {
+            'total_patients': total_patients,
+            'total_consultations': total_consultations,
+            'total_appointments': total_appointments,
+            'pending_appointments': pending_appointments,
+            'unread_notifications': unread_count,
+        },
+        'todays_appointments': [{
+            'id': a.id,
+            'patient_name': a.patient.full_name,
+            'patient_avatar': a.patient.avatar,
+            'appointment_time': str(a.appointment_time),
+            'duration_minutes': a.duration_minutes,
+            'status': a.status,
+            'reason': a.reason,
+        } for a in todays_appointments],
+        'upcoming_appointments': [{
+            'id': a.id,
+            'patient_name': a.patient.full_name,
+            'appointment_date': str(a.appointment_date),
+            'appointment_time': str(a.appointment_time),
+            'status': a.status,
+        } for a in upcoming_appointments],
+        'recent_patients': [{
+            'id': c.patient.id,
+            'full_name': c.patient.full_name,
+            'avatar': c.patient.avatar,
+            'last_consultation': c.completed_at.isoformat() if c.completed_at else None,
+        } for c in recent_consultations],
+        'unread_notifications': [{
+            'id': n.id,
+            'type': n.notification_type,
+            'title': n.title,
+            'message': n.message,
+            'created_at': n.created_at.isoformat(),
+        } for n in unread_notifications],
+    })
