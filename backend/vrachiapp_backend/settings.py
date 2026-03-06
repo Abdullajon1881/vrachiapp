@@ -35,7 +35,6 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'healzy.uz', 'www.healzy.u
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -277,7 +276,7 @@ DEFAULT_FROM_EMAIL = EMAIL_FROM
 
 # Session settings (30 дней, скользящая сессия)
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True # В продакшене лучше True, но для локальной разработки False  
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 # Если используете субдомены — раскомментируйте:
@@ -285,7 +284,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = True
 
 # CSRF tightening (SPA должен слать X-CSRFToken)
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True # В продакшене лучше True, но для локальной разработки False
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 # Делаем CSRF cookie долгоживущей, чтобы не терять её на мобильном
@@ -293,7 +292,7 @@ CSRF_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 
 # Security hardening
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = True  # В продакшене лучше True, но для локальной разработки False
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
