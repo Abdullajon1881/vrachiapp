@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'channels',
     'authentication',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -234,6 +235,7 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # CORS settings
@@ -318,3 +320,12 @@ REST_FRAMEWORK.update({
         'user': os.getenv('DRF_THROTTLE_USER', '1000/min'),
     }
 })
+
+# API Documentation
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Healzy API',
+    'DESCRIPTION': 'Medical platform API for online doctor consultations, appointments, medical records and more.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+}
