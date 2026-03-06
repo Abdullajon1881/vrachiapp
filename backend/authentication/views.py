@@ -10,6 +10,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.conf import settings
+from django.core.files.storage import default_storage
 import requests
 import json
 from django.db import models
@@ -2665,3 +2666,148 @@ def admin_consultations_list(request):
     } for c in queryset]
 
     return Response({'count': len(data), 'consultations': data})
+
+# FILE UPLOADS SYSTEM
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_avatar(request):
+    """Upload or update profile avatar"""
+    if 'avatar' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=400)
+
+    file = request.FILES['avatar']
+
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if file.content_type not in allowed_types:
+        return Response({'error': 'Only JPEG, PNG, WebP and GIF images are allowed'}, status=400)
+
+    # Validate file size (max 5MB)
+    if file.size > 5 * 1024 * 1024:
+        return Response({'error': 'File size must be under 5MB'}, status=400)
+
+    # Delete old avatar if exists
+    user = request.user
+    if user.avatar:
+        old_path = os.path.join(settings.MEDIA_ROOT, user.avatar)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    # Save new avatar
+    ext = file.name.split('.')[-1].lower()
+    filename = f"avatars/{user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+    saved_path = default_storage.save(filename, file)
+
+    user.avatar = saved_path
+    user.save()
+
+    return Response({
+        'message': 'Avatar uploaded successfully',
+        'avatar_url': request.build_absolute_uri(settings.MEDIA_URL + saved_path),
+        'avatar': saved_path,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_medical_document(request):
+    """Upload a medical document (PDF, image)"""
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=400)
+
+    file = request.FILES['file']
+
+    # Validate file type
+    allowed_types = [
+        'image/jpeg', 'image/png', 'image/webp',
+        'application/pdf',
+    ]
+    if file.content_type not in allowed_types:
+        return Response({'error': 'Only JPEG, PNG, WebP and PDF files are allowed'}, status=400)
+
+    # Validate file size (max 20MB)
+    if file.size > 20 * 1024 * 1024:
+        return Response({'error': 'File size must be under 20MB'}, status=400)
+
+    # Save file
+    ext = file.name.split('.')[-1].lower()
+    folder = f"medical_docs/{request.user.id}/"
+    filename = f"{folder}{uuid.uuid4().hex}.{ext}"
+    saved_path = default_storage.save(filename, file)
+
+    file_url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+
+    return Response({
+        'message': 'File uploaded successfully',
+        'file_url': file_url,
+        'file_path': saved_path,
+        'file_name': file.name,
+        'file_size': file.size,
+        'content_type': file.content_type,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_consultation_file(request, consultation_id):
+    """Upload a file to a specific consultation"""
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Consultation not found'}, status=404)
+
+    if request.user not in [consultation.patient, consultation.doctor]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=400)
+
+    file = request.FILES['file']
+
+    allowed_types = [
+        'image/jpeg', 'image/png', 'image/webp',
+        'application/pdf',
+    ]
+    if file.content_type not in allowed_types:
+        return Response({'error': 'Only JPEG, PNG, WebP and PDF files are allowed'}, status=400)
+
+    if file.size > 20 * 1024 * 1024:
+        return Response({'error': 'File size must be under 20MB'}, status=400)
+
+    ext = file.name.split('.')[-1].lower()
+    folder = f"consultations/{consultation_id}/"
+    filename = f"{folder}{uuid.uuid4().hex}.{ext}"
+    saved_path = default_storage.save(filename, file)
+
+    file_url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+
+    return Response({
+        'message': 'File uploaded successfully',
+        'file_url': file_url,
+        'file_path': saved_path,
+        'file_name': file.name,
+        'file_size': file.size,
+        'content_type': file.content_type,
+    }, status=201)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_file(request):
+    """Delete an uploaded file"""
+    file_path = request.data.get('file_path')
+    if not file_path:
+        return Response({'error': 'file_path is required'}, status=400)
+
+    # Security: make sure user can only delete their own files
+    if str(request.user.id) not in file_path:
+        if request.user.role != 'admin':
+            return Response({'error': 'Permission denied'}, status=403)
+
+    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+    if os.path.exists(full_path):
+        os.remove(full_path)
+        return Response({'message': 'File deleted successfully'})
+
+    return Response({'error': 'File not found'}, status=404)

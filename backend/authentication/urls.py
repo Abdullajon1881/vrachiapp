@@ -104,5 +104,11 @@ urlpatterns = [
     path('admin/users/<int:user_id>/delete/', views.admin_delete_user, name='admin_delete_user'),
     path('admin/consultations/', views.admin_consultations_list, name='admin_consultations_list'),
 
+    # File uploads
+    path('upload/avatar/', views.upload_avatar, name='upload_avatar'),
+    path('upload/medical-document/', views.upload_medical_document, name='upload_medical_document'),
+    path('upload/consultation/<int:consultation_id>/', views.upload_consultation_file, name='upload_consultation_file'),
+    path('upload/delete/', views.delete_file, name='delete_file'),
+
 
 ] 
