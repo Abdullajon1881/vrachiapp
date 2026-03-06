@@ -91,4 +91,9 @@ urlpatterns = [
     path('doctors/search/', views.search_doctors, name='search_doctors'),
     path('doctors/<int:doctor_id>/profile/', views.doctor_profile_detail, name='doctor_profile_detail'),
     path('specializations/', views.specializations_list, name='specializations_list'),
+
+    # Reviews & ratings system
+    path('doctors/<int:doctor_id>/reviews/', views.doctor_reviews, name='doctor_reviews'),
+    path('reviews/<int:review_id>/', views.review_detail, name='review_detail'),
+    
 ] 

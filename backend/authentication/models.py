@@ -526,3 +526,41 @@ class Notification(models.Model):
             self.is_read = True
             self.read_at = timezone.now()
             self.save()
+
+class Review(models.Model):
+    """Patient review and rating for a doctor"""
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='given_reviews'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='received_reviews'
+    )
+    consultation = models.ForeignKey(
+        Consultation, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviews'
+    )
+    appointment = models.ForeignKey(
+        Appointment, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviews'
+    )
+    rating = models.IntegerField(choices=[
+        (1, '1 - Poor'),
+        (2, '2 - Fair'),
+        (3, '3 - Good'),
+        (4, '4 - Very Good'),
+        (5, '5 - Excellent'),
+    ])
+    comment = models.TextField(blank=True, null=True)
+    is_anonymous = models.BooleanField(default=False)
+    is_visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Review'
+        verbose_name_plural = 'Reviews'
+        unique_together = ['patient', 'doctor', 'consultation']
+
+    def __str__(self):
+        return f"Review by {self.patient.full_name} for Dr. {self.doctor.full_name} - {self.rating}/5"

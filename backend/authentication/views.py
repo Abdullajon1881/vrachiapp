@@ -1469,7 +1469,7 @@ def protected_media(request, subpath):
 
 # APPOINTMENT BOOKING SYSTEM
 
-from .models import Appointment, DoctorSchedule, MedicalRecord, VitalSigns, Notification 
+from .models import Appointment, DoctorSchedule, MedicalRecord, VitalSigns, Notification, UserProfile, Review
 from datetime import datetime, date, timedelta
 
 @api_view(['GET', 'POST'])
@@ -2331,3 +2331,133 @@ def specializations_list(request):
         'specialization': s['specialization'],
         'doctor_count': s['count']
     } for s in specs])
+
+# REVIEWS & RATINGS SYSTEM
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def doctor_reviews(request, doctor_id):
+    """Get all reviews for a doctor or submit a new review"""
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    if request.method == 'GET':
+        reviews = Review.objects.filter(
+            doctor=doctor, is_visible=True
+        ).select_related('patient')
+
+        # Calculate stats
+        total = reviews.count()
+        avg_rating = 0
+        rating_breakdown = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+
+        if total > 0:
+            total_score = sum(r.rating for r in reviews)
+            avg_rating = round(total_score / total, 1)
+            for r in reviews:
+                rating_breakdown[r.rating] += 1
+
+        data = []
+        for r in reviews:
+            data.append({
+                'id': r.id,
+                'rating': r.rating,
+                'comment': r.comment,
+                'is_anonymous': r.is_anonymous,
+                'patient_name': 'Anonymous' if r.is_anonymous else r.patient.full_name,
+                'patient_avatar': None if r.is_anonymous else r.patient.avatar,
+                'created_at': r.created_at.isoformat(),
+            })
+
+        return Response({
+            'doctor_id': doctor_id,
+            'avg_rating': avg_rating,
+            'total_reviews': total,
+            'rating_breakdown': rating_breakdown,
+            'reviews': data,
+        })
+
+    if request.method == 'POST':
+        if request.user.role != 'patient':
+            return Response({'error': 'Only patients can submit reviews'}, status=403)
+
+        rating = request.data.get('rating')
+        if not rating or int(rating) not in [1, 2, 3, 4, 5]:
+            return Response({'error': 'Rating must be between 1 and 5'}, status=400)
+
+        consultation_id = request.data.get('consultation_id')
+
+        # Check if patient already reviewed this doctor for this consultation
+        if consultation_id:
+            if Review.objects.filter(
+                patient=request.user,
+                doctor=doctor,
+                consultation_id=consultation_id
+            ).exists():
+                return Response({'error': 'You have already reviewed this doctor for this consultation'}, status=400)
+        else:
+            # Allow one review per doctor if no consultation specified
+            if Review.objects.filter(
+                patient=request.user,
+                doctor=doctor,
+                consultation__isnull=True
+            ).exists():
+                return Response({'error': 'You have already reviewed this doctor'}, status=400)
+
+        review = Review.objects.create(
+            patient=request.user,
+            doctor=doctor,
+            rating=int(rating),
+            comment=request.data.get('comment', ''),
+            is_anonymous=request.data.get('is_anonymous', False),
+            consultation_id=consultation_id,
+            appointment_id=request.data.get('appointment_id'),
+        )
+
+        # Send notification to doctor
+        create_notification(
+            recipient=doctor,
+            sender=request.user,
+            notification_type='general',
+            title='New Review Received',
+            message=f'You received a {rating}-star review from a patient.',
+            link=f'/doctor/reviews/',
+        )
+
+        return Response({
+            'id': review.id,
+            'message': 'Review submitted successfully',
+            'rating': review.rating,
+        }, status=201)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def review_detail(request, review_id):
+    """Edit or delete a review"""
+    try:
+        review = Review.objects.get(id=review_id)
+    except Review.DoesNotExist:
+        return Response({'error': 'Review not found'}, status=404)
+
+    if request.user != review.patient and request.user.role != 'admin':
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'PATCH':
+        if 'rating' in request.data:
+            new_rating = int(request.data['rating'])
+            if new_rating not in [1, 2, 3, 4, 5]:
+                return Response({'error': 'Rating must be between 1 and 5'}, status=400)
+            review.rating = new_rating
+        if 'comment' in request.data:
+            review.comment = request.data['comment']
+        if 'is_anonymous' in request.data:
+            review.is_anonymous = request.data['is_anonymous']
+        review.save()
+        return Response({'message': 'Review updated'})
+
+    if request.method == 'DELETE':
+        review.delete()
+        return Response({'message': 'Review deleted'})
