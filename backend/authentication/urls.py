@@ -70,4 +70,11 @@ urlpatterns = [
     path('appointments/<int:appointment_id>/cancel/', views.appointment_detail, name='appointment_cancel'),
     path('doctors/<int:doctor_id>/available-slots/', views.doctor_available_slots, name='doctor_available_slots'),
     path('doctor/schedule/', views.doctor_schedule, name='doctor_schedule'),
+    
+    # Medical records system
+    path('medical-records/', views.medical_records, name='medical_records'),
+    path('medical-records/<int:record_id>/', views.medical_record_detail, name='medical_record_detail'),
+    path('vital-signs/', views.vital_signs, name='vital_signs'),
+    path('vital-signs/<int:patient_id>/', views.vital_signs, name='vital_signs_patient'),
+
 ] 

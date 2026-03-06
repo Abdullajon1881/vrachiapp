@@ -316,8 +316,7 @@ class AIMessage(models.Model):
 
     def __str__(self):
         return f"{self.get_sender_type_display()} сообщение в диалоге {self.dialogue.id}"
-
-
+    
 class Appointment(models.Model):
     """Appointment booking between patient and doctor"""
     STATUS_CHOICES = [
@@ -328,12 +327,8 @@ class Appointment(models.Model):
         ('no_show', 'No Show'),
     ]
 
-    patient = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='patient_appointments'
-    )
-    doctor = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='doctor_appointments'
-    )
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='patient_appointments')
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='doctor_appointments')
     appointment_date = models.DateField()
     appointment_time = models.TimeField()
     duration_minutes = models.IntegerField(default=30)
@@ -343,10 +338,7 @@ class Appointment(models.Model):
     doctor_notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    cancelled_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='cancelled_appointments'
-    )
+    cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cancelled_appointments')
     cancellation_reason = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -360,7 +352,7 @@ class Appointment(models.Model):
 
     @property
     def is_upcoming(self):
-        from datetime import date, time
+        from datetime import date
         today = date.today()
         now_time = timezone.now().time()
         if self.appointment_date > today:
@@ -373,18 +365,11 @@ class Appointment(models.Model):
 class DoctorSchedule(models.Model):
     """Doctor's weekly availability schedule"""
     DAY_CHOICES = [
-        (0, 'Monday'),
-        (1, 'Tuesday'),
-        (2, 'Wednesday'),
-        (3, 'Thursday'),
-        (4, 'Friday'),
-        (5, 'Saturday'),
-        (6, 'Sunday'),
+        (0, 'Monday'), (1, 'Tuesday'), (2, 'Wednesday'),
+        (3, 'Thursday'), (4, 'Friday'), (5, 'Saturday'), (6, 'Sunday'),
     ]
 
-    doctor = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='schedules'
-    )
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='schedules')
     day_of_week = models.IntegerField(choices=DAY_CHOICES)
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -401,84 +386,96 @@ class DoctorSchedule(models.Model):
         return f"Dr. {self.doctor.full_name} - {self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
 
 
-class Appointment(models.Model):
-    """Appointment booking between patient and doctor"""
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
-        ('cancelled', 'Cancelled'),
-        ('completed', 'Completed'),
-        ('no_show', 'No Show'),
+class MedicalRecord(models.Model):
+    """Patient medical record created by a doctor"""
+    RECORD_TYPES = [
+        ('diagnosis', 'Diagnosis'),
+        ('prescription', 'Prescription'),
+        ('lab_result', 'Lab Result'),
+        ('imaging', 'Imaging / X-Ray'),
+        ('vaccination', 'Vaccination'),
+        ('allergy', 'Allergy'),
+        ('surgery', 'Surgery'),
+        ('note', 'General Note'),
     ]
 
-    patient = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='patient_appointments'
-    )
-    doctor = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='doctor_appointments'
-    )
-    appointment_date = models.DateField()
-    appointment_time = models.TimeField()
-    duration_minutes = models.IntegerField(default=30)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    reason = models.TextField(blank=True, null=True)
-    notes = models.TextField(blank=True, null=True)
-    doctor_notes = models.TextField(blank=True, null=True)
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medical_records')
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_records')
+    consultation = models.ForeignKey(Consultation, on_delete=models.SET_NULL, null=True, blank=True, related_name='medical_records')
+    appointment = models.ForeignKey(Appointment, on_delete=models.SET_NULL, null=True, blank=True, related_name='medical_records')
+    record_type = models.CharField(max_length=20, choices=RECORD_TYPES, default='note')
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    diagnosis_code = models.CharField(max_length=20, blank=True, null=True)
+    medications = models.JSONField(default=list, blank=True)
+    attachments = models.JSONField(default=list, blank=True)
+    is_visible_to_patient = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    cancelled_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='cancelled_appointments'
-    )
-    cancellation_reason = models.TextField(blank=True, null=True)
 
     class Meta:
-        ordering = ['appointment_date', 'appointment_time']
-        verbose_name = 'Appointment'
-        verbose_name_plural = 'Appointments'
-        unique_together = ['doctor', 'appointment_date', 'appointment_time']
+        ordering = ['-created_at']
+        verbose_name = 'Medical Record'
+        verbose_name_plural = 'Medical Records'
 
     def __str__(self):
-        return f"Appointment: {self.patient.full_name} with Dr. {self.doctor.full_name} on {self.appointment_date} at {self.appointment_time}"
-
-    @property
-    def is_upcoming(self):
-        from datetime import date, time
-        today = date.today()
-        now_time = timezone.now().time()
-        if self.appointment_date > today:
-            return True
-        if self.appointment_date == today and self.appointment_time > now_time:
-            return True
-        return False
+        return f"{self.get_record_type_display()} - {self.patient.full_name} by Dr. {self.doctor.full_name}"
 
 
-class DoctorSchedule(models.Model):
-    """Doctor's weekly availability schedule"""
-    DAY_CHOICES = [
-        (0, 'Monday'),
-        (1, 'Tuesday'),
-        (2, 'Wednesday'),
-        (3, 'Thursday'),
-        (4, 'Friday'),
-        (5, 'Saturday'),
-        (6, 'Sunday'),
+class Prescription(models.Model):
+    """Prescription linked to a medical record"""
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
     ]
 
-    doctor = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='schedules'
-    )
-    day_of_week = models.IntegerField(choices=DAY_CHOICES)
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    is_available = models.BooleanField(default=True)
-    slot_duration_minutes = models.IntegerField(default=30)
+    medical_record = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE, related_name='prescriptions')
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='prescriptions')
+    doctor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='issued_prescriptions')
+    medication_name = models.CharField(max_length=255)
+    dosage = models.CharField(max_length=100)
+    frequency = models.CharField(max_length=100)
+    duration_days = models.IntegerField(blank=True, null=True)
+    instructions = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    prescribed_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateField(blank=True, null=True)
 
     class Meta:
-        ordering = ['day_of_week', 'start_time']
-        verbose_name = 'Doctor Schedule'
-        verbose_name_plural = 'Doctor Schedules'
-        unique_together = ['doctor', 'day_of_week']
+        ordering = ['-prescribed_at']
+        verbose_name = 'Prescription'
+        verbose_name_plural = 'Prescriptions'
 
     def __str__(self):
-        return f"Dr. {self.doctor.full_name} - {self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
+        return f"{self.medication_name} for {self.patient.full_name}"
+
+
+class VitalSigns(models.Model):
+    """Patient vital signs log"""
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vital_signs')
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='recorded_vitals')
+    blood_pressure_systolic = models.IntegerField(blank=True, null=True)
+    blood_pressure_diastolic = models.IntegerField(blank=True, null=True)
+    heart_rate = models.IntegerField(blank=True, null=True)
+    temperature = models.DecimalField(max_digits=4, decimal_places=1, blank=True, null=True)
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=1, blank=True, null=True)
+    height_cm = models.DecimalField(max_digits=5, decimal_places=1, blank=True, null=True)
+    oxygen_saturation = models.IntegerField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recorded_at']
+        verbose_name = 'Vital Signs'
+        verbose_name_plural = 'Vital Signs'
+
+    def __str__(self):
+        return f"Vitals for {self.patient.full_name} at {self.recorded_at}"
+
+    @property
+    def bmi(self):
+        if self.weight_kg and self.height_cm and self.height_cm > 0:
+            height_m = float(self.height_cm) / 100
+            return round(float(self.weight_kg) / (height_m ** 2), 1)
+        return None

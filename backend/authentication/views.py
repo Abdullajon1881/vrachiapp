@@ -1471,7 +1471,7 @@ def protected_media(request, subpath):
 # APPOINTMENT BOOKING SYSTEM
 # ============================================
 
-from .models import Appointment, DoctorSchedule
+from .models import Appointment, DoctorSchedule, MedicalRecord, VitalSigns
 from datetime import datetime, date, timedelta
 
 @api_view(['GET', 'POST'])
@@ -1741,3 +1741,174 @@ def doctor_schedule(request):
             'end_time': str(schedule.end_time),
             'is_available': schedule.is_available,
         }, status=201 if created else 200)
+
+# ============================================
+# MEDICAL RECORDS SYSTEM
+# ============================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def medical_records(request):
+    """Get all medical records or create a new one"""
+    if request.method == 'GET':
+        user = request.user
+        if user.role == 'patient':
+            records = MedicalRecord.objects.filter(
+                patient=user, is_visible_to_patient=True
+            ).select_related('doctor', 'doctor__profile')
+        elif user.role == 'doctor':
+            records = MedicalRecord.objects.filter(
+                doctor=user
+            ).select_related('patient', 'patient__profile')
+        else:
+            records = MedicalRecord.objects.all().select_related('patient', 'doctor')
+
+        data = []
+        for r in records:
+            data.append({
+                'id': r.id,
+                'record_type': r.record_type,
+                'title': r.title,
+                'description': r.description,
+                'diagnosis_code': r.diagnosis_code,
+                'medications': r.medications,
+                'patient': {'id': r.patient.id, 'full_name': r.patient.full_name},
+                'doctor': {
+                    'id': r.doctor.id,
+                    'full_name': r.doctor.full_name,
+                    'specialization': getattr(r.doctor.profile, 'specialization', None) if hasattr(r.doctor, 'profile') else None,
+                },
+                'consultation_id': r.consultation_id,
+                'appointment_id': r.appointment_id,
+                'created_at': r.created_at.isoformat(),
+            })
+        return Response(data)
+
+    if request.method == 'POST':
+        if request.user.role != 'doctor':
+            return Response({'error': 'Only doctors can create medical records'}, status=403)
+
+        required = ['patient_id', 'record_type', 'title', 'description']
+        for field in required:
+            if not request.data.get(field):
+                return Response({'error': f'{field} is required'}, status=400)
+
+        try:
+            patient = User.objects.get(id=request.data['patient_id'], role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+
+        record = MedicalRecord.objects.create(
+            patient=patient,
+            doctor=request.user,
+            record_type=request.data['record_type'],
+            title=request.data['title'],
+            description=request.data['description'],
+            diagnosis_code=request.data.get('diagnosis_code', ''),
+            medications=request.data.get('medications', []),
+            consultation_id=request.data.get('consultation_id'),
+            appointment_id=request.data.get('appointment_id'),
+            is_visible_to_patient=request.data.get('is_visible_to_patient', True),
+        )
+        return Response({'id': record.id, 'message': 'Medical record created'}, status=201)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def medical_record_detail(request, record_id):
+    """Get, update or delete a medical record"""
+    try:
+        record = MedicalRecord.objects.get(id=record_id)
+    except MedicalRecord.DoesNotExist:
+        return Response({'error': 'Record not found'}, status=404)
+
+    if request.user not in [record.patient, record.doctor] and request.user.role != 'admin':
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        prescriptions = [{
+            'id': p.id,
+            'medication_name': p.medication_name,
+            'dosage': p.dosage,
+            'frequency': p.frequency,
+            'duration_days': p.duration_days,
+            'instructions': p.instructions,
+            'status': p.status,
+            'prescribed_at': p.prescribed_at.isoformat(),
+        } for p in record.prescriptions.all()]
+
+        return Response({
+            'id': record.id,
+            'record_type': record.record_type,
+            'title': record.title,
+            'description': record.description,
+            'diagnosis_code': record.diagnosis_code,
+            'medications': record.medications,
+            'attachments': record.attachments,
+            'patient': {'id': record.patient.id, 'full_name': record.patient.full_name},
+            'doctor': {'id': record.doctor.id, 'full_name': record.doctor.full_name},
+            'prescriptions': prescriptions,
+            'created_at': record.created_at.isoformat(),
+            'updated_at': record.updated_at.isoformat(),
+        })
+
+    if request.method == 'PATCH':
+        if request.user != record.doctor:
+            return Response({'error': 'Only the doctor can edit this record'}, status=403)
+        for field in ['title', 'description', 'diagnosis_code', 'medications', 'is_visible_to_patient']:
+            if field in request.data:
+                setattr(record, field, request.data[field])
+        record.save()
+        return Response({'message': 'Record updated'})
+
+    if request.method == 'DELETE':
+        if request.user != record.doctor and request.user.role != 'admin':
+            return Response({'error': 'Permission denied'}, status=403)
+        record.delete()
+        return Response({'message': 'Record deleted'})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def vital_signs(request, patient_id=None):
+    """Get or record vital signs"""
+    if request.method == 'GET':
+        pid = patient_id or request.user.id
+        if request.user.id != pid and request.user.role not in ['doctor', 'admin']:
+            return Response({'error': 'Permission denied'}, status=403)
+        vitals = VitalSigns.objects.filter(patient_id=pid)[:20]
+        data = [{
+            'id': v.id,
+            'blood_pressure': f"{v.blood_pressure_systolic}/{v.blood_pressure_diastolic}" if v.blood_pressure_systolic else None,
+            'heart_rate': v.heart_rate,
+            'temperature': float(v.temperature) if v.temperature else None,
+            'weight_kg': float(v.weight_kg) if v.weight_kg else None,
+            'height_cm': float(v.height_cm) if v.height_cm else None,
+            'oxygen_saturation': v.oxygen_saturation,
+            'bmi': v.bmi,
+            'notes': v.notes,
+            'recorded_at': v.recorded_at.isoformat(),
+        } for v in vitals]
+        return Response(data)
+
+    if request.method == 'POST':
+        target_patient = request.user
+        if request.data.get('patient_id') and request.user.role in ['doctor', 'admin']:
+            try:
+                target_patient = User.objects.get(id=request.data['patient_id'])
+            except User.DoesNotExist:
+                return Response({'error': 'Patient not found'}, status=404)
+
+        vital = VitalSigns.objects.create(
+            patient=target_patient,
+            recorded_by=request.user,
+            blood_pressure_systolic=request.data.get('blood_pressure_systolic'),
+            blood_pressure_diastolic=request.data.get('blood_pressure_diastolic'),
+            heart_rate=request.data.get('heart_rate'),
+            temperature=request.data.get('temperature'),
+            weight_kg=request.data.get('weight_kg'),
+            height_cm=request.data.get('height_cm'),
+            oxygen_saturation=request.data.get('oxygen_saturation'),
+            notes=request.data.get('notes', ''),
+        )
+        return Response({'id': vital.id, 'bmi': vital.bmi, 'message': 'Vitals recorded'}, status=201)
