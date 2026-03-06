@@ -87,4 +87,8 @@ urlpatterns = [
     path('dashboard/patient/', views.patient_dashboard, name='patient_dashboard'),
     path('dashboard/doctor/', views.doctor_dashboard, name='doctor_dashboard'),
 
+    # Doctor search & filtering
+    path('doctors/search/', views.search_doctors, name='search_doctors'),
+    path('doctors/<int:doctor_id>/profile/', views.doctor_profile_detail, name='doctor_profile_detail'),
+    path('specializations/', views.specializations_list, name='specializations_list'),
 ] 

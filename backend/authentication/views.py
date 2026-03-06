@@ -23,7 +23,7 @@ import asyncio
 from .ai_service import ai_service
 import html
 
-from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message
+from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message, UserProfile
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer, 
     GoogleAuthSerializer, PasswordResetSerializer, UserProfileSerializer, UserProfileReadSerializer,
@@ -2173,3 +2173,161 @@ def doctor_dashboard(request):
             'created_at': n.created_at.isoformat(),
         } for n in unread_notifications],
     })
+
+# DOCTOR SEARCH & FILTERING
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search_doctors(request):
+    """Search and filter doctors by specialization, city, language, name"""
+    queryset = User.objects.filter(
+        role='doctor',
+        is_active=True
+    ).select_related('profile')
+
+    # Filter by name
+    name = request.query_params.get('name')
+    if name:
+        queryset = queryset.filter(
+            models.Q(first_name__icontains=name) |
+            models.Q(last_name__icontains=name)
+        )
+
+    # Filter by specialization
+    specialization = request.query_params.get('specialization')
+    if specialization:
+        queryset = queryset.filter(
+            profile__specialization__icontains=specialization
+        )
+
+    # Filter by city
+    city = request.query_params.get('city')
+    if city:
+        queryset = queryset.filter(
+            profile__city__name__icontains=city
+        )
+
+    # Filter by region
+    region = request.query_params.get('region')
+    if region:
+        queryset = queryset.filter(
+            profile__region__name__icontains=region
+        )
+
+    # Filter by language
+    language = request.query_params.get('language')
+    if language:
+        queryset = queryset.filter(
+            profile__languages__icontains=language
+        )
+
+    # Filter by availability (has schedule set up)
+    available_only = request.query_params.get('available_only')
+    if available_only == 'true':
+        queryset = queryset.filter(schedules__is_available=True).distinct()
+
+    # Build response
+    data = []
+    for doctor in queryset:
+        profile = getattr(doctor, 'profile', None)
+
+        # Get average rating if reviews exist
+        avg_rating = None
+        review_count = 0
+        if hasattr(doctor, 'received_reviews'):
+            reviews = doctor.received_reviews.all()
+            review_count = reviews.count()
+            if review_count > 0:
+                avg_rating = round(sum(r.rating for r in reviews) / review_count, 1)
+
+        # Get next available appointment slot
+        has_schedule = doctor.schedules.filter(is_available=True).exists()
+
+        data.append({
+            'id': doctor.id,
+            'full_name': doctor.full_name,
+            'avatar': doctor.avatar,
+            'email': doctor.email,
+            'specialization': profile.specialization if profile else None,
+            'experience': profile.experience if profile else None,
+            'education': profile.education if profile else None,
+            'languages': profile.languages if profile else [],
+            'city': profile.city.name if profile and profile.city else None,
+            'region': profile.region.name if profile and profile.region else None,
+            'license_number': profile.license_number if profile else None,
+            'additional_info': profile.additional_info if profile else None,
+            'avg_rating': avg_rating,
+            'review_count': review_count,
+            'has_schedule': has_schedule,
+            'total_consultations': doctor.doctor_consultations.filter(status='completed').count(),
+        })
+
+    # Sort by total consultations (most experienced first)
+    data.sort(key=lambda x: x['total_consultations'], reverse=True)
+
+    return Response({
+        'count': len(data),
+        'doctors': data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_profile_detail(request, doctor_id):
+    """Get full profile of a specific doctor"""
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    profile = getattr(doctor, 'profile', None)
+
+    # Get schedule
+    schedules = [{
+        'day_of_week': s.day_of_week,
+        'day_name': s.get_day_of_week_display(),
+        'start_time': str(s.start_time),
+        'end_time': str(s.end_time),
+        'is_available': s.is_available,
+        'slot_duration_minutes': s.slot_duration_minutes,
+    } for s in doctor.schedules.filter(is_available=True)]
+
+    # Get completed consultations count
+    total_consultations = doctor.doctor_consultations.filter(status='completed').count()
+
+    return Response({
+        'id': doctor.id,
+        'full_name': doctor.full_name,
+        'avatar': doctor.avatar,
+        'email': doctor.email,
+        'specialization': profile.specialization if profile else None,
+        'experience': profile.experience if profile else None,
+        'education': profile.education if profile else None,
+        'languages': profile.languages if profile else [],
+        'city': profile.city.name if profile and profile.city else None,
+        'region': profile.region.name if profile and profile.region else None,
+        'license_number': profile.license_number if profile else None,
+        'additional_info': profile.additional_info if profile else None,
+        'total_consultations': total_consultations,
+        'schedule': schedules,
+    })
+
+
+@api_view(['GET'])
+def specializations_list(request):
+    """Get all unique specializations for filter dropdown"""
+    from django.db.models import Count
+    specs = UserProfile.objects.filter(
+        user__role='doctor',
+        user__is_active=True,
+        specialization__isnull=False
+    ).exclude(
+        specialization=''
+    ).values('specialization').annotate(
+        count=Count('specialization')
+    ).order_by('-count')
+
+    return Response([{
+        'specialization': s['specialization'],
+        'doctor_count': s['count']
+    } for s in specs])
