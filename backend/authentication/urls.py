@@ -63,4 +63,11 @@ urlpatterns = [
 
     # Защищённый доступ к медиа (только для админов)
     path('protected-media/<path:subpath>/', views.protected_media, name='protected_media'),
+
+    # Appointment booking system
+    path('appointments/', views.appointments, name='appointments'),
+    path('appointments/<int:appointment_id>/', views.appointment_detail, name='appointment_detail'),
+    path('appointments/<int:appointment_id>/cancel/', views.appointment_detail, name='appointment_cancel'),
+    path('doctors/<int:doctor_id>/available-slots/', views.doctor_available_slots, name='doctor_available_slots'),
+    path('doctor/schedule/', views.doctor_schedule, name='doctor_schedule'),
 ] 

@@ -1466,3 +1466,278 @@ def protected_media(request, subpath):
 
     # Отдаём файл безопасно
     return FileResponse(open(abs_path, 'rb'))
+
+# ============================================
+# APPOINTMENT BOOKING SYSTEM
+# ============================================
+
+from .models import Appointment, DoctorSchedule
+from datetime import datetime, date, timedelta
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def appointments(request):
+    """Get all appointments or create a new one"""
+    if request.method == 'GET':
+        user = request.user
+        if user.role == 'patient':
+            appts = Appointment.objects.filter(patient=user).select_related('doctor', 'doctor__profile')
+        elif user.role == 'doctor':
+            appts = Appointment.objects.filter(doctor=user).select_related('patient', 'patient__profile')
+        else:
+            appts = Appointment.objects.all().select_related('patient', 'doctor')
+
+        data = []
+        for a in appts:
+            data.append({
+                'id': a.id,
+                'patient': {
+                    'id': a.patient.id,
+                    'full_name': a.patient.full_name,
+                    'email': a.patient.email,
+                    'avatar': a.patient.avatar,
+                },
+                'doctor': {
+                    'id': a.doctor.id,
+                    'full_name': a.doctor.full_name,
+                    'email': a.doctor.email,
+                    'avatar': a.doctor.avatar,
+                    'specialization': getattr(a.doctor.profile, 'specialization', None) if hasattr(a.doctor, 'profile') else None,
+                },
+                'appointment_date': str(a.appointment_date),
+                'appointment_time': str(a.appointment_time),
+                'duration_minutes': a.duration_minutes,
+                'status': a.status,
+                'reason': a.reason,
+                'notes': a.notes,
+                'doctor_notes': a.doctor_notes,
+                'is_upcoming': a.is_upcoming,
+                'created_at': a.created_at.isoformat(),
+            })
+        return Response(data)
+
+    if request.method == 'POST':
+        if request.user.role != 'patient':
+            return Response({'error': 'Only patients can book appointments'}, status=403)
+
+        doctor_id = request.data.get('doctor_id')
+        appointment_date = request.data.get('appointment_date')
+        appointment_time = request.data.get('appointment_time')
+        reason = request.data.get('reason', '')
+        duration_minutes = request.data.get('duration_minutes', 30)
+
+        if not all([doctor_id, appointment_date, appointment_time]):
+            return Response({'error': 'doctor_id, appointment_date and appointment_time are required'}, status=400)
+
+        try:
+            doctor = User.objects.get(id=doctor_id, role='doctor')
+        except User.DoesNotExist:
+            return Response({'error': 'Doctor not found'}, status=404)
+
+        # Check if slot is already taken
+        if Appointment.objects.filter(
+            doctor=doctor,
+            appointment_date=appointment_date,
+            appointment_time=appointment_time,
+            status__in=['pending', 'confirmed']
+        ).exists():
+            return Response({'error': 'This time slot is already booked'}, status=400)
+
+        # Check date is not in the past
+        try:
+            appt_date = datetime.strptime(appointment_date, '%Y-%m-%d').date()
+            if appt_date < date.today():
+                return Response({'error': 'Cannot book appointments in the past'}, status=400)
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+
+        appointment = Appointment.objects.create(
+            patient=request.user,
+            doctor=doctor,
+            appointment_date=appointment_date,
+            appointment_time=appointment_time,
+            duration_minutes=duration_minutes,
+            reason=reason,
+            status='pending',
+        )
+
+        return Response({
+            'id': appointment.id,
+            'message': 'Appointment booked successfully',
+            'status': appointment.status,
+            'appointment_date': str(appointment.appointment_date),
+            'appointment_time': str(appointment.appointment_time),
+        }, status=201)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def appointment_detail(request, appointment_id):
+    """Get, update or cancel a specific appointment"""
+    try:
+        appointment = Appointment.objects.get(id=appointment_id)
+    except Appointment.DoesNotExist:
+        return Response({'error': 'Appointment not found'}, status=404)
+
+    # Only patient, doctor or admin can access
+    if request.user not in [appointment.patient, appointment.doctor] and request.user.role != 'admin':
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        return Response({
+            'id': appointment.id,
+            'patient': {
+                'id': appointment.patient.id,
+                'full_name': appointment.patient.full_name,
+                'email': appointment.patient.email,
+                'avatar': appointment.patient.avatar,
+            },
+            'doctor': {
+                'id': appointment.doctor.id,
+                'full_name': appointment.doctor.full_name,
+                'specialization': getattr(appointment.doctor.profile, 'specialization', None) if hasattr(appointment.doctor, 'profile') else None,
+            },
+            'appointment_date': str(appointment.appointment_date),
+            'appointment_time': str(appointment.appointment_time),
+            'duration_minutes': appointment.duration_minutes,
+            'status': appointment.status,
+            'reason': appointment.reason,
+            'notes': appointment.notes,
+            'doctor_notes': appointment.doctor_notes,
+            'is_upcoming': appointment.is_upcoming,
+            'created_at': appointment.created_at.isoformat(),
+        })
+
+    if request.method == 'PATCH':
+        # Doctor can confirm or add notes
+        if request.user == appointment.doctor:
+            if 'status' in request.data:
+                new_status = request.data['status']
+                if new_status in ['confirmed', 'completed', 'no_show']:
+                    appointment.status = new_status
+            if 'doctor_notes' in request.data:
+                appointment.doctor_notes = request.data['doctor_notes']
+            appointment.save()
+            return Response({'message': 'Appointment updated', 'status': appointment.status})
+
+        # Patient can update reason/notes
+        if request.user == appointment.patient:
+            if 'reason' in request.data:
+                appointment.reason = request.data['reason']
+            if 'notes' in request.data:
+                appointment.notes = request.data['notes']
+            appointment.save()
+            return Response({'message': 'Appointment updated'})
+
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'DELETE':
+        # Both patient and doctor can cancel
+        if appointment.status in ['completed', 'cancelled']:
+            return Response({'error': 'Cannot cancel a completed or already cancelled appointment'}, status=400)
+
+        appointment.status = 'cancelled'
+        appointment.cancelled_by = request.user
+        appointment.cancellation_reason = request.data.get('reason', '')
+        appointment.save()
+        return Response({'message': 'Appointment cancelled successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_available_slots(request, doctor_id):
+    """Get available time slots for a doctor on a specific date"""
+    date_str = request.query_params.get('date')
+    if not date_str:
+        return Response({'error': 'date parameter is required (YYYY-MM-DD)'}, status=400)
+
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+    except (ValueError, User.DoesNotExist):
+        return Response({'error': 'Invalid date or doctor not found'}, status=400)
+
+    # Get doctor's schedule for that day of week
+    day_of_week = target_date.weekday()
+    try:
+        schedule = DoctorSchedule.objects.get(doctor=doctor, day_of_week=day_of_week, is_available=True)
+    except DoctorSchedule.DoesNotExist:
+        return Response({'available_slots': [], 'message': 'Doctor is not available on this day'})
+
+    # Generate all possible slots
+    slot_duration = schedule.slot_duration_minutes
+    all_slots = []
+    current = datetime.combine(target_date, schedule.start_time)
+    end = datetime.combine(target_date, schedule.end_time)
+
+    while current + timedelta(minutes=slot_duration) <= end:
+        all_slots.append(current.strftime('%H:%M'))
+        current += timedelta(minutes=slot_duration)
+
+    # Remove already booked slots
+    booked = Appointment.objects.filter(
+        doctor=doctor,
+        appointment_date=target_date,
+        status__in=['pending', 'confirmed']
+    ).values_list('appointment_time', flat=True)
+
+    booked_times = [t.strftime('%H:%M') for t in booked]
+    available_slots = [s for s in all_slots if s not in booked_times]
+
+    return Response({
+        'doctor_id': doctor_id,
+        'date': date_str,
+        'available_slots': available_slots,
+        'booked_slots': booked_times,
+        'slot_duration_minutes': slot_duration,
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def doctor_schedule(request):
+    """Get or set doctor's weekly schedule"""
+    if request.user.role != 'doctor':
+        return Response({'error': 'Only doctors can manage schedules'}, status=403)
+
+    if request.method == 'GET':
+        schedules = DoctorSchedule.objects.filter(doctor=request.user)
+        data = [{
+            'id': s.id,
+            'day_of_week': s.day_of_week,
+            'day_name': s.get_day_of_week_display(),
+            'start_time': str(s.start_time),
+            'end_time': str(s.end_time),
+            'is_available': s.is_available,
+            'slot_duration_minutes': s.slot_duration_minutes,
+        } for s in schedules]
+        return Response(data)
+
+    if request.method == 'POST':
+        day_of_week = request.data.get('day_of_week')
+        start_time = request.data.get('start_time')
+        end_time = request.data.get('end_time')
+        is_available = request.data.get('is_available', True)
+        slot_duration = request.data.get('slot_duration_minutes', 30)
+
+        if day_of_week is None or not start_time or not end_time:
+            return Response({'error': 'day_of_week, start_time and end_time are required'}, status=400)
+
+        schedule, created = DoctorSchedule.objects.update_or_create(
+            doctor=request.user,
+            day_of_week=day_of_week,
+            defaults={
+                'start_time': start_time,
+                'end_time': end_time,
+                'is_available': is_available,
+                'slot_duration_minutes': slot_duration,
+            }
+        )
+
+        return Response({
+            'message': 'Schedule saved successfully',
+            'day_name': schedule.get_day_of_week_display(),
+            'start_time': str(schedule.start_time),
+            'end_time': str(schedule.end_time),
+            'is_available': schedule.is_available,
+        }, status=201 if created else 200)

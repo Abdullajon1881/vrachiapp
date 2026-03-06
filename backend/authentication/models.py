@@ -315,4 +315,170 @@ class AIMessage(models.Model):
         verbose_name_plural = 'AI сообщения'
 
     def __str__(self):
-        return f"{self.get_sender_type_display()} сообщение в диалоге {self.dialogue.id}" 
+        return f"{self.get_sender_type_display()} сообщение в диалоге {self.dialogue.id}"
+
+
+class Appointment(models.Model):
+    """Appointment booking between patient and doctor"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+        ('completed', 'Completed'),
+        ('no_show', 'No Show'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='patient_appointments'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='doctor_appointments'
+    )
+    appointment_date = models.DateField()
+    appointment_time = models.TimeField()
+    duration_minutes = models.IntegerField(default=30)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reason = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    doctor_notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    cancelled_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cancelled_appointments'
+    )
+    cancellation_reason = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['appointment_date', 'appointment_time']
+        verbose_name = 'Appointment'
+        verbose_name_plural = 'Appointments'
+        unique_together = ['doctor', 'appointment_date', 'appointment_time']
+
+    def __str__(self):
+        return f"Appointment: {self.patient.full_name} with Dr. {self.doctor.full_name} on {self.appointment_date} at {self.appointment_time}"
+
+    @property
+    def is_upcoming(self):
+        from datetime import date, time
+        today = date.today()
+        now_time = timezone.now().time()
+        if self.appointment_date > today:
+            return True
+        if self.appointment_date == today and self.appointment_time > now_time:
+            return True
+        return False
+
+
+class DoctorSchedule(models.Model):
+    """Doctor's weekly availability schedule"""
+    DAY_CHOICES = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='schedules'
+    )
+    day_of_week = models.IntegerField(choices=DAY_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_available = models.BooleanField(default=True)
+    slot_duration_minutes = models.IntegerField(default=30)
+
+    class Meta:
+        ordering = ['day_of_week', 'start_time']
+        verbose_name = 'Doctor Schedule'
+        verbose_name_plural = 'Doctor Schedules'
+        unique_together = ['doctor', 'day_of_week']
+
+    def __str__(self):
+        return f"Dr. {self.doctor.full_name} - {self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
+
+
+class Appointment(models.Model):
+    """Appointment booking between patient and doctor"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+        ('completed', 'Completed'),
+        ('no_show', 'No Show'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='patient_appointments'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='doctor_appointments'
+    )
+    appointment_date = models.DateField()
+    appointment_time = models.TimeField()
+    duration_minutes = models.IntegerField(default=30)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reason = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    doctor_notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    cancelled_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cancelled_appointments'
+    )
+    cancellation_reason = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['appointment_date', 'appointment_time']
+        verbose_name = 'Appointment'
+        verbose_name_plural = 'Appointments'
+        unique_together = ['doctor', 'appointment_date', 'appointment_time']
+
+    def __str__(self):
+        return f"Appointment: {self.patient.full_name} with Dr. {self.doctor.full_name} on {self.appointment_date} at {self.appointment_time}"
+
+    @property
+    def is_upcoming(self):
+        from datetime import date, time
+        today = date.today()
+        now_time = timezone.now().time()
+        if self.appointment_date > today:
+            return True
+        if self.appointment_date == today and self.appointment_time > now_time:
+            return True
+        return False
+
+
+class DoctorSchedule(models.Model):
+    """Doctor's weekly availability schedule"""
+    DAY_CHOICES = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='schedules'
+    )
+    day_of_week = models.IntegerField(choices=DAY_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_available = models.BooleanField(default=True)
+    slot_duration_minutes = models.IntegerField(default=30)
+
+    class Meta:
+        ordering = ['day_of_week', 'start_time']
+        verbose_name = 'Doctor Schedule'
+        verbose_name_plural = 'Doctor Schedules'
+        unique_together = ['doctor', 'day_of_week']
+
+    def __str__(self):
+        return f"Dr. {self.doctor.full_name} - {self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
