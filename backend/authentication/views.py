@@ -23,6 +23,8 @@ from asgiref.sync import sync_to_async
 import asyncio
 from .ai_service import ai_service
 import html
+from django.core.cache import cache
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message, UserProfile
 from .serializers import (
@@ -1743,9 +1745,7 @@ def doctor_schedule(request):
             'is_available': schedule.is_available,
         }, status=201 if created else 200)
 
-# ============================================
 # MEDICAL RECORDS SYSTEM
-# ============================================
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -1756,13 +1756,13 @@ def medical_records(request):
         if user.role == 'patient':
             records = MedicalRecord.objects.filter(
                 patient=user, is_visible_to_patient=True
-            ).select_related('doctor', 'doctor__profile')
+            ).select_related('doctor', 'doctor__profile').prefetch_related('prescriptions')
         elif user.role == 'doctor':
             records = MedicalRecord.objects.filter(
                 doctor=user
-            ).select_related('patient', 'patient__profile')
+            ).select_related('patient', 'patient__profile').prefetch_related('prescriptions')
         else:
-            records = MedicalRecord.objects.all().select_related('patient', 'doctor')
+            records = MedicalRecord.objects.all().select_related('patient', 'doctor').prefetch_related('prescriptions')
 
         data = []
         for r in records:
@@ -1933,7 +1933,9 @@ def create_notification(recipient, notification_type, title, message, sender=Non
 @permission_classes([IsAuthenticated])
 def notifications(request):
     """Get all notifications for the current user"""
-    notifs = Notification.objects.filter(recipient=request.user)[:50]
+    notifs = Notification.objects.filter(
+        recipient=request.user
+    ).select_related('sender')[:50]
     unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
 
     data = [{
@@ -2186,7 +2188,9 @@ def search_doctors(request):
     queryset = User.objects.filter(
         role='doctor',
         is_active=True
-    ).select_related('profile')
+    ).select_related('profile', 'profile__city', 'profile__region').prefetch_related(
+        'schedules', 'received_reviews', 'doctor_consultations'
+    ) 
 
     # Filter by name
     name = request.query_params.get('name')
@@ -2268,11 +2272,21 @@ def search_doctors(request):
     # Sort by total consultations (most experienced first)
     data.sort(key=lambda x: x['total_consultations'], reverse=True)
 
-    return Response({
-        'count': len(data),
-        'doctors': data,
-    })
+    # Pagination
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    start = (page - 1) * page_size
+    end = start + page_size
+    total = len(data)
+    paginated = data[start:end]
 
+    return Response({
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size,
+        'doctors': paginated,
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -2319,6 +2333,11 @@ def doctor_profile_detail(request, doctor_id):
 @api_view(['GET'])
 def specializations_list(request):
     """Get all unique specializations for filter dropdown"""
+    cache_key = 'specializations_list'
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(cached)
+
     from django.db.models import Count
     specs = UserProfile.objects.filter(
         user__role='doctor',
@@ -2330,10 +2349,9 @@ def specializations_list(request):
         count=Count('specialization')
     ).order_by('-count')
 
-    return Response([{
-        'specialization': s['specialization'],
-        'doctor_count': s['count']
-    } for s in specs])
+    data = [{'specialization': s['specialization'], 'doctor_count': s['count']} for s in specs]
+    cache.set(cache_key, data, 3600)  # Cache for 1 hour
+    return Response(data)
 
 # REVIEWS & RATINGS SYSTEM
 
@@ -2341,6 +2359,7 @@ def specializations_list(request):
 @permission_classes([IsAuthenticated])
 def doctor_reviews(request, doctor_id):
     """Get all reviews for a doctor or submit a new review"""
+
     try:
         doctor = User.objects.get(id=doctor_id, role='doctor')
     except User.DoesNotExist:
@@ -2549,6 +2568,14 @@ def admin_users_list(request):
             models.Q(email__icontains=search)
         )
 
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    total = queryset.count()
+    users = queryset[start:end]
+
     data = [{
         'id': u.id,
         'full_name': u.full_name,
@@ -2557,9 +2584,15 @@ def admin_users_list(request):
         'is_active': u.is_active,
         'date_joined': u.date_joined.isoformat(),
         'last_login': u.last_login.isoformat() if u.last_login else None,
-    } for u in queryset[:100]]
+    } for u in users]
 
-    return Response({'count': len(data), 'users': data})
+    return Response({
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size,
+        'users': data,
+    })
 
 
 @api_view(['PATCH'])

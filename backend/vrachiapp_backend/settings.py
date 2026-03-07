@@ -320,6 +320,38 @@ REST_FRAMEWORK.update({
     }
 })
 
+# Cache configuration (Redis in production, local memory in development)
+CACHE_BACKEND = os.getenv('CACHE_BACKEND', 'memory').lower()
+
+if CACHE_BACKEND == 'redis':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+                'IGNORE_EXCEPTIONS': True,
+            },
+            'KEY_PREFIX': 'healzy',
+            'TIMEOUT': 300,  # 5 minutes default
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'healzy-cache',
+        }
+    }
+
+# Cache timeouts
+CACHE_TTL_SHORT = 60        # 1 minute
+CACHE_TTL_MEDIUM = 300      # 5 minutes
+CACHE_TTL_LONG = 3600       # 1 hour
+CACHE_TTL_DAY = 86400       # 24 hours
+
 # API Documentation
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Healzy API',
