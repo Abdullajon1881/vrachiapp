@@ -110,5 +110,7 @@ urlpatterns = [
     path('upload/consultation/<int:consultation_id>/', views.upload_consultation_file, name='upload_consultation_file'),
     path('upload/delete/', views.delete_file, name='delete_file'),
 
+        # Email notifications
+    path('email/test/', views.send_test_email, name='send_test_email'),
 
 ] 

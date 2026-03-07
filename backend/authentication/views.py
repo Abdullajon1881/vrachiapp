@@ -1560,6 +1560,8 @@ def appointments(request):
             status='pending',
         )
 
+        send_appointment_confirmation_email(appointment)
+
         return Response({
             'id': appointment.id,
             'message': 'Appointment booked successfully',
@@ -2587,6 +2589,8 @@ def admin_approve_doctor(request, doctor_id):
             message='Congratulations! Your doctor profile has been approved. You can now receive patients.',
             link='/doctor/dashboard/',
         )
+        send_doctor_approval_email(doctor, approved=True)
+
         return Response({'message': f'Dr. {doctor.full_name} has been approved'})
 
     if action == 'reject':
@@ -2600,6 +2604,8 @@ def admin_approve_doctor(request, doctor_id):
             title='Your application was not approved',
             message=reason,
         )
+        send_doctor_approval_email(doctor, approved=False, reason=reason)
+
         return Response({'message': f'Dr. {doctor.full_name} has been rejected'})
 
 
@@ -2811,3 +2817,156 @@ def delete_file(request):
         return Response({'message': 'File deleted successfully'})
 
     return Response({'error': 'File not found'}, status=404)
+
+# EMAIL NOTIFICATIONS SYSTEM
+
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+
+def send_email_notification(recipient_email, subject, html_message):
+    """Helper function to send email notifications"""
+    try:
+        plain_message = strip_tags(html_message)
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            html_message=html_message,
+            fail_silently=True,
+        )
+    except Exception as e:
+        print(f"Email sending failed: {e}")
+
+
+def send_appointment_confirmation_email(appointment):
+    """Send confirmation email when appointment is booked"""
+    # Email to patient
+    patient_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Healzy — Appointment Confirmed</h2>
+        <p>Dear {appointment.patient.full_name},</p>
+        <p>Your appointment has been successfully booked.</p>
+        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Doctor:</strong> Dr. {appointment.doctor.full_name}</p>
+            <p><strong>Date:</strong> {appointment.appointment_date}</p>
+            <p><strong>Time:</strong> {appointment.appointment_time}</p>
+            <p><strong>Duration:</strong> {appointment.duration_minutes} minutes</p>
+            <p><strong>Status:</strong> {appointment.get_status_display()}</p>
+        </div>
+        <p>You can view your appointment details in the Healzy app.</p>
+        <p style="color: #6b7280; font-size: 12px;">This is an automated message from Healzy Medical Platform.</p>
+    </div>
+    """
+    send_email_notification(
+        appointment.patient.email,
+        f"Appointment Confirmed — Dr. {appointment.doctor.full_name}",
+        patient_html
+    )
+
+    # Email to doctor
+    doctor_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Healzy — New Appointment</h2>
+        <p>Dear Dr. {appointment.doctor.full_name},</p>
+        <p>You have a new appointment booked.</p>
+        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Patient:</strong> {appointment.patient.full_name}</p>
+            <p><strong>Date:</strong> {appointment.appointment_date}</p>
+            <p><strong>Time:</strong> {appointment.appointment_time}</p>
+            <p><strong>Reason:</strong> {appointment.reason or 'Not specified'}</p>
+        </div>
+        <p>You can manage your appointments in the Healzy app.</p>
+        <p style="color: #6b7280; font-size: 12px;">This is an automated message from Healzy Medical Platform.</p>
+    </div>
+    """
+    send_email_notification(
+        appointment.doctor.email,
+        f"New Appointment — {appointment.patient.full_name}",
+        doctor_html
+    )
+
+
+def send_doctor_approval_email(doctor, approved=True, reason=None):
+    """Send email when doctor is approved or rejected"""
+    if approved:
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #16a34a;">Healzy — Application Approved! 🎉</h2>
+            <p>Dear Dr. {doctor.full_name},</p>
+            <p>Congratulations! Your doctor profile on Healzy has been <strong>approved</strong>.</p>
+            <p>You can now:</p>
+            <ul>
+                <li>Receive patient appointments</li>
+                <li>Start online consultations</li>
+                <li>Create medical records and prescriptions</li>
+                <li>Set your weekly schedule</li>
+            </ul>
+            <p>Log in to your Healzy account to get started.</p>
+            <p style="color: #6b7280; font-size: 12px;">This is an automated message from Healzy Medical Platform.</p>
+        </div>
+        """
+        subject = "Your Healzy Doctor Application is Approved!"
+    else:
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #dc2626;">Healzy — Application Update</h2>
+            <p>Dear Dr. {doctor.full_name},</p>
+            <p>We have reviewed your application and unfortunately it was not approved at this time.</p>
+            <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p><strong>Reason:</strong> {reason or 'Your application did not meet our requirements.'}</p>
+            </div>
+            <p>You may reapply after addressing the issues mentioned above.</p>
+            <p style="color: #6b7280; font-size: 12px;">This is an automated message from Healzy Medical Platform.</p>
+        </div>
+        """
+        subject = "Update on Your Healzy Doctor Application"
+
+    send_email_notification(doctor.email, subject, html)
+
+
+def send_welcome_email(user):
+    """Send welcome email when user registers"""
+    role_text = "doctor" if user.role == "doctor" else "patient"
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Welcome to Healzy! 👋</h2>
+        <p>Dear {user.full_name},</p>
+        <p>Thank you for joining Healzy as a <strong>{role_text}</strong>.</p>
+        <p>With Healzy you can:</p>
+        <ul>
+            <li>Connect with qualified doctors online</li>
+            <li>Book appointments easily</li>
+            <li>Access your medical records securely</li>
+            <li>Get AI-powered health guidance</li>
+        </ul>
+        <p>We're glad to have you on board!</p>
+        <p style="color: #6b7280; font-size: 12px;">This is an automated message from Healzy Medical Platform.</p>
+    </div>
+    """
+    send_email_notification(
+        user.email,
+        "Welcome to Healzy!",
+        html
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_test_email(request):
+    """Admin endpoint to test email sending"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    recipient = request.data.get('email', request.user.email)
+    html = """
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Healzy — Test Email</h2>
+        <p>This is a test email from Healzy Medical Platform.</p>
+        <p>If you received this, email notifications are working correctly! ✅</p>
+    </div>
+    """
+    send_email_notification(recipient, "Healzy — Test Email", html)
+    return Response({'message': f'Test email sent to {recipient}'})
