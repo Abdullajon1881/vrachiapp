@@ -169,4 +169,11 @@ urlpatterns = [
     path('pharmacy/summary/', views.pharmacy_summary, name='pharmacy_summary'),
     path('pharmacy/summary/<int:patient_id>/', views.pharmacy_summary, name='pharmacy_summary_patient'),
 
+    # Ophthalmology module
+    path('ophthalmology/exams/', views.eye_exams, name='eye_exams'),
+    path('ophthalmology/prescriptions/', views.vision_prescriptions, name='vision_prescriptions'),
+    path('ophthalmology/conditions/', views.eye_conditions, name='eye_conditions'),
+    path('ophthalmology/summary/', views.ophthalmology_summary, name='ophthalmology_summary'),
+    path('ophthalmology/summary/<int:patient_id>/', views.ophthalmology_summary, name='ophthalmology_summary_patient'),
+
 ] 

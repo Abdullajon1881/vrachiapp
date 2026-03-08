@@ -5634,3 +5634,366 @@ def pharmacy_summary(request, patient_id=None):
     except Exception as e:
         return Response({'error': f'Summary failed: {str(e)}'}, status=500)
     
+# ============================================
+# OPHTHALMOLOGY MODULE
+# ============================================
+
+from .models import EyeExam, VisionPrescription, EyeCondition
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def eye_exams(request):
+    """Get or add eye exam records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            exams = EyeExam.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        elif user.role == 'patient':
+            exams = EyeExam.objects.filter(
+                patient=user
+            ).select_related('doctor')
+        elif user.role == 'doctor':
+            exams = EyeExam.objects.filter(
+                doctor=user
+            ).select_related('patient')
+        else:
+            exams = EyeExam.objects.all().select_related('doctor', 'patient')
+
+        return Response({
+            'count': exams.count(),
+            'exams': [{
+                'id': e.id,
+                'exam_date': str(e.exam_date),
+                'exam_type': e.exam_type,
+                'doctor': e.doctor.full_name if e.doctor else None,
+                'va_right_eye': e.va_right_eye,
+                'va_left_eye': e.va_left_eye,
+                'va_right_corrected': e.va_right_corrected,
+                'va_left_corrected': e.va_left_corrected,
+                'iop_right': e.iop_right,
+                'iop_left': e.iop_left,
+                'diagnosis': e.diagnosis,
+                'findings': e.findings,
+                'recommendations': e.recommendations,
+                'next_exam_date': str(e.next_exam_date) if e.next_exam_date else None,
+                'notes': e.notes,
+            } for e in exams],
+        })
+
+    # POST — doctors only
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add eye exam records'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id:
+        return Response({'error': 'patient_id is required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    if not request.data.get('exam_date'):
+        return Response({'error': 'exam_date is required'}, status=400)
+
+    exam = EyeExam.objects.create(
+        patient=target_patient,
+        doctor=user,
+        exam_date=request.data.get('exam_date'),
+        exam_type=request.data.get('exam_type', 'routine'),
+        va_right_eye=request.data.get('va_right_eye', ''),
+        va_left_eye=request.data.get('va_left_eye', ''),
+        va_right_corrected=request.data.get('va_right_corrected', ''),
+        va_left_corrected=request.data.get('va_left_corrected', ''),
+        iop_right=request.data.get('iop_right'),
+        iop_left=request.data.get('iop_left'),
+        diagnosis=request.data.get('diagnosis', ''),
+        findings=request.data.get('findings', ''),
+        recommendations=request.data.get('recommendations', ''),
+        next_exam_date=request.data.get('next_exam_date'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Eye Exam Record Added',
+        message=f'Dr. {user.full_name} added your eye exam record for {exam.exam_date}.',
+        link='/ophthalmology/',
+    )
+
+    return Response({
+        'message': 'Eye exam added successfully',
+        'id': exam.id,
+        'exam_date': str(exam.exam_date),
+        'exam_type': exam.exam_type,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def vision_prescriptions(request):
+    """Get or add vision prescriptions"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            prescriptions = VisionPrescription.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        else:
+            prescriptions = VisionPrescription.objects.filter(
+                patient=user
+            ).select_related('doctor')
+
+        return Response({
+            'count': prescriptions.count(),
+            'prescriptions': [{
+                'id': p.id,
+                'prescription_type': p.prescription_type,
+                'issued_date': str(p.issued_date),
+                'expiry_date': str(p.expiry_date) if p.expiry_date else None,
+                'is_expired': p.is_expired,
+                'doctor': p.doctor.full_name if p.doctor else None,
+                'right_eye': {
+                    'sphere': p.right_sphere,
+                    'cylinder': p.right_cylinder,
+                    'axis': p.right_axis,
+                    'add': p.right_add,
+                    'pd': p.right_pd,
+                },
+                'left_eye': {
+                    'sphere': p.left_sphere,
+                    'cylinder': p.left_cylinder,
+                    'axis': p.left_axis,
+                    'add': p.left_add,
+                    'pd': p.left_pd,
+                },
+                'notes': p.notes,
+            } for p in prescriptions],
+        })
+
+    # POST — doctors only
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can issue vision prescriptions'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id:
+        return Response({'error': 'patient_id is required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    if not request.data.get('issued_date'):
+        return Response({'error': 'issued_date is required'}, status=400)
+
+    exam_id = request.data.get('exam_id')
+    exam = None
+    if exam_id:
+        try:
+            exam = EyeExam.objects.get(id=exam_id, patient=target_patient)
+        except EyeExam.DoesNotExist:
+            pass
+
+    prescription = VisionPrescription.objects.create(
+        patient=target_patient,
+        doctor=user,
+        exam=exam,
+        prescription_type=request.data.get('prescription_type', 'glasses'),
+        issued_date=request.data.get('issued_date'),
+        expiry_date=request.data.get('expiry_date'),
+        right_sphere=request.data.get('right_sphere'),
+        right_cylinder=request.data.get('right_cylinder'),
+        right_axis=request.data.get('right_axis'),
+        right_add=request.data.get('right_add'),
+        right_pd=request.data.get('right_pd'),
+        left_sphere=request.data.get('left_sphere'),
+        left_cylinder=request.data.get('left_cylinder'),
+        left_axis=request.data.get('left_axis'),
+        left_add=request.data.get('left_add'),
+        left_pd=request.data.get('left_pd'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='New Vision Prescription',
+        message=f'Dr. {user.full_name} issued a new {prescription.prescription_type} prescription.',
+        link='/ophthalmology/prescriptions/',
+    )
+
+    return Response({
+        'message': 'Vision prescription added successfully',
+        'id': prescription.id,
+        'prescription_type': prescription.prescription_type,
+        'issued_date': str(prescription.issued_date),
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def eye_conditions(request):
+    """Get or add eye conditions"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            conditions = EyeCondition.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        else:
+            conditions = EyeCondition.objects.filter(
+                patient=user
+            ).select_related('doctor')
+
+        return Response({
+            'count': conditions.count(),
+            'conditions': [{
+                'id': c.id,
+                'condition': c.condition,
+                'affected_eye': c.affected_eye,
+                'status': c.status,
+                'diagnosed_date': str(c.diagnosed_date) if c.diagnosed_date else None,
+                'doctor': c.doctor.full_name if c.doctor else None,
+                'notes': c.notes,
+                'created_at': c.created_at.isoformat(),
+            } for c in conditions],
+        })
+
+    # POST — doctors only
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add eye conditions'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('condition'):
+        return Response({'error': 'patient_id and condition are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    condition = EyeCondition.objects.create(
+        patient=target_patient,
+        doctor=user,
+        condition=request.data.get('condition'),
+        affected_eye=request.data.get('affected_eye', 'both'),
+        status=request.data.get('status', 'active'),
+        diagnosed_date=request.data.get('diagnosed_date'),
+        notes=request.data.get('notes', ''),
+    )
+
+    return Response({
+        'message': 'Eye condition added successfully',
+        'id': condition.id,
+        'condition': condition.condition,
+        'status': condition.status,
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ophthalmology_summary(request, patient_id=None):
+    """AI-powered ophthalmology summary"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    exams = EyeExam.objects.filter(patient=target_patient)
+    prescriptions = VisionPrescription.objects.filter(patient=target_patient)
+    conditions = EyeCondition.objects.filter(patient=target_patient)
+
+    if not exams.exists() and not conditions.exists():
+        return Response({
+            'patient_name': target_patient.full_name,
+            'summary': 'Нет данных об офтальмологических обследованиях.',
+            'exam_count': 0,
+            'condition_count': 0,
+        })
+
+    latest_exam = exams.first()
+    exam_text = ""
+    if latest_exam:
+        exam_text = (
+            f"Последний осмотр: {latest_exam.exam_date}\n"
+            f"Острота зрения (без коррекции): OD {latest_exam.va_right_eye}, OS {latest_exam.va_left_eye}\n"
+            f"Острота зрения (с коррекцией): OD {latest_exam.va_right_corrected}, OS {latest_exam.va_left_corrected}\n"
+            f"ВГД: OD {latest_exam.iop_right} mmHg, OS {latest_exam.iop_left} mmHg\n"
+            f"Диагноз: {latest_exam.diagnosis}"
+        )
+
+    conditions_text = "\n".join([
+        f"- {c.condition} ({c.affected_eye} eye, {c.status})"
+        for c in conditions
+    ])
+
+    latest_rx = prescriptions.first()
+    rx_text = ""
+    if latest_rx:
+        rx_text = (
+            f"Рецепт ({latest_rx.prescription_type}, {latest_rx.issued_date}):\n"
+            f"OD: SPH {latest_rx.right_sphere}, CYL {latest_rx.right_cylinder}, AXIS {latest_rx.right_axis}\n"
+            f"OS: SPH {latest_rx.left_sphere}, CYL {latest_rx.left_cylinder}, AXIS {latest_rx.left_axis}"
+        )
+
+    prompt = f"""Ты офтальмолог-ассистент. Проанализируй историю зрения пациента.
+
+Пациент: {target_patient.full_name}
+
+{exam_text}
+
+Заболевания глаз:
+{conditions_text if conditions_text else 'Нет'}
+
+{rx_text}
+
+Дай краткое профессиональное резюме на русском:
+1. **Состояние зрения**
+2. **Диагнозы и заболевания**
+3. **Динамика** (если есть несколько осмотров)
+4. **Рекомендации**
+5. **Тревожные симптомы** (если есть 🔴)"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        return Response({
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'exam_count': exams.count(),
+            'condition_count': conditions.count(),
+            'prescription_count': prescriptions.count(),
+            'summary': response.content[0].text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Summary failed: {str(e)}'}, status=500)

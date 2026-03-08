@@ -1114,3 +1114,165 @@ class DrugInteractionCheck(models.Model):
 
     def __str__(self):
         return f"Interaction check for {self.patient.full_name} — {self.severity}"
+    
+# OPHTHALMOLOGY MODULE
+
+class EyeExam(models.Model):
+    """Complete eye examination record"""
+    EXAM_TYPES = [
+        ('routine', 'Routine Eye Exam'),
+        ('emergency', 'Emergency Visit'),
+        ('follow_up', 'Follow-up'),
+        ('pre_surgery', 'Pre-Surgery Assessment'),
+        ('post_surgery', 'Post-Surgery Check'),
+        ('contact_lens', 'Contact Lens Fitting'),
+        ('pediatric', 'Pediatric Eye Exam'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='eye_exams'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='performed_eye_exams'
+    )
+    exam_date = models.DateField()
+    exam_type = models.CharField(
+        max_length=20, choices=EXAM_TYPES, default='routine'
+    )
+
+    # Visual Acuity (e.g. 20/20, 6/6)
+    va_right_eye = models.CharField(max_length=20, blank=True)  # e.g. "20/20"
+    va_left_eye = models.CharField(max_length=20, blank=True)
+    va_right_corrected = models.CharField(max_length=20, blank=True)
+    va_left_corrected = models.CharField(max_length=20, blank=True)
+
+    # Intraocular Pressure (mmHg)
+    iop_right = models.FloatField(null=True, blank=True)
+    iop_left = models.FloatField(null=True, blank=True)
+
+    # Diagnosis & findings
+    diagnosis = models.CharField(max_length=300, blank=True)
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    next_exam_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-exam_date']
+
+    def __str__(self):
+        return f"Eye exam — {self.patient.full_name} ({self.exam_date})"
+
+
+class VisionPrescription(models.Model):
+    """Glasses or contact lens prescription"""
+    PRESCRIPTION_TYPES = [
+        ('glasses', 'Glasses'),
+        ('contact_lens', 'Contact Lens'),
+        ('both', 'Both'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='vision_prescriptions'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='issued_vision_prescriptions'
+    )
+    exam = models.ForeignKey(
+        EyeExam, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='prescriptions'
+    )
+    prescription_type = models.CharField(
+        max_length=15, choices=PRESCRIPTION_TYPES, default='glasses'
+    )
+    issued_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+
+    # Right eye (OD)
+    right_sphere = models.FloatField(null=True, blank=True)    # SPH
+    right_cylinder = models.FloatField(null=True, blank=True)  # CYL
+    right_axis = models.IntegerField(null=True, blank=True)    # AXIS (0-180)
+    right_add = models.FloatField(null=True, blank=True)       # ADD (for bifocals)
+    right_pd = models.FloatField(null=True, blank=True)        # Pupillary distance
+
+    # Left eye (OS)
+    left_sphere = models.FloatField(null=True, blank=True)
+    left_cylinder = models.FloatField(null=True, blank=True)
+    left_axis = models.IntegerField(null=True, blank=True)
+    left_add = models.FloatField(null=True, blank=True)
+    left_pd = models.FloatField(null=True, blank=True)
+
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-issued_date']
+
+    def __str__(self):
+        return f"{self.prescription_type} prescription — {self.patient.full_name} ({self.issued_date})"
+
+    @property
+    def is_expired(self):
+        if self.expiry_date:
+            return self.expiry_date < date.today()
+        return False
+
+
+class EyeCondition(models.Model):
+    """Chronic or diagnosed eye condition for a patient"""
+    CONDITION_CHOICES = [
+        ('myopia', 'Myopia (Nearsightedness)'),
+        ('hyperopia', 'Hyperopia (Farsightedness)'),
+        ('astigmatism', 'Astigmatism'),
+        ('presbyopia', 'Presbyopia'),
+        ('glaucoma', 'Glaucoma'),
+        ('cataract', 'Cataract'),
+        ('macular_degeneration', 'Macular Degeneration'),
+        ('diabetic_retinopathy', 'Diabetic Retinopathy'),
+        ('dry_eye', 'Dry Eye Syndrome'),
+        ('conjunctivitis', 'Conjunctivitis'),
+        ('strabismus', 'Strabismus'),
+        ('amblyopia', 'Amblyopia (Lazy Eye)'),
+        ('retinal_detachment', 'Retinal Detachment'),
+        ('keratoconus', 'Keratoconus'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('managed', 'Managed'),
+        ('resolved', 'Resolved'),
+        ('monitoring', 'Monitoring'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='eye_conditions'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='diagnosed_eye_conditions'
+    )
+    condition = models.CharField(max_length=30, choices=CONDITION_CHOICES)
+    affected_eye = models.CharField(
+        max_length=10,
+        choices=[('right', 'Right'), ('left', 'Left'), ('both', 'Both')],
+        default='both'
+    )
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='active'
+    )
+    diagnosed_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.condition} — {self.patient.full_name} ({self.status})"
