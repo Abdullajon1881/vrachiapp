@@ -13,6 +13,7 @@ from .models import AIDialogue, AIMessage, User
 
 logger = logging.getLogger(__name__)
 
+import os
 client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
 MODEL = "claude-sonnet-4-20250514"
 
