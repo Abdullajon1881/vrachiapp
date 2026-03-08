@@ -3533,3 +3533,224 @@ def close_ai_dialogue(request, dialogue_id):
     if success:
         return Response({'message': 'Dialogue closed'})
     return Response({'error': 'Dialogue not found'}, status=404)
+
+
+# ============================================
+# DOCTOR AVAILABILITY & BOOKING SLOTS
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_available_slots(request, doctor_id):
+    """Get available time slots for a doctor on a specific date"""
+    date_str = request.query_params.get('date')
+    if not date_str:
+        return Response({'error': 'date parameter is required (YYYY-MM-DD)'}, status=400)
+
+    try:
+        requested_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+
+    if requested_date < date.today():
+        return Response({'error': 'Cannot check slots for past dates'}, status=400)
+
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor', is_active=True)
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    # Get doctor's schedule for that day of week
+    day_of_week = requested_date.weekday()
+    try:
+        schedule = DoctorSchedule.objects.get(
+            doctor=doctor, day_of_week=day_of_week, is_available=True
+        )
+    except DoctorSchedule.DoesNotExist:
+        return Response({
+            'doctor_id': doctor_id,
+            'date': date_str,
+            'is_working_day': False,
+            'available_slots': [],
+            'message': 'Doctor does not work on this day',
+        })
+
+    # Generate all time slots
+    slot_duration = schedule.slot_duration_minutes
+    all_slots = []
+    current = datetime.combine(requested_date, schedule.start_time)
+    end = datetime.combine(requested_date, schedule.end_time)
+    while current + timedelta(minutes=slot_duration) <= end:
+        all_slots.append(current.strftime('%H:%M'))
+        current += timedelta(minutes=slot_duration)
+
+    # Get already booked slots
+    booked_times = set(
+        Appointment.objects.filter(
+            doctor=doctor,
+            appointment_date=requested_date,
+            status__in=['pending', 'confirmed']
+        ).values_list('appointment_time', flat=True)
+    )
+    booked_str = {t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5] for t in booked_times}
+
+    # Build slot list with availability
+    slots = []
+    now = timezone.now()
+    for slot_time in all_slots:
+        slot_dt = datetime.combine(requested_date, datetime.strptime(slot_time, '%H:%M').time())
+        slot_dt_aware = timezone.make_aware(slot_dt)
+        is_past = slot_dt_aware <= now
+        is_booked = slot_time in booked_str
+
+        slots.append({
+            'time': slot_time,
+            'is_available': not is_booked and not is_past,
+            'is_booked': is_booked,
+            'is_past': is_past,
+        })
+
+    available_count = sum(1 for s in slots if s['is_available'])
+
+    return Response({
+        'doctor_id': doctor_id,
+        'doctor_name': doctor.full_name,
+        'date': date_str,
+        'day_of_week': requested_date.strftime('%A'),
+        'is_working_day': True,
+        'working_hours': {
+            'start': schedule.start_time.strftime('%H:%M'),
+            'end': schedule.end_time.strftime('%H:%M'),
+            'slot_duration_minutes': slot_duration,
+        },
+        'total_slots': len(slots),
+        'available_count': available_count,
+        'booked_count': len(booked_str),
+        'slots': slots,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_available_dates(request, doctor_id):
+    """Get available dates for a doctor in the next N days"""
+    days_ahead = int(request.query_params.get('days', 30))
+    days_ahead = min(days_ahead, 90)  # Max 90 days
+
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor', is_active=True)
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    schedules = DoctorSchedule.objects.filter(doctor=doctor, is_available=True)
+    working_days = {s.day_of_week for s in schedules}
+
+    if not working_days:
+        return Response({
+            'doctor_id': doctor_id,
+            'available_dates': [],
+            'message': 'Doctor has no schedule set up',
+        })
+
+    # Get all booked dates in range
+    start_date = date.today()
+    end_date = start_date + timedelta(days=days_ahead)
+    booked = Appointment.objects.filter(
+        doctor=doctor,
+        appointment_date__range=[start_date, end_date],
+        status__in=['pending', 'confirmed']
+    ).values('appointment_date').annotate(
+        booked_count=models.Count('id')
+    )
+    booked_map = {str(b['appointment_date']): b['booked_count'] for b in booked}
+
+    # Build available dates
+    available_dates = []
+    for i in range(days_ahead):
+        check_date = start_date + timedelta(days=i)
+        if check_date.weekday() not in working_days:
+            continue
+
+        schedule = schedules.filter(day_of_week=check_date.weekday()).first()
+        if not schedule:
+            continue
+
+        # Calculate total slots
+        total_slots = 0
+        current = datetime.combine(check_date, schedule.start_time)
+        end = datetime.combine(check_date, schedule.end_time)
+        while current + timedelta(minutes=schedule.slot_duration_minutes) <= end:
+            total_slots += 1
+            current += timedelta(minutes=schedule.slot_duration_minutes)
+
+        date_str = str(check_date)
+        booked_count = booked_map.get(date_str, 0)
+        available = total_slots - booked_count
+
+        if available > 0:
+            available_dates.append({
+                'date': date_str,
+                'day_of_week': check_date.strftime('%A'),
+                'available_slots': available,
+                'total_slots': total_slots,
+            })
+
+    return Response({
+        'doctor_id': doctor_id,
+        'doctor_name': doctor.full_name,
+        'days_checked': days_ahead,
+        'available_dates': available_dates,
+        'total_available_days': len(available_dates),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def next_available_slot(request, doctor_id):
+    """Get the next available appointment slot for a doctor"""
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor', is_active=True)
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    schedules = DoctorSchedule.objects.filter(doctor=doctor, is_available=True)
+    working_days = {s.day_of_week: s for s in schedules}
+
+    now = timezone.now()
+
+    for i in range(60):  # Check next 60 days
+        check_date = date.today() + timedelta(days=i)
+        if check_date.weekday() not in working_days:
+            continue
+
+        schedule = working_days[check_date.weekday()]
+        current = datetime.combine(check_date, schedule.start_time)
+        end = datetime.combine(check_date, schedule.end_time)
+
+        booked_times = set(
+            Appointment.objects.filter(
+                doctor=doctor,
+                appointment_date=check_date,
+                status__in=['pending', 'confirmed']
+            ).values_list('appointment_time', flat=True)
+        )
+        booked_str = {t.strftime('%H:%M') if hasattr(t, 'strftime') else str(t)[:5] for t in booked_times}
+
+        while current + timedelta(minutes=schedule.slot_duration_minutes) <= end:
+            slot_time = current.strftime('%H:%M')
+            slot_aware = timezone.make_aware(current)
+            if slot_time not in booked_str and slot_aware > now:
+                return Response({
+                    'doctor_id': doctor_id,
+                    'doctor_name': doctor.full_name,
+                    'next_available_date': str(check_date),
+                    'next_available_time': slot_time,
+                    'day_of_week': check_date.strftime('%A'),
+                })
+            current += timedelta(minutes=schedule.slot_duration_minutes)
+
+    return Response({
+        'doctor_id': doctor_id,
+        'message': 'No available slots in the next 60 days',
+        'next_available_date': None,
+    })

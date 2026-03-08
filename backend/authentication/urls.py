@@ -129,5 +129,10 @@ urlpatterns = [
     path('ai/dialogue/new/', views.start_new_ai_dialogue, name='start_new_ai_dialogue'),
     path('ai/dialogue/<int:dialogue_id>/close/', views.close_ai_dialogue, name='close_ai_dialogue'),
 
+    # Doctor availability & slots
+    path('doctors/<int:doctor_id>/slots/', views.doctor_available_slots, name='doctor_available_slots'),
+    path('doctors/<int:doctor_id>/available-dates/', views.doctor_available_dates, name='doctor_available_dates'),
+    path('doctors/<int:doctor_id>/next-slot/', views.next_available_slot, name='next_available_slot'),
+
 
 ] 
