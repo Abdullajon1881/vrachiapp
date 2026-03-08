@@ -2018,3 +2018,112 @@ class LabReport(models.Model):
 
     def __str__(self):
         return f"Lab report — {self.order.patient.full_name} ({self.report_date.date()})"
+
+# DOCTOR SCHEDULE MANAGEMENT
+
+class DoctorLeave(models.Model):
+    """Doctor vacation, day-off or leave periods"""
+    LEAVE_TYPES = [
+        ('vacation', 'Vacation'),
+        ('sick', 'Sick Leave'),
+        ('conference', 'Conference/Training'),
+        ('personal', 'Personal Day'),
+        ('holiday', 'Public Holiday'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='leave_requests'
+    )
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='approved_leaves'
+    )
+    leave_type = models.CharField(max_length=15, choices=LEAVE_TYPES)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default='pending'
+    )
+    admin_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.doctor.full_name} — {self.leave_type} ({self.start_date} to {self.end_date})"
+
+    @property
+    def duration_days(self):
+        return (self.end_date - self.start_date).days + 1
+
+
+class DoctorWorkingHours(models.Model):
+    """Custom working hours override for a specific date"""
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='custom_working_hours'
+    )
+    date = models.DateField()
+    is_working = models.BooleanField(default=True)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    slot_duration = models.IntegerField(default=30)  # minutes
+    break_start = models.TimeField(null=True, blank=True)
+    break_end = models.TimeField(null=True, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date']
+        unique_together = ['doctor', 'date']
+
+    def __str__(self):
+        status = "Working" if self.is_working else "Day Off"
+        return f"{self.doctor.full_name} — {self.date} ({status})"
+
+
+class ScheduleBlockout(models.Model):
+    """Block specific time slots from being booked"""
+    REASON_CHOICES = [
+        ('lunch', 'Lunch Break'),
+        ('meeting', 'Meeting'),
+        ('admin', 'Administrative Work'),
+        ('emergency', 'Emergency'),
+        ('personal', 'Personal'),
+        ('other', 'Other'),
+    ]
+
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='schedule_blockouts'
+    )
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    reason = models.CharField(
+        max_length=15, choices=REASON_CHOICES, default='other'
+    )
+    notes = models.CharField(max_length=300, blank=True)
+    is_recurring = models.BooleanField(default=False)
+    recurrence_days = models.JSONField(
+        default=list, blank=True
+    )  # e.g. [0, 4] for Monday and Friday
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'start_time']
+
+    def __str__(self):
+        return f"Blockout — {self.doctor.full_name} {self.date} {self.start_time}-{self.end_time}"

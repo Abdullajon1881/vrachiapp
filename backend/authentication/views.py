@@ -7684,3 +7684,352 @@ def generate_lab_ai_interpretation(request, order_id):
 
     except Exception as e:
         return Response({'error': f'AI interpretation failed: {str(e)}'}, status=500)
+    
+# DOCTOR SCHEDULE MANAGEMENT
+
+from .models import DoctorLeave, DoctorWorkingHours, ScheduleBlockout
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def doctor_leaves(request):
+    """Get or request doctor leaves"""
+    user = request.user
+
+    if request.method == 'GET':
+        doctor_id = request.query_params.get('doctor_id')
+        if doctor_id and user.role == 'admin':
+            leaves = DoctorLeave.objects.filter(
+                doctor_id=doctor_id
+            ).select_related('doctor', 'approved_by')
+        elif user.role == 'doctor':
+            leaves = DoctorLeave.objects.filter(
+                doctor=user
+            ).select_related('approved_by')
+        elif user.role == 'admin':
+            leaves = DoctorLeave.objects.all().select_related('doctor', 'approved_by')
+        else:
+            # Patients can see approved leaves for a specific doctor
+            doctor_id = request.query_params.get('doctor_id')
+            if not doctor_id:
+                return Response({'error': 'doctor_id is required'}, status=400)
+            leaves = DoctorLeave.objects.filter(
+                doctor_id=doctor_id, status='approved'
+            )
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            leaves = leaves.filter(status=status_filter)
+
+        return Response({
+            'count': leaves.count(),
+            'leaves': [{
+                'id': l.id,
+                'doctor': l.doctor.full_name,
+                'leave_type': l.leave_type,
+                'start_date': str(l.start_date),
+                'end_date': str(l.end_date),
+                'duration_days': l.duration_days,
+                'reason': l.reason,
+                'status': l.status,
+                'admin_notes': l.admin_notes,
+                'approved_by': l.approved_by.full_name if l.approved_by else None,
+                'created_at': l.created_at.isoformat(),
+            } for l in leaves],
+        })
+
+    # POST — doctors request leave
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can request leave'}, status=403)
+
+    required = ['leave_type', 'start_date', 'end_date']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    start = request.data.get('start_date')
+    end = request.data.get('end_date')
+    if start > end:
+        return Response({'error': 'end_date must be after start_date'}, status=400)
+
+    # Check for overlapping leaves
+    overlapping = DoctorLeave.objects.filter(
+        doctor=user,
+        status__in=['pending', 'approved'],
+        start_date__lte=end,
+        end_date__gte=start,
+    )
+    if overlapping.exists():
+        return Response({'error': 'You already have a leave request for this period'}, status=400)
+
+    leave = DoctorLeave.objects.create(
+        doctor=user,
+        leave_type=request.data.get('leave_type'),
+        start_date=start,
+        end_date=end,
+        reason=request.data.get('reason', ''),
+        status='pending',
+    )
+
+    # Notify admins
+    admins = User.objects.filter(role='admin')
+    for admin in admins:
+        create_notification(
+            recipient=admin,
+            sender=user,
+            notification_type='general',
+            title='Leave Request Submitted',
+            message=f'Dr. {user.full_name} requested {leave.leave_type} from {leave.start_date} to {leave.end_date}.',
+            link='/admin/leaves/',
+        )
+
+    return Response({
+        'message': 'Leave request submitted successfully',
+        'id': leave.id,
+        'status': leave.status,
+        'duration_days': leave.duration_days,
+    }, status=201)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def manage_doctor_leave(request, leave_id):
+    """Admin approves or rejects a leave request"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Only admins can manage leave requests'}, status=403)
+
+    try:
+        leave = DoctorLeave.objects.get(id=leave_id)
+    except DoctorLeave.DoesNotExist:
+        return Response({'error': 'Leave request not found'}, status=404)
+
+    new_status = request.data.get('status')
+    if new_status not in ['approved', 'rejected', 'cancelled']:
+        return Response({'error': 'status must be approved, rejected or cancelled'}, status=400)
+
+    leave.status = new_status
+    leave.approved_by = request.user
+    leave.admin_notes = request.data.get('admin_notes', '')
+    leave.save()
+
+    # Notify doctor
+    action = 'approved' if new_status == 'approved' else 'rejected'
+    create_notification(
+        recipient=leave.doctor,
+        sender=request.user,
+        notification_type='general',
+        title=f'Leave Request {action.capitalize()}',
+        message=f'Your {leave.leave_type} request from {leave.start_date} to {leave.end_date} has been {action}.',
+        link='/doctor/leaves/',
+    )
+
+    return Response({
+        'message': f'Leave request {action} successfully',
+        'id': leave.id,
+        'status': leave.status,
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def doctor_working_hours(request):
+    """Get or set custom working hours for a specific date"""
+    user = request.user
+
+    if request.method == 'GET':
+        doctor_id = request.query_params.get('doctor_id', user.id)
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+
+        hours = DoctorWorkingHours.objects.filter(doctor_id=doctor_id)
+        if date_from:
+            hours = hours.filter(date__gte=date_from)
+        if date_to:
+            hours = hours.filter(date__lte=date_to)
+
+        return Response({
+            'count': hours.count(),
+            'working_hours': [{
+                'id': h.id,
+                'date': str(h.date),
+                'is_working': h.is_working,
+                'start_time': str(h.start_time) if h.start_time else None,
+                'end_time': str(h.end_time) if h.end_time else None,
+                'slot_duration': h.slot_duration,
+                'break_start': str(h.break_start) if h.break_start else None,
+                'break_end': str(h.break_end) if h.break_end else None,
+                'notes': h.notes,
+            } for h in hours],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can set working hours'}, status=403)
+
+    doctor = user
+    if user.role == 'admin' and request.data.get('doctor_id'):
+        try:
+            doctor = User.objects.get(id=request.data.get('doctor_id'), role='doctor')
+        except User.DoesNotExist:
+            return Response({'error': 'Doctor not found'}, status=404)
+
+    if not request.data.get('date'):
+        return Response({'error': 'date is required'}, status=400)
+
+    hours, created = DoctorWorkingHours.objects.update_or_create(
+        doctor=doctor,
+        date=request.data.get('date'),
+        defaults={
+            'is_working': request.data.get('is_working', True),
+            'start_time': request.data.get('start_time'),
+            'end_time': request.data.get('end_time'),
+            'slot_duration': request.data.get('slot_duration', 30),
+            'break_start': request.data.get('break_start'),
+            'break_end': request.data.get('break_end'),
+            'notes': request.data.get('notes', ''),
+        }
+    )
+
+    return Response({
+        'message': f'Working hours {"created" if created else "updated"} successfully',
+        'id': hours.id,
+        'date': str(hours.date),
+        'is_working': hours.is_working,
+    }, status=201 if created else 200)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def schedule_blockouts(request):
+    """Get or create schedule blockouts"""
+    user = request.user
+
+    if request.method == 'GET':
+        doctor_id = request.query_params.get('doctor_id', user.id if user.role == 'doctor' else None)
+        if not doctor_id:
+            return Response({'error': 'doctor_id is required'}, status=400)
+
+        blockouts = ScheduleBlockout.objects.filter(doctor_id=doctor_id)
+
+        date_filter = request.query_params.get('date')
+        if date_filter:
+            blockouts = blockouts.filter(date=date_filter)
+
+        return Response({
+            'count': blockouts.count(),
+            'blockouts': [{
+                'id': b.id,
+                'date': str(b.date),
+                'start_time': str(b.start_time),
+                'end_time': str(b.end_time),
+                'reason': b.reason,
+                'notes': b.notes,
+                'is_recurring': b.is_recurring,
+                'recurrence_days': b.recurrence_days,
+            } for b in blockouts],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can create blockouts'}, status=403)
+
+    required = ['date', 'start_time', 'end_time']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    doctor = user
+    if user.role == 'admin' and request.data.get('doctor_id'):
+        try:
+            doctor = User.objects.get(id=request.data.get('doctor_id'), role='doctor')
+        except User.DoesNotExist:
+            return Response({'error': 'Doctor not found'}, status=404)
+
+    blockout = ScheduleBlockout.objects.create(
+        doctor=doctor,
+        date=request.data.get('date'),
+        start_time=request.data.get('start_time'),
+        end_time=request.data.get('end_time'),
+        reason=request.data.get('reason', 'other'),
+        notes=request.data.get('notes', ''),
+        is_recurring=request.data.get('is_recurring', False),
+        recurrence_days=request.data.get('recurrence_days', []),
+    )
+
+    return Response({
+        'message': 'Schedule blockout created successfully',
+        'id': blockout.id,
+        'date': str(blockout.date),
+        'start_time': str(blockout.start_time),
+        'end_time': str(blockout.end_time),
+    }, status=201)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_schedule_blockout(request, blockout_id):
+    """Delete a schedule blockout"""
+    try:
+        blockout = ScheduleBlockout.objects.get(id=blockout_id)
+    except ScheduleBlockout.DoesNotExist:
+        return Response({'error': 'Blockout not found'}, status=404)
+
+    if blockout.doctor != request.user and request.user.role != 'admin':
+        return Response({'error': 'Permission denied'}, status=403)
+
+    blockout.delete()
+    return Response({'message': 'Blockout deleted successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_schedule_overview(request, doctor_id):
+    """Get full schedule overview for a doctor — leaves, blockouts, custom hours"""
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    date_from = request.query_params.get('date_from', str(date.today()))
+    date_to = request.query_params.get('date_to', str(
+        date.today().replace(day=1) if date.today().month == 12
+        else date(date.today().year, date.today().month + 1, 1)
+    ))
+
+    leaves = DoctorLeave.objects.filter(
+        doctor=doctor,
+        status='approved',
+        start_date__lte=date_to,
+        end_date__gte=date_from,
+    )
+
+    blockouts = ScheduleBlockout.objects.filter(
+        doctor=doctor,
+        date__range=[date_from, date_to],
+    )
+
+    custom_hours = DoctorWorkingHours.objects.filter(
+        doctor=doctor,
+        date__range=[date_from, date_to],
+    )
+
+    return Response({
+        'doctor': doctor.full_name,
+        'period': {'from': date_from, 'to': date_to},
+        'approved_leaves': [{
+            'start_date': str(l.start_date),
+            'end_date': str(l.end_date),
+            'leave_type': l.leave_type,
+            'duration_days': l.duration_days,
+        } for l in leaves],
+        'blockouts': [{
+            'date': str(b.date),
+            'start_time': str(b.start_time),
+            'end_time': str(b.end_time),
+            'reason': b.reason,
+        } for b in blockouts],
+        'custom_hours': [{
+            'date': str(h.date),
+            'is_working': h.is_working,
+            'start_time': str(h.start_time) if h.start_time else None,
+            'end_time': str(h.end_time) if h.end_time else None,
+        } for h in custom_hours],
+    })

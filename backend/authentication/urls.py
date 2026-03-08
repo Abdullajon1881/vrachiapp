@@ -207,4 +207,12 @@ urlpatterns = [
     path('lab/orders/<int:order_id>/results/', views.submit_lab_results, name='submit_lab_results'),
     path('lab/orders/<int:order_id>/interpret/', views.generate_lab_ai_interpretation, name='generate_lab_ai_interpretation'),
 
+    # Doctor schedule management
+    path('schedule/leaves/', views.doctor_leaves, name='doctor_leaves'),
+    path('schedule/leaves/<int:leave_id>/', views.manage_doctor_leave, name='manage_doctor_leave'),
+    path('schedule/working-hours/', views.doctor_working_hours, name='doctor_working_hours'),
+    path('schedule/blockouts/', views.schedule_blockouts, name='schedule_blockouts'),
+    path('schedule/blockouts/<int:blockout_id>/', views.delete_schedule_blockout, name='delete_schedule_blockout'),
+    path('schedule/overview/<int:doctor_id>/', views.doctor_schedule_overview, name='doctor_schedule_overview'),
+
 ] 
