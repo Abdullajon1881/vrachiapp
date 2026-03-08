@@ -236,7 +236,7 @@ urlpatterns = [
     path('facilities/', views.FacilityListView.as_view(), name='facility-list'),
     path('facilities/<int:pk>/', views.FacilityDetailView.as_view(), name='facility-detail'),
     path('facilities/<int:pk>/review/', views.FacilityReviewCreateView.as_view(), name='facility-review'),
-    path('cities/', views.MedCityListView.as_view(), name='med-city-list'),
-    path('districts/', views.MedDistrictListView.as_view(), name='med-district-list'),
+    path('med-cities/', views.MedCityListView.as_view(), name='med-city-list'),
+    path('med-districts/', views.MedDistrictListView.as_view(), name='med-district-list'),
 
 ] 
