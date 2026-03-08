@@ -1572,6 +1572,7 @@ def appointments(request):
         )
 
         send_appointment_confirmation_email(appointment)
+        send_appointment_sms(appointment, event='booked')
 
         return Response({
             'id': appointment.id,
@@ -2632,6 +2633,7 @@ def admin_approve_doctor(request, doctor_id):
             link='/doctor/dashboard/',
         )
         send_doctor_approval_email(doctor, approved=True)
+        send_doctor_approval_sms(doctor, approved=True)
 
         return Response({'message': f'Dr. {doctor.full_name} has been approved'})
 
@@ -2647,6 +2649,8 @@ def admin_approve_doctor(request, doctor_id):
             message=reason,
         )
         send_doctor_approval_email(doctor, approved=False, reason=reason)
+        send_doctor_approval_sms(doctor, approved=False)
+
 
         return Response({'message': f'Dr. {doctor.full_name} has been rejected'})
 
@@ -3754,3 +3758,151 @@ def next_available_slot(request, doctor_id):
         'message': 'No available slots in the next 60 days',
         'next_available_date': None,
     })
+
+# ============================================
+# SMS NOTIFICATIONS
+# ============================================
+
+def send_sms(phone_number, message):
+    """Send SMS via Twilio"""
+    if not settings.SMS_ENABLED:
+        print(f"[SMS disabled] To: {phone_number} | Message: {message}")
+        return False
+
+    if not phone_number:
+        return False
+
+    try:
+        from twilio.rest import Client
+        client_twilio = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        client_twilio.messages.create(
+            body=message,
+            from_=settings.TWILIO_PHONE_NUMBER,
+            to=phone_number,
+        )
+        return True
+    except Exception as e:
+        print(f"SMS sending failed: {e}")
+        return False
+
+
+def send_appointment_sms(appointment, event='booked'):
+    """Send SMS for appointment events"""
+    if event == 'booked':
+        patient_msg = (
+            f"Healzy: Ваша запись подтверждена!\n"
+            f"Врач: Dr. {appointment.doctor.full_name}\n"
+            f"Дата: {appointment.appointment_date} в {appointment.appointment_time}\n"
+            f"healzy.uz"
+        )
+        doctor_msg = (
+            f"Healzy: Новая запись!\n"
+            f"Пациент: {appointment.patient.full_name}\n"
+            f"Дата: {appointment.appointment_date} в {appointment.appointment_time}\n"
+            f"healzy.uz"
+        )
+    elif event == 'cancelled':
+        patient_msg = (
+            f"Healzy: Ваша запись отменена.\n"
+            f"Врач: Dr. {appointment.doctor.full_name}\n"
+            f"Дата: {appointment.appointment_date} в {appointment.appointment_time}\n"
+            f"Для записи снова: healzy.uz"
+        )
+        doctor_msg = (
+            f"Healzy: Запись отменена.\n"
+            f"Пациент: {appointment.patient.full_name}\n"
+            f"Дата: {appointment.appointment_date} в {appointment.appointment_time}"
+        )
+    elif event == 'reminder':
+        patient_msg = (
+            f"Healzy: Напоминание!\n"
+            f"Завтра у вас запись к Dr. {appointment.doctor.full_name}\n"
+            f"Время: {appointment.appointment_time}\n"
+            f"healzy.uz"
+        )
+        doctor_msg = (
+            f"Healzy: Напоминание!\n"
+            f"Завтра: {appointment.patient.full_name}\n"
+            f"Время: {appointment.appointment_time}"
+        )
+    elif event == 'rescheduled':
+        patient_msg = (
+            f"Healzy: Запись перенесена.\n"
+            f"Врач: Dr. {appointment.doctor.full_name}\n"
+            f"Новая дата: {appointment.appointment_date} в {appointment.appointment_time}\n"
+            f"healzy.uz"
+        )
+        doctor_msg = (
+            f"Healzy: Запись перенесена.\n"
+            f"Пациент: {appointment.patient.full_name}\n"
+            f"Новая дата: {appointment.appointment_date} в {appointment.appointment_time}"
+        )
+    else:
+        return
+
+    patient_phone = getattr(appointment.patient, 'phone_number', None)
+    doctor_phone = getattr(appointment.doctor, 'phone_number', None)
+
+    if patient_phone:
+        send_sms(patient_phone, patient_msg)
+    if doctor_phone:
+        send_sms(doctor_phone, doctor_msg)
+
+
+def send_doctor_approval_sms(doctor, approved=True):
+    """Send SMS when doctor application is approved or rejected"""
+    phone = getattr(doctor, 'phone_number', None)
+    if not phone:
+        return
+
+    if approved:
+        msg = (
+            f"Healzy: Поздравляем, Dr. {doctor.full_name}!\n"
+            f"Ваш профиль врача одобрен.\n"
+            f"Войдите на healzy.uz чтобы начать принимать пациентов."
+        )
+    else:
+        msg = (
+            f"Healzy: Dr. {doctor.full_name},\n"
+            f"К сожалению, ваша заявка не была одобрена.\n"
+            f"Свяжитесь с нами для уточнения деталей."
+        )
+    send_sms(phone, msg)
+
+
+def send_welcome_sms(user):
+    """Send welcome SMS when user registers"""
+    phone = getattr(user, 'phone_number', None)
+    if not phone:
+        return
+
+    if user.role == 'doctor':
+        msg = (
+            f"Healzy: Добро пожаловать, Dr. {user.full_name}!\n"
+            f"Ваша заявка на рассмотрении. Мы уведомим вас об одобрении.\n"
+            f"healzy.uz"
+        )
+    else:
+        msg = (
+            f"Healzy: Добро пожаловать, {user.full_name}!\n"
+            f"Ваш аккаунт создан. Записывайтесь к врачам онлайн.\n"
+            f"healzy.uz"
+        )
+    send_sms(phone, msg)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_test_sms(request):
+    """Admin endpoint to test SMS sending"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    phone = request.data.get('phone')
+    if not phone:
+        return Response({'error': 'phone is required'}, status=400)
+
+    success = send_sms(phone, 'Healzy: Тестовое SMS сообщение. Если вы получили это — SMS работает! ✅')
+    if success:
+        return Response({'message': f'Test SMS sent to {phone}'})
+    return Response({'message': f'SMS disabled or failed. Check SMS_ENABLED in .env', 'sent': False})

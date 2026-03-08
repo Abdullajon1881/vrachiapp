@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -351,6 +352,13 @@ CACHE_TTL_SHORT = 60        # 1 minute
 CACHE_TTL_MEDIUM = 300      # 5 minutes
 CACHE_TTL_LONG = 3600       # 1 hour
 CACHE_TTL_DAY = 86400       # 24 hours
+
+
+# Twilio SMS Settings
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
+SMS_ENABLED = config('SMS_ENABLED', default='False') == 'True'
 
 # API Documentation
 SPECTACULAR_SETTINGS = {

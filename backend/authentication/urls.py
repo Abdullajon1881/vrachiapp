@@ -134,5 +134,8 @@ urlpatterns = [
     path('doctors/<int:doctor_id>/available-dates/', views.doctor_available_dates, name='doctor_available_dates'),
     path('doctors/<int:doctor_id>/next-slot/', views.next_available_slot, name='next_available_slot'),
 
+    # SMS notifications
+    path('sms/test/', views.send_test_sms, name='send_test_sms'),
+
 
 ] 
