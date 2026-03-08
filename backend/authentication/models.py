@@ -565,9 +565,7 @@ class Review(models.Model):
     def __str__(self):
         return f"Review by {self.patient.full_name} for Dr. {self.doctor.full_name} - {self.rating}/5"
     
-# ============================================
 # VIDEO CALL MODELS
-# ============================================
 
 class VideoCall(models.Model):
     STATUS_CHOICES = [
@@ -631,4 +629,162 @@ class VideoCallSignal(models.Model):
         ordering = ['created_at']
         verbose_name = 'Video Call Signal'
         verbose_name_plural = 'Video Call Signals'
+
+# ============================================
+# DENTAL TOOTH HISTORY SYSTEM
+# ============================================
+
+class DentalChart(models.Model):
+    """One dental chart per patient — created automatically on first visit"""
+    patient = models.OneToOneField(
+        User, on_delete=models.CASCADE,
+        related_name='dental_chart'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Dental Chart — {self.patient.full_name}"
+
+
+class Tooth(models.Model):
+    """Represents a single tooth in a patient's dental chart (FDI numbering)"""
+    CONDITION_CHOICES = [
+        ('healthy', 'Healthy'),
+        ('filled', 'Filled'),
+        ('crowned', 'Crowned'),
+        ('missing', 'Missing'),
+        ('implant', 'Implant'),
+        ('damaged', 'Damaged'),
+        ('decayed', 'Decayed'),
+        ('root_canal', 'Root Canal Treated'),
+        ('bridge', 'Bridge'),
+        ('veneer', 'Veneer'),
+        ('extracted', 'Extracted'),
+        ('impacted', 'Impacted'),
+        ('under_treatment', 'Under Treatment'),
+    ]
+
+    # FDI numbering: 11-18, 21-28, 31-38, 41-48
+    FDI_CHOICES = (
+        [(i, f'Upper Right {i}') for i in range(11, 19)] +
+        [(i, f'Upper Left {i}') for i in range(21, 29)] +
+        [(i, f'Lower Left {i}') for i in range(31, 39)] +
+        [(i, f'Lower Right {i}') for i in range(41, 49)]
+    )
+
+    chart = models.ForeignKey(
+        DentalChart, on_delete=models.CASCADE,
+        related_name='teeth'
+    )
+    fdi_number = models.IntegerField(choices=FDI_CHOICES)
+    condition = models.CharField(
+        max_length=20, choices=CONDITION_CHOICES, default='healthy'
+    )
+    notes = models.TextField(blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
+    last_updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='updated_teeth'
+    )
+
+    class Meta:
+        unique_together = ['chart', 'fdi_number']
+        ordering = ['fdi_number']
+
+    def __str__(self):
+        return f"Tooth {self.fdi_number} — {self.patient_name} ({self.condition})"
+
+    @property
+    def patient_name(self):
+        return self.chart.patient.full_name
+
+    @property
+    def quadrant(self):
+        first_digit = self.fdi_number // 10
+        quadrant_map = {
+            1: 'Upper Right', 2: 'Upper Left',
+            3: 'Lower Left', 4: 'Lower Right'
+        }
+        return quadrant_map.get(first_digit, 'Unknown')
+
+
+class ToothTreatment(models.Model):
+    """A single treatment event for a specific tooth"""
+    TREATMENT_CHOICES = [
+        ('examination', 'Examination'),
+        ('filling', 'Filling'),
+        ('composite_filling', 'Composite Filling'),
+        ('amalgam_filling', 'Amalgam Filling'),
+        ('crown', 'Crown'),
+        ('root_canal', 'Root Canal Treatment'),
+        ('extraction', 'Extraction'),
+        ('implant', 'Implant'),
+        ('implant_crown', 'Implant Crown'),
+        ('bridge', 'Bridge'),
+        ('veneer', 'Veneer'),
+        ('whitening', 'Whitening'),
+        ('scaling', 'Scaling & Cleaning'),
+        ('xray', 'X-Ray'),
+        ('orthodontic', 'Orthodontic Treatment'),
+        ('sealant', 'Sealant'),
+        ('bonding', 'Bonding'),
+        ('other', 'Other'),
+    ]
+
+    tooth = models.ForeignKey(
+        Tooth, on_delete=models.CASCADE,
+        related_name='treatments'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, related_name='dental_treatments'
+    )
+    treatment_type = models.CharField(max_length=30, choices=TREATMENT_CHOICES)
+    treatment_date = models.DateField()
+    description = models.TextField(blank=True)
+    materials_used = models.CharField(max_length=200, blank=True)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    next_visit_recommended = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-treatment_date']
+
+    def __str__(self):
+        return f"{self.treatment_type} on tooth {self.tooth.fdi_number} by Dr. {self.doctor.full_name if self.doctor else 'Unknown'}"
+
+
+class ToothXray(models.Model):
+    """X-ray or photo attached to a specific tooth"""
+    tooth = models.ForeignKey(
+        Tooth, on_delete=models.CASCADE,
+        related_name='xrays'
+    )
+    treatment = models.ForeignKey(
+        ToothTreatment, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='xrays'
+    )
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, related_name='uploaded_xrays'
+    )
+    file = models.FileField(upload_to='dental_xrays/')
+    file_type = models.CharField(
+        max_length=10,
+        choices=[('xray', 'X-Ray'), ('photo', 'Photo'), ('scan', '3D Scan')],
+        default='xray'
+    )
+    notes = models.CharField(max_length=300, blank=True)
+    taken_at = models.DateField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-taken_at']
+
+    def __str__(self):
+        return f"{self.file_type} — Tooth {self.tooth.fdi_number} ({self.taken_at})"
+
  

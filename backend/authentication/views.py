@@ -4341,3 +4341,457 @@ def my_video_calls(request):
     } for c in calls]
 
     return Response({'calls': data, 'count': len(data)})
+
+# DENTAL TOOTH HISTORY SYSTEM
+
+from .models import DentalChart, Tooth, ToothTreatment, ToothXray
+
+def get_or_create_dental_chart(patient):
+    """Get or create a dental chart for a patient, with all 32 teeth"""
+    chart, created = DentalChart.objects.get_or_create(patient=patient)
+    if created:
+        # Create all 32 teeth using FDI numbering
+        fdi_numbers = (
+            list(range(11, 19)) +  # Upper right
+            list(range(21, 29)) +  # Upper left
+            list(range(31, 39)) +  # Lower left
+            list(range(41, 49))    # Lower right
+        )
+        Tooth.objects.bulk_create([
+            Tooth(chart=chart, fdi_number=n, condition='healthy')
+            for n in fdi_numbers
+        ])
+    return chart
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_dental_chart(request, patient_id=None):
+    """Get full dental chart for a patient"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    chart = get_or_create_dental_chart(target_patient)
+    teeth = Tooth.objects.filter(chart=chart).prefetch_related(
+        'treatments', 'treatments__doctor', 'xrays'
+    ).order_by('fdi_number')
+
+    # Group teeth by quadrant
+    quadrants = {
+        'upper_right': [],  # 11-18
+        'upper_left': [],   # 21-28
+        'lower_left': [],   # 31-38
+        'lower_right': [],  # 41-48
+    }
+
+    quadrant_map = {
+        1: 'upper_right', 2: 'upper_left',
+        3: 'lower_left', 4: 'lower_right'
+    }
+
+    for tooth in teeth:
+        quadrant_key = quadrant_map.get(tooth.fdi_number // 10)
+        if not quadrant_key:
+            continue
+
+        tooth_data = {
+            'id': tooth.id,
+            'fdi_number': tooth.fdi_number,
+            'condition': tooth.condition,
+            'quadrant': tooth.quadrant,
+            'notes': tooth.notes,
+            'last_updated': tooth.last_updated.isoformat(),
+            'last_updated_by': tooth.last_updated_by.full_name if tooth.last_updated_by else None,
+            'treatment_count': tooth.treatments.count(),
+            'xray_count': tooth.xrays.count(),
+            'latest_treatment': None,
+        }
+
+        latest = tooth.treatments.first()
+        if latest:
+            tooth_data['latest_treatment'] = {
+                'treatment_type': latest.treatment_type,
+                'treatment_date': str(latest.treatment_date),
+                'doctor': latest.doctor.full_name if latest.doctor else None,
+            }
+
+        quadrants[quadrant_key].append(tooth_data)
+
+    # Overall stats
+    condition_summary = {}
+    for tooth in teeth:
+        condition_summary[tooth.condition] = condition_summary.get(tooth.condition, 0) + 1
+
+    return Response({
+        'chart_id': chart.id,
+        'patient_id': target_patient.id,
+        'patient_name': target_patient.full_name,
+        'created_at': chart.created_at.isoformat(),
+        'updated_at': chart.updated_at.isoformat(),
+        'notes': chart.notes,
+        'condition_summary': condition_summary,
+        'total_teeth': teeth.count(),
+        'quadrants': quadrants,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_tooth_detail(request, patient_id, fdi_number):
+    """Get full history of a single tooth"""
+    user = request.user
+
+    if user.role == 'patient':
+        if str(user.id) != str(patient_id):
+            return Response({'error': 'Permission denied'}, status=403)
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    chart = get_or_create_dental_chart(target_patient)
+
+    try:
+        tooth = Tooth.objects.get(chart=chart, fdi_number=fdi_number)
+    except Tooth.DoesNotExist:
+        return Response({'error': f'Tooth {fdi_number} not found'}, status=404)
+
+    treatments = ToothTreatment.objects.filter(tooth=tooth).select_related('doctor').order_by('-treatment_date')
+    xrays = ToothXray.objects.filter(tooth=tooth).select_related('uploaded_by').order_by('-taken_at')
+
+    return Response({
+        'tooth_id': tooth.id,
+        'fdi_number': tooth.fdi_number,
+        'quadrant': tooth.quadrant,
+        'condition': tooth.condition,
+        'notes': tooth.notes,
+        'last_updated': tooth.last_updated.isoformat(),
+        'last_updated_by': tooth.last_updated_by.full_name if tooth.last_updated_by else None,
+        'patient': {
+            'id': target_patient.id,
+            'full_name': target_patient.full_name,
+        },
+        'treatments': [{
+            'id': t.id,
+            'treatment_type': t.treatment_type,
+            'treatment_date': str(t.treatment_date),
+            'doctor': t.doctor.full_name if t.doctor else None,
+            'doctor_id': t.doctor.id if t.doctor else None,
+            'description': t.description,
+            'materials_used': t.materials_used,
+            'cost': str(t.cost) if t.cost else None,
+            'next_visit_recommended': str(t.next_visit_recommended) if t.next_visit_recommended else None,
+            'created_at': t.created_at.isoformat(),
+        } for t in treatments],
+        'xrays': [{
+            'id': x.id,
+            'file_url': request.build_absolute_uri(x.file.url) if x.file else None,
+            'file_type': x.file_type,
+            'notes': x.notes,
+            'taken_at': str(x.taken_at),
+            'uploaded_by': x.uploaded_by.full_name if x.uploaded_by else None,
+            'treatment_id': x.treatment.id if x.treatment else None,
+        } for x in xrays],
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_tooth_treatment(request, patient_id, fdi_number):
+    """Add a treatment record to a specific tooth (doctors only)"""
+    if request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add treatment records'}, status=403)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    chart = get_or_create_dental_chart(target_patient)
+
+    try:
+        tooth = Tooth.objects.get(chart=chart, fdi_number=fdi_number)
+    except Tooth.DoesNotExist:
+        return Response({'error': f'Tooth {fdi_number} not found'}, status=404)
+
+    treatment_type = request.data.get('treatment_type')
+    treatment_date = request.data.get('treatment_date')
+
+    if not treatment_type or not treatment_date:
+        return Response({'error': 'treatment_type and treatment_date are required'}, status=400)
+
+    valid_treatments = [t[0] for t in ToothTreatment.TREATMENT_CHOICES]
+    if treatment_type not in valid_treatments:
+        return Response({
+            'error': f'Invalid treatment_type. Valid options: {valid_treatments}'
+        }, status=400)
+
+    treatment = ToothTreatment.objects.create(
+        tooth=tooth,
+        doctor=request.user,
+        treatment_type=treatment_type,
+        treatment_date=treatment_date,
+        description=request.data.get('description', ''),
+        materials_used=request.data.get('materials_used', ''),
+        cost=request.data.get('cost'),
+        next_visit_recommended=request.data.get('next_visit_recommended'),
+    )
+
+    # Update tooth condition based on treatment
+    condition_map = {
+        'filling': 'filled',
+        'composite_filling': 'filled',
+        'amalgam_filling': 'filled',
+        'crown': 'crowned',
+        'root_canal': 'root_canal',
+        'extraction': 'extracted',
+        'implant': 'implant',
+        'implant_crown': 'implant',
+        'bridge': 'bridge',
+        'veneer': 'veneer',
+    }
+    new_condition = condition_map.get(treatment_type)
+    if new_condition:
+        tooth.condition = new_condition
+
+    tooth.notes = request.data.get('tooth_notes', tooth.notes)
+    tooth.last_updated_by = request.user
+    tooth.save()
+
+    # Notify patient
+    create_notification(
+        recipient=target_patient,
+        sender=request.user,
+        notification_type='general',
+        title='Dental Record Updated',
+        message=f'Dr. {request.user.full_name} added a {treatment_type} record for tooth {fdi_number}.',
+        link='/dental-chart/',
+    )
+
+    return Response({
+        'message': 'Treatment added successfully',
+        'treatment_id': treatment.id,
+        'tooth_fdi': fdi_number,
+        'new_condition': tooth.condition,
+        'treatment_type': treatment_type,
+        'treatment_date': str(treatment_date),
+    }, status=201)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_tooth_condition(request, patient_id, fdi_number):
+    """Update the condition of a tooth (doctors only)"""
+    if request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can update tooth conditions'}, status=403)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    chart = get_or_create_dental_chart(target_patient)
+
+    try:
+        tooth = Tooth.objects.get(chart=chart, fdi_number=fdi_number)
+    except Tooth.DoesNotExist:
+        return Response({'error': f'Tooth {fdi_number} not found'}, status=404)
+
+    valid_conditions = [c[0] for c in Tooth.CONDITION_CHOICES]
+    new_condition = request.data.get('condition')
+
+    if new_condition and new_condition not in valid_conditions:
+        return Response({
+            'error': f'Invalid condition. Valid options: {valid_conditions}'
+        }, status=400)
+
+    if new_condition:
+        tooth.condition = new_condition
+    if 'notes' in request.data:
+        tooth.notes = request.data['notes']
+
+    tooth.last_updated_by = request.user
+    tooth.save()
+
+    return Response({
+        'message': 'Tooth updated successfully',
+        'fdi_number': fdi_number,
+        'condition': tooth.condition,
+        'notes': tooth.notes,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_tooth_xray(request, patient_id, fdi_number):
+    """Upload an X-ray or photo for a specific tooth (doctors only)"""
+    if request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can upload X-rays'}, status=403)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    chart = get_or_create_dental_chart(target_patient)
+
+    try:
+        tooth = Tooth.objects.get(chart=chart, fdi_number=fdi_number)
+    except Tooth.DoesNotExist:
+        return Response({'error': f'Tooth {fdi_number} not found'}, status=404)
+
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=400)
+
+    file = request.FILES['file']
+    allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+    if file.content_type not in allowed_types:
+        return Response({'error': 'Only JPEG, PNG, WebP and PDF files are allowed'}, status=400)
+
+    if file.size > 20 * 1024 * 1024:
+        return Response({'error': 'File size must be under 20MB'}, status=400)
+
+    taken_at = request.data.get('taken_at', str(date.today()))
+    treatment_id = request.data.get('treatment_id')
+    treatment = None
+    if treatment_id:
+        try:
+            treatment = ToothTreatment.objects.get(id=treatment_id, tooth=tooth)
+        except ToothTreatment.DoesNotExist:
+            pass
+
+    xray = ToothXray.objects.create(
+        tooth=tooth,
+        treatment=treatment,
+        uploaded_by=request.user,
+        file=file,
+        file_type=request.data.get('file_type', 'xray'),
+        notes=request.data.get('notes', ''),
+        taken_at=taken_at,
+    )
+
+    return Response({
+        'message': 'X-ray uploaded successfully',
+        'xray_id': xray.id,
+        'file_url': request.build_absolute_uri(xray.file.url),
+        'tooth_fdi': fdi_number,
+        'taken_at': str(taken_at),
+    }, status=201)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_tooth_treatment(request, treatment_id):
+    """Delete a treatment record (doctors/admins only)"""
+    if request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can delete treatment records'}, status=403)
+
+    try:
+        treatment = ToothTreatment.objects.get(id=treatment_id)
+    except ToothTreatment.DoesNotExist:
+        return Response({'error': 'Treatment not found'}, status=404)
+
+    if treatment.doctor != request.user and request.user.role != 'admin':
+        return Response({'error': 'You can only delete your own treatment records'}, status=403)
+
+    fdi = treatment.tooth.fdi_number
+    treatment.delete()
+
+    return Response({'message': f'Treatment record for tooth {fdi} deleted successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_dental_summary(request, patient_id=None):
+    """Get AI-powered dental summary for a patient"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    chart = get_or_create_dental_chart(target_patient)
+    teeth = Tooth.objects.filter(chart=chart).prefetch_related('treatments')
+
+    # Build dental history text
+    problem_teeth = []
+    all_treatments = []
+
+    for tooth in teeth:
+        if tooth.condition != 'healthy':
+            problem_teeth.append(f"Tooth {tooth.fdi_number} ({tooth.quadrant}): {tooth.condition}")
+        for t in tooth.treatments.all():
+            all_treatments.append(
+                f"- Tooth {tooth.fdi_number}: {t.treatment_type} on {t.treatment_date}"
+                f" by Dr. {t.doctor.full_name if t.doctor else 'Unknown'}"
+            )
+
+    if not problem_teeth and not all_treatments:
+        return Response({
+            'patient_name': target_patient.full_name,
+            'summary': 'Нет данных о стоматологических процедурах. Зубы помечены как здоровые.',
+            'problem_teeth_count': 0,
+            'total_treatments': 0,
+        })
+
+    prompt = f"""Ты стоматолог-ассистент. Проанализируй историю зубов пациента и дай краткое резюме на русском языке.
+
+Пациент: {target_patient.full_name}
+
+Проблемные зубы:
+{chr(10).join(problem_teeth) if problem_teeth else 'Нет'}
+
+История лечения:
+{chr(10).join(all_treatments[-20:]) if all_treatments else 'Нет'}
+
+Дай структурированное резюме:
+1. **Общее состояние зубов**
+2. **Проведённые процедуры**
+3. **Зубы требующие внимания**
+4. **Рекомендации**
+
+Будь краткой и профессиональной."""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        return Response({
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'problem_teeth_count': len(problem_teeth),
+            'total_treatments': len(all_treatments),
+            'summary': response.content[0].text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Summary generation failed: {str(e)}'}, status=500)

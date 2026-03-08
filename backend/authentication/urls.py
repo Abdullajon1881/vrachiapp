@@ -151,4 +151,14 @@ urlpatterns = [
     path('video-calls/<str:room_id>/signal/', views.send_webrtc_signal, name='send_webrtc_signal'),
     path('video-calls/<str:room_id>/signals/', views.get_webrtc_signals, name='get_webrtc_signals'),
 
+    # Dental tooth history system
+    path('dental/chart/', views.get_dental_chart, name='get_dental_chart'),
+    path('dental/chart/<int:patient_id>/', views.get_dental_chart, name='get_dental_chart_patient'),
+    path('dental/chart/<int:patient_id>/summary/', views.patient_dental_summary, name='patient_dental_summary'),
+    path('dental/chart/<int:patient_id>/tooth/<int:fdi_number>/', views.get_tooth_detail, name='get_tooth_detail'),
+    path('dental/chart/<int:patient_id>/tooth/<int:fdi_number>/treatment/', views.add_tooth_treatment, name='add_tooth_treatment'),
+    path('dental/chart/<int:patient_id>/tooth/<int:fdi_number>/condition/', views.update_tooth_condition, name='update_tooth_condition'),
+    path('dental/chart/<int:patient_id>/tooth/<int:fdi_number>/xray/', views.upload_tooth_xray, name='upload_tooth_xray'),
+    path('dental/treatment/<int:treatment_id>/delete/', views.delete_tooth_treatment, name='delete_tooth_treatment'),
+
 ] 
