@@ -1,36 +1,28 @@
 import os
-import io
-import json
 import logging
 import tempfile
-import asyncio
 import requests
 from typing import Optional, Dict, Any, List
-from pathlib import Path
-from datetime import datetime
 
-import google.generativeai as genai
-from django.conf import settings
+import anthropic
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .models import AIDialogue, AIMessage, User
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = "AIzaSyBGjqF-6Vs3z7NlLj8708eKmeBc1QWFi-c"
-genai.configure(api_key=GEMINI_API_KEY)
+ANTHROPIC_API_KEY = "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"
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+MODEL = "claude-sonnet-4-20250514"
 
 
 class HealzyAIService:
-    """Healzy AI — медицинская помощница на базе Gemini"""
+    """Healzy AI — медицинская помощница на базе Claude Sonnet 4"""
 
     def __init__(self):
-        self.model_name = "gemini-1.5-flash"
-        self.model = genai.GenerativeModel(self.model_name)
-        self.max_history_messages = 10  # Keep last 10 messages for context
+        self.max_history_messages = 10
 
-        self.system_prompt = """
-Ты — Healzy AI, опытная женщина-врач и медицинская помощница.
+        self.system_prompt = """Ты — Healzy AI, опытная женщина-врач и медицинская помощница.
 
 ТВОЯ ЛИЧНОСТЬ:
 - Тёплая, внимательная, профессиональная
@@ -42,7 +34,7 @@ class HealzyAIService:
 🫀 Кардиология — сердце, давление, сосуды
 🧠 Неврология — головная боль, головокружение, сон
 🫁 Пульмонология — кашель, дыхание, бронхи
-🦷 Стоматология — зубы, дёсны, полость рта  
+🦷 Стоматология — зубы, дёсны, полость рта
 🍽️ Гастроэнтерология — желудок, кишечник, печень
 🦴 Ортопедия — суставы, позвоночник, мышцы
 🧴 Дерматология — кожа, сыпь, аллергия
@@ -72,8 +64,7 @@ class HealzyAIService:
 ❌ Назначать конкретные дозы лекарств
 ❌ Отвечать на немедицинские вопросы
 ❌ Говорить о себе в мужском роде
-❌ Добавлять одинаковые предупреждения к каждому ответу
-"""
+❌ Добавлять одинаковые предупреждения к каждому ответу"""
 
     def _get_conversation_history(self, user: User) -> List[Dict]:
         """Получает историю последних сообщений диалога"""
@@ -99,33 +90,8 @@ class HealzyAIService:
             logger.error(f"Ошибка получения истории: {e}")
             return []
 
-    def _build_prompt_with_history(self, user: User, message: str) -> str:
-        """Строит промпт с историей разговора"""
-        history = self._get_conversation_history(user)
-
-        prompt_parts = [self.system_prompt]
-
-        if history:
-            prompt_parts.append("\n\n=== ИСТОРИЯ РАЗГОВОРА ===")
-            for h in history:
-                role_label = "Пациент" if h['role'] == 'user' else "Healzy AI"
-                prompt_parts.append(f"{role_label}: {h['content']}")
-            prompt_parts.append("=== КОНЕЦ ИСТОРИИ ===\n")
-
-        prompt_parts.append(f"\nТекущий вопрос пациента: {message}")
-        prompt_parts.append(
-            "\nОтветь как опытная женщина-врач. "
-            "Используй контекст предыдущих сообщений если он есть. "
-            "Если нужно — задай уточняющий вопрос. "
-            "Укажи уровень срочности (🟢/🟡/🔴) только если уместно."
-        )
-
-        return "\n".join(prompt_parts)
-
     def _detect_urgency(self, message: str) -> Optional[str]:
-        """Определяет срочность по ключевым словам"""
         message_lower = message.lower()
-
         emergency_keywords = [
             'боль в груди', 'не могу дышать', 'потеря сознания', 'упал в обморок',
             'инсульт', 'инфаркт', 'судороги', 'рвота с кровью', 'кровотечение',
@@ -135,7 +101,6 @@ class HealzyAIService:
             'высокая температура', 'сильная боль', 'не проходит', 'ухудшается',
             'несколько дней', 'кровь в моче', 'желтуха', 'сильное головокружение'
         ]
-
         for kw in emergency_keywords:
             if kw in message_lower:
                 return 'emergency'
@@ -145,7 +110,6 @@ class HealzyAIService:
         return None
 
     def _suggest_specialist(self, message: str) -> Optional[str]:
-        """Предлагает специалиста на основе симптомов"""
         message_lower = message.lower()
         specialists = {
             'кардиолог': ['сердце', 'давление', 'пульс', 'аритмия', 'боль в груди'],
@@ -156,7 +120,7 @@ class HealzyAIService:
             'пульмонолог': ['кашель', 'дыхание', 'астма', 'бронхит', 'одышка'],
             'лор': ['горло', 'нос', 'уши', 'насморк', 'ухо болит', 'гайморит'],
             'офтальмолог': ['глаза', 'зрение', 'глаз болит', 'покраснение глаз'],
-            'эндокринолог': ['щитовидка', 'диабет', 'сахар', 'гормоны', 'щитовидная'],
+            'эндокринолог': ['щитовидка', 'диабет', 'сахар', 'гормоны'],
             'уролог': ['почки', 'мочевой', 'боль при мочеиспускании', 'моча'],
         }
         for specialist, keywords in specialists.items():
@@ -175,54 +139,40 @@ class HealzyAIService:
         ]
         return any(kw in text_lower for kw in greeting_keywords)
 
-    async def _is_medical_question(self, text: str) -> bool:
-        try:
-            analysis_prompt = f"""
-Определи, связан ли этот текст с медициной или здоровьем.
-Медицинские темы: симптомы, болезни, лечение, лекарства, части тела, первая помощь, 
-питание для здоровья, психическое здоровье, беременность, приветствия медпомощнику.
-Немедицинские: бизнес, политика, технологии, спорт, развлечения.
-
-Текст: "{text}"
-Ответь только: "ДА" или "НЕТ"
-"""
-            response = self.model.generate_content(analysis_prompt)
-            if response and response.text:
-                return response.text.strip().upper() == "ДА"
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка анализа вопроса: {e}")
-            return True
-
-    def _strip_leading_greeting(self, text: str) -> str:
-        if not text:
-            return text
-        cleaned = text.lstrip()
-        lower = cleaned.lower()
-        prefixes = [
-            'здравствуйте', 'привет', 'добрый день', 'добрый вечер',
-            'доброе утро', 'рад помочь', 'рада помочь', 'я healzy ai',
-            'я – healzy ai', 'я — healzy ai'
+    def _is_medical_question(self, text: str) -> bool:
+        """Быстрая проверка на медицинскую тему по ключевым словам"""
+        non_medical_keywords = [
+            'политика', 'экономика', 'бизнес', 'финансы', 'акции', 'криптовалюта',
+            'спорт', 'футбол', 'кино', 'музыка', 'игры', 'программирование',
+            'история', 'география', 'математика', 'физика', 'химия',
+            'кулинария', 'рецепт', 'готовить', 'путешествия', 'туризм'
         ]
-        for prefix in prefixes:
-            if lower.startswith(prefix):
-                for sep in ['\n', '. ', '! ', '? ']:
-                    idx = cleaned.find(sep)
-                    if idx != -1 and idx < 80:
-                        cleaned = cleaned[idx + len(sep):].lstrip()
-                        break
-                else:
-                    cleaned = cleaned[len(prefix):].lstrip(' ,!.-')
-                break
-        return cleaned
+        text_lower = text.lower()
+        for kw in non_medical_keywords:
+            if kw in text_lower:
+                return False
+        return True
 
     def _add_urgency_note(self, message: str, ai_response: str) -> str:
-        """Добавляет заметку об экстренной помощи при необходимости"""
         urgency = self._detect_urgency(message)
         if urgency == 'emergency':
             if '🔴' not in ai_response and 'скорую' not in ai_response.lower():
                 return ai_response + "\n\n🔴 **Срочно вызовите скорую помощь (103)!**"
         return ai_response
+
+    def _call_claude(self, messages: List[Dict], max_tokens: int = 1024) -> Optional[str]:
+        """Вызывает Claude API синхронно"""
+        try:
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=max_tokens,
+                system=self.system_prompt,
+                messages=messages,
+            )
+            return response.content[0].text
+        except Exception as e:
+            logger.error(f"Ошибка Claude API: {e}")
+            return None
 
     async def _generate_speech_with_edge_tts(self, text: str) -> Optional[bytes]:
         try:
@@ -278,7 +228,7 @@ class HealzyAIService:
         return None
 
     async def process_text_message(self, user: User, message: str) -> Dict[str, Any]:
-        """Обрабатывает текстовое сообщение с историей диалога"""
+        """Обрабатывает текстовое сообщение через Claude"""
         try:
             # Handle greetings
             if self._is_greeting(message):
@@ -286,7 +236,7 @@ class HealzyAIService:
                 if history:
                     response_text = 'Снова привет! Чем могу помочь со здоровьем?'
                 else:
-                    response_text = 'Привет! Я Healzy — ваша медицинская помощница. Расскажите, что вас беспокоит?'
+                    response_text = 'Привет! Я Healzy — ваша медицинская помощница на базе Claude AI. Расскажите, что вас беспокоит?'
                 audio = await self._generate_speech_best_quality(response_text)
                 return {
                     'success': True, 'response': response_text,
@@ -295,7 +245,7 @@ class HealzyAIService:
                 }
 
             # Check if medical
-            if not await self._is_medical_question(message):
+            if not self._is_medical_question(message):
                 response_text = (
                     "Я специализируюсь только на медицинских вопросах. "
                     "Расскажите о ваших симптомах или задайте вопрос о здоровье."
@@ -307,19 +257,25 @@ class HealzyAIService:
                     'has_voice': audio is not None
                 }
 
-            # Build prompt with conversation history
-            full_prompt = self._build_prompt_with_history(user, message)
+            # Build messages with conversation history
+            history = self._get_conversation_history(user)
+            messages = []
 
-            # Get specialist suggestion
-            specialist = self._suggest_specialist(message)
+            # Add history
+            for h in history:
+                messages.append({'role': h['role'], 'content': h['content']})
 
-            response = self.model.generate_content(full_prompt)
+            # Add current message
+            messages.append({'role': 'user', 'content': message})
 
-            if response and response.text:
-                ai_body = self._strip_leading_greeting(response.text)
-                ai_response = self._add_urgency_note(message, ai_body)
+            # Call Claude
+            ai_response = self._call_claude(messages)
+
+            if ai_response:
+                ai_response = self._add_urgency_note(message, ai_response)
 
                 # Add specialist suggestion if not already mentioned
+                specialist = self._suggest_specialist(message)
                 if specialist and specialist not in ai_response.lower():
                     ai_response += f"\n\n💡 По этим симптомам рекомендую обратиться к **{specialist}у**."
 
@@ -338,43 +294,50 @@ class HealzyAIService:
             return {'success': False, 'error': 'Ошибка при обработке сообщения'}
 
     async def process_image_message(self, user: User, image_file) -> Dict[str, Any]:
-        """Обрабатывает изображение с медицинским анализом"""
+        """Обрабатывает изображение через Claude Vision"""
         try:
+            import base64
             file_path = default_storage.save(f'temp/ai_images/{image_file.name}', image_file)
 
-            history = self._get_conversation_history(user)
-            history_context = ""
-            if history:
-                history_context = "\n\nКонтекст предыдущего разговора:\n"
-                for h in history[-4:]:
-                    role = "Пациент" if h['role'] == 'user' else "Healzy AI"
-                    history_context += f"{role}: {h['content']}\n"
-
-            prompt = f"""{self.system_prompt}
-{history_context}
-Пациент прислал изображение для медицинского анализа.
-
-Выполни:
-1. Опиши что видишь на изображении
-2. Дай медицинскую оценку (кожа, рана, сыпь, рентген и т.д.)
-3. Укажи возможные причины
-4. Дай практические рекомендации
-5. Скажи нужен ли врач (🟢/🟡/🔴)
-
-Не ставь точный диагноз, но будь конкретной и полезной."""
-
             with default_storage.open(file_path, 'rb') as f:
-                image_data = f.read()
+                image_data = base64.standard_b64encode(f.read()).decode('utf-8')
 
-            image_part = {"mime_type": image_file.content_type, "data": image_data}
-            response = self.model.generate_content([prompt, image_part])
             default_storage.delete(file_path)
 
-            if response and response.text:
-                return {
-                    'success': True, 'response': response.text,
-                    'type': 'image'
-                }
+            # Get history for context
+            history = self._get_conversation_history(user)
+            messages = []
+            for h in history[-4:]:
+                messages.append({'role': h['role'], 'content': h['content']})
+
+            # Add image message
+            messages.append({
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'image',
+                        'source': {
+                            'type': 'base64',
+                            'media_type': image_file.content_type,
+                            'data': image_data,
+                        }
+                    },
+                    {
+                        'type': 'text',
+                        'text': (
+                            'Пациент прислал изображение для медицинского анализа. '
+                            'Опиши что видишь, дай медицинскую оценку, '
+                            'укажи возможные причины и рекомендации. '
+                            'Скажи нужен ли врач (🟢/🟡/🔴).'
+                        )
+                    }
+                ]
+            })
+
+            ai_response = self._call_claude(messages, max_tokens=1500)
+
+            if ai_response:
+                return {'success': True, 'response': ai_response, 'type': 'image'}
             return {'success': False, 'error': 'Не удалось проанализировать изображение'}
 
         except Exception as e:
