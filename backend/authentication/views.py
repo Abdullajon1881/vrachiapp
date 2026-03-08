@@ -21,6 +21,7 @@ from django.http import FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from asgiref.sync import sync_to_async
 import asyncio
+import os
 from .ai_service import ai_service
 import html
 from django.core.cache import cache
