@@ -470,13 +470,42 @@ class FacilityDetailSerializer(serializers.ModelSerializer):
 
 
 class FacilityReviewSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source='user.full_name', read_only=True)
+    user_name = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = FacilityReview
         fields = (
-            'id', 'facility', 'user', 'user_name', 'rating', 'title', 'comment',
-            'rating_service', 'rating_cleanliness', 'rating_equipment',
-            'rating_price', 'helpful_count', 'created_at',
+            'id', 'facility', 'user', 'user_name', 'user_avatar',
+            'rating', 'title', 'comment',
+            'rating_service', 'rating_cleanliness',
+            'rating_equipment', 'rating_price',
+            'helpful_count', 'created_at',
         )
         read_only_fields = ('user', 'helpful_count', 'created_at')
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() or obj.user.email
+
+    def get_user_avatar(self, obj):
+        try:
+            profile = obj.user.userprofile
+            return profile.avatar.url if profile.avatar else None
+        except Exception:
+            return None
+
+    def validate_rating(self, value):
+        if not 1 <= value <= 5:
+            raise serializers.ValidationError('Rating must be between 1 and 5.')
+        return value
+
+    def validate(self, data):
+        request = self.context.get('request')
+        if request and FacilityReview.objects.filter(
+            user=request.user,
+            facility=data['facility']
+        ).exists():
+            raise serializers.ValidationError(
+                'You have already reviewed this facility.'
+            )
+        return data

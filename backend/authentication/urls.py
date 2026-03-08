@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import FacilityListView, FacilityDetailView, FacilityReviewCreateView, MedCityListView, MedDistrictListView
+from .views import FacilityListView, FacilityDetailView, FacilityMarkHelpfulView, FacilityReviewCreateView, FacilityReviewDeleteView, FacilityReviewListView, MedCityListView, MedDistrictListView
 
 urlpatterns = [
     # Аутентификация
@@ -239,4 +239,9 @@ urlpatterns = [
     path('med-cities/', views.MedCityListView.as_view(), name='med-city-list'),
     path('med-districts/', views.MedDistrictListView.as_view(), name='med-district-list'),
 
+    # Reviews
+    path('facilities/<int:pk>/reviews/', FacilityReviewListView.as_view(), name='facility-reviews'),
+    path('facilities/<int:pk>/review/', FacilityReviewCreateView.as_view(), name='facility-review-create'),
+    path('reviews/<int:pk>/delete/', FacilityReviewDeleteView.as_view(), name='review-delete'),
+    path('reviews/<int:pk>/helpful/', FacilityMarkHelpfulView.as_view(), name='review-helpful'),
 ] 

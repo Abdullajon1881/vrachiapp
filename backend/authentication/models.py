@@ -2329,6 +2329,26 @@ class FacilityReview(models.Model):
         super().save(*args, **kwargs)
         self.facility.update_rating_cache()
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.facility.update_rating_cache()
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs) 
+        self._update_facility_rating()
+
+    def _update_facility_rating(self):
+        from django.db.models import Avg, Count
+        result = FacilityReview.objects.filter(
+            facility=self.facility
+            ).aggregate(
+                avg=Avg('rating'),
+                count=Count('id')
+                )
+        self.facility.avg_rating = round(result['avg'] or 0, 2)
+        self.facility.total_reviews = result['count']
+        self.facility.save(update_fields=['avg_rating', 'total_reviews'])
+
 
 class FacilityPhoto(models.Model):
     """Photos of a medical facility"""

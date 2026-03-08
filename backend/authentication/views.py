@@ -8786,5 +8786,42 @@ class FacilityReviewCreateView(generics.CreateAPIView):
     serializer_class = FacilityReviewSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class FacilityReviewListView(generics.ListAPIView):
+    serializer_class = FacilityReviewSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        facility_id = self.kwargs['pk']
+        return FacilityReview.objects.filter(
+            facility_id=facility_id
+        ).select_related('user', 'user__userprofile').order_by('-created_at')
+
+
+class FacilityReviewDeleteView(generics.DestroyAPIView):
+    serializer_class = FacilityReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return FacilityReview.objects.filter(user=self.request.user)
+
+
+class FacilityMarkHelpfulView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            review = FacilityReview.objects.get(pk=pk)
+            review.helpful_count += 1
+            review.save(update_fields=['helpful_count'])
+            return Response({'helpful_count': review.helpful_count})
+        except FacilityReview.DoesNotExist:
+            return Response({'error': 'Review not found'}, status=404)
