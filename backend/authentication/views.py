@@ -5248,3 +5248,389 @@ def neurology_summary(request, patient_id=None):
         })
     except Exception as e:
         return Response({'error': f'Summary failed: {str(e)}'}, status=500)
+
+
+# PHARMACY MODULE
+
+from .models import Medication, PatientMedication, MedicationIntakeLog, DrugInteractionCheck
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def patient_medications(request):
+    """Get or add medications for a patient"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            meds = PatientMedication.objects.filter(
+                patient_id=patient_id
+            ).select_related('prescribed_by')
+        else:
+            meds = PatientMedication.objects.filter(
+                patient=user
+            ).select_related('prescribed_by')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            meds = meds.filter(status=status_filter)
+
+        # Refill alerts
+        refill_soon = []
+        for med in meds.filter(status='active'):
+            if med.days_until_refill is not None and med.days_until_refill <= 7:
+                refill_soon.append({
+                    'id': med.id,
+                    'medication_name': med.medication_name,
+                    'days_until_refill': med.days_until_refill,
+                    'refills_remaining': med.refills_remaining,
+                })
+
+        return Response({
+            'count': meds.count(),
+            'refill_alerts': refill_soon,
+            'medications': [{
+                'id': m.id,
+                'medication_name': m.medication_name,
+                'generic_name': m.generic_name,
+                'dosage': m.dosage,
+                'frequency': m.frequency,
+                'frequency_custom': m.frequency_custom,
+                'route': m.route,
+                'start_date': str(m.start_date),
+                'end_date': str(m.end_date) if m.end_date else None,
+                'status': m.status,
+                'purpose': m.purpose,
+                'instructions': m.instructions,
+                'side_effects_experienced': m.side_effects_experienced,
+                'refills_remaining': m.refills_remaining,
+                'last_refill_date': str(m.last_refill_date) if m.last_refill_date else None,
+                'next_refill_date': str(m.next_refill_date) if m.next_refill_date else None,
+                'days_until_refill': m.days_until_refill,
+                'prescribed_by': m.prescribed_by.full_name if m.prescribed_by else None,
+                'notes': m.notes,
+                'created_at': m.created_at.isoformat(),
+            } for m in meds],
+        })
+
+    # POST — doctors add, patients can add OTC meds
+    required = ['medication_name', 'dosage', 'start_date']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    patient_id = request.data.get('patient_id')
+    if patient_id and user.role in ['doctor', 'admin']:
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+        prescribed_by = user
+    else:
+        target_patient = user
+        prescribed_by = None
+
+    med = PatientMedication.objects.create(
+        patient=target_patient,
+        prescribed_by=prescribed_by,
+        medication_name=request.data.get('medication_name'),
+        generic_name=request.data.get('generic_name', ''),
+        dosage=request.data.get('dosage'),
+        frequency=request.data.get('frequency', 'once_daily'),
+        frequency_custom=request.data.get('frequency_custom', ''),
+        route=request.data.get('route', ''),
+        start_date=request.data.get('start_date'),
+        end_date=request.data.get('end_date'),
+        status='active',
+        purpose=request.data.get('purpose', ''),
+        instructions=request.data.get('instructions', ''),
+        refills_remaining=request.data.get('refills_remaining', 0),
+        next_refill_date=request.data.get('next_refill_date'),
+        notes=request.data.get('notes', ''),
+    )
+
+    # Notify patient if doctor added it
+    if prescribed_by:
+        create_notification(
+            recipient=target_patient,
+            sender=user,
+            notification_type='general',
+            title='New Medication Prescribed',
+            message=f'Dr. {user.full_name} prescribed {med.medication_name} {med.dosage}.',
+            link='/pharmacy/',
+        )
+
+    return Response({
+        'message': 'Medication added successfully',
+        'id': med.id,
+        'medication_name': med.medication_name,
+        'dosage': med.dosage,
+        'frequency': med.frequency,
+        'status': med.status,
+    }, status=201)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def medication_detail(request, med_id):
+    """Get, update or delete a medication record"""
+    try:
+        med = PatientMedication.objects.get(id=med_id)
+    except PatientMedication.DoesNotExist:
+        return Response({'error': 'Medication not found'}, status=404)
+
+    user = request.user
+    if med.patient != user and user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        logs = MedicationIntakeLog.objects.filter(medication=med)[:10]
+        return Response({
+            'id': med.id,
+            'medication_name': med.medication_name,
+            'dosage': med.dosage,
+            'frequency': med.frequency,
+            'status': med.status,
+            'start_date': str(med.start_date),
+            'end_date': str(med.end_date) if med.end_date else None,
+            'purpose': med.purpose,
+            'instructions': med.instructions,
+            'side_effects_experienced': med.side_effects_experienced,
+            'refills_remaining': med.refills_remaining,
+            'next_refill_date': str(med.next_refill_date) if med.next_refill_date else None,
+            'days_until_refill': med.days_until_refill,
+            'notes': med.notes,
+            'recent_logs': [{
+                'status': l.status,
+                'scheduled_time': l.scheduled_time.isoformat(),
+                'taken_at': l.taken_at.isoformat() if l.taken_at else None,
+                'notes': l.notes,
+            } for l in logs],
+        })
+
+    if request.method == 'PATCH':
+        updatable = [
+            'status', 'end_date', 'refills_remaining', 'last_refill_date',
+            'next_refill_date', 'side_effects_experienced', 'notes',
+            'instructions', 'dosage', 'frequency'
+        ]
+        for field in updatable:
+            if field in request.data:
+                setattr(med, field, request.data[field])
+        med.save()
+        return Response({'message': 'Medication updated successfully'})
+
+    if request.method == 'DELETE':
+        if med.patient != user and user.role != 'admin':
+            return Response({'error': 'Permission denied'}, status=403)
+        med.delete()
+        return Response({'message': 'Medication deleted successfully'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def log_medication_intake(request, med_id):
+    """Log a medication intake event"""
+    try:
+        med = PatientMedication.objects.get(id=med_id)
+    except PatientMedication.DoesNotExist:
+        return Response({'error': 'Medication not found'}, status=404)
+
+    if med.patient != request.user:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    status_val = request.data.get('status', 'taken')
+    if status_val not in ['taken', 'missed', 'skipped', 'delayed']:
+        return Response({'error': 'Invalid status'}, status=400)
+
+    log = MedicationIntakeLog.objects.create(
+        medication=med,
+        scheduled_time=request.data.get('scheduled_time', timezone.now()),
+        taken_at=timezone.now() if status_val == 'taken' else None,
+        status=status_val,
+        notes=request.data.get('notes', ''),
+    )
+
+    return Response({
+        'message': f'Medication intake logged as {status_val}',
+        'log_id': log.id,
+        'medication': med.medication_name,
+        'status': status_val,
+        'taken_at': log.taken_at.isoformat() if log.taken_at else None,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_drug_interactions(request):
+    """AI-powered drug interaction checker"""
+    user = request.user
+    medications = request.data.get('medications', [])
+
+    if len(medications) < 2:
+        return Response({
+            'error': 'At least 2 medications are required to check interactions'
+        }, status=400)
+
+    if len(medications) > 10:
+        return Response({'error': 'Maximum 10 medications per check'}, status=400)
+
+    # Get patient's active meds to add context
+    patient_id = request.data.get('patient_id')
+    if patient_id and user.role in ['doctor', 'admin']:
+        try:
+            target_patient = User.objects.get(id=patient_id)
+        except User.DoesNotExist:
+            target_patient = user
+    else:
+        target_patient = user
+
+    meds_list = "\n".join([f"- {m}" for m in medications])
+
+    prompt = f"""Ты клинический фармацевт. Проверь взаимодействие между следующими препаратами и дай профессиональное заключение на русском языке.
+
+Препараты для проверки:
+{meds_list}
+
+Ответь ТОЛЬКО в формате JSON (без markdown, без лишнего текста):
+{{
+  "severity": "none|minor|moderate|major|contraindicated",
+  "interaction_found": true/false,
+  "interactions": [
+    {{
+      "drug1": "название препарата 1",
+      "drug2": "название препарата 2", 
+      "severity": "minor|moderate|major|contraindicated",
+      "description": "описание взаимодействия",
+      "recommendation": "рекомендация"
+    }}
+  ],
+  "general_recommendations": "общие рекомендации",
+  "consult_doctor": true/false,
+  "summary": "краткое резюме на русском (2-3 предложения)"
+}}"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1000,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        raw = response.content[0].text.strip()
+        if '```' in raw:
+            raw = raw.split('```')[1]
+            if raw.startswith('json'):
+                raw = raw[4:]
+
+        analysis = json.loads(raw)
+
+        # Save the check
+        check = DrugInteractionCheck.objects.create(
+            patient=target_patient,
+            medications_checked=medications,
+            interaction_found=analysis.get('interaction_found', False),
+            severity=analysis.get('severity', 'none'),
+            ai_analysis=analysis.get('summary', ''),
+            checked_by=user,
+        )
+
+        return Response({
+            'check_id': check.id,
+            'medications_checked': medications,
+            'checked_at': check.checked_at.isoformat(),
+            'analysis': analysis,
+        })
+
+    except json.JSONDecodeError:
+        return Response({'error': 'Failed to parse AI response'}, status=500)
+    except Exception as e:
+        return Response({'error': f'Interaction check failed: {str(e)}'}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pharmacy_summary(request, patient_id=None):
+    """AI-powered pharmacy summary — full medication overview"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    active_meds = PatientMedication.objects.filter(
+        patient=target_patient, status='active'
+    ).select_related('prescribed_by')
+
+    all_meds = PatientMedication.objects.filter(
+        patient=target_patient
+    ).select_related('prescribed_by')
+
+    if not all_meds.exists():
+        return Response({
+            'patient_name': target_patient.full_name,
+            'active_count': 0,
+            'summary': 'Нет данных о принимаемых препаратах.',
+        })
+
+    active_text = "\n".join([
+        f"- {m.medication_name} {m.dosage} ({m.frequency})"
+        f"{' — prescribed by Dr.' + m.prescribed_by.full_name if m.prescribed_by else ''}"
+        for m in active_meds
+    ])
+
+    refill_alerts = [
+        m for m in active_meds
+        if m.days_until_refill is not None and m.days_until_refill <= 7
+    ]
+
+    prompt = f"""Ты клинический фармацевт. Проанализируй схему лечения пациента.
+
+Пациент: {target_patient.full_name}
+
+Активные препараты:
+{active_text if active_text else 'Нет активных препаратов'}
+
+Всего препаратов в истории: {all_meds.count()}
+Требуют пополнения в течение 7 дней: {len(refill_alerts)}
+
+Дай краткое профессиональное резюме на русском:
+1. **Текущая схема лечения**
+2. **Потенциальные взаимодействия** (если есть)
+3. **Рекомендации по приёму**
+4. **Предупреждения** (если есть 🔴)"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        return Response({
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'active_count': active_meds.count(),
+            'total_count': all_meds.count(),
+            'refill_alerts_count': len(refill_alerts),
+            'summary': response.content[0].text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Summary failed: {str(e)}'}, status=500)
+    

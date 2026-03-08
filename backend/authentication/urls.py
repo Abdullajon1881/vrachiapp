@@ -161,4 +161,12 @@ urlpatterns = [
     path('dental/chart/<int:patient_id>/tooth/<int:fdi_number>/xray/', views.upload_tooth_xray, name='upload_tooth_xray'),
     path('dental/treatment/<int:treatment_id>/delete/', views.delete_tooth_treatment, name='delete_tooth_treatment'),
 
+    # Pharmacy module
+    path('pharmacy/medications/', views.patient_medications, name='patient_medications'),
+    path('pharmacy/medications/<int:med_id>/', views.medication_detail, name='medication_detail'),
+    path('pharmacy/medications/<int:med_id>/log/', views.log_medication_intake, name='log_medication_intake'),
+    path('pharmacy/interactions/', views.check_drug_interactions, name='check_drug_interactions'),
+    path('pharmacy/summary/', views.pharmacy_summary, name='pharmacy_summary'),
+    path('pharmacy/summary/<int:patient_id>/', views.pharmacy_summary, name='pharmacy_summary_patient'),
+
 ] 

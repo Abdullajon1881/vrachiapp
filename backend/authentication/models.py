@@ -954,3 +954,163 @@ class NeurologyVisit(models.Model):
 
     def __str__(self):
         return f"Neurology visit — {self.patient.full_name} ({self.visit_date})"
+    
+# ============================================
+# PHARMACY MODULE
+# ============================================
+
+class Medication(models.Model):
+    """Master list of medications in the system"""
+    name = models.CharField(max_length=200)
+    generic_name = models.CharField(max_length=200, blank=True)
+    drug_class = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    common_side_effects = models.TextField(blank=True)
+    contraindications = models.TextField(blank=True)
+    requires_prescription = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class PatientMedication(models.Model):
+    """A medication currently or previously taken by a patient"""
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('paused', 'Paused'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    FREQUENCY_CHOICES = [
+        ('once_daily', 'Once Daily'),
+        ('twice_daily', 'Twice Daily'),
+        ('three_times_daily', 'Three Times Daily'),
+        ('four_times_daily', 'Four Times Daily'),
+        ('every_other_day', 'Every Other Day'),
+        ('weekly', 'Weekly'),
+        ('as_needed', 'As Needed'),
+        ('other', 'Other'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='patient_medications'
+    )
+    prescribed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='prescribed_medications'
+    )
+    medication_name = models.CharField(max_length=200)
+    generic_name = models.CharField(max_length=200, blank=True)
+    dosage = models.CharField(max_length=100)
+    # e.g. "500mg", "10ml", "1 tablet"
+    frequency = models.CharField(
+        max_length=20, choices=FREQUENCY_CHOICES, default='once_daily'
+    )
+    frequency_custom = models.CharField(max_length=200, blank=True)
+    route = models.CharField(
+        max_length=50, blank=True,
+        # e.g. oral, injection, topical, inhaled
+    )
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='active'
+    )
+    purpose = models.CharField(max_length=300, blank=True)
+    instructions = models.TextField(blank=True)
+    side_effects_experienced = models.TextField(blank=True)
+    refills_remaining = models.IntegerField(default=0)
+    last_refill_date = models.DateField(null=True, blank=True)
+    next_refill_date = models.DateField(null=True, blank=True)
+    prescription = models.ForeignKey(
+        'Prescription', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='patient_medications'
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.medication_name} — {self.patient.full_name} ({self.status})"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    @property
+    def days_until_refill(self):
+        if self.next_refill_date:
+            delta = self.next_refill_date - date.today()
+            return delta.days
+        return None
+
+
+class MedicationIntakeLog(models.Model):
+    """Log of each time a patient takes their medication"""
+    STATUS_CHOICES = [
+        ('taken', 'Taken'),
+        ('missed', 'Missed'),
+        ('skipped', 'Skipped'),
+        ('delayed', 'Delayed'),
+    ]
+
+    medication = models.ForeignKey(
+        PatientMedication, on_delete=models.CASCADE,
+        related_name='intake_logs'
+    )
+    scheduled_time = models.DateTimeField()
+    taken_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default='taken'
+    )
+    notes = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-scheduled_time']
+
+    def __str__(self):
+        return f"{self.medication.medication_name} — {self.status} at {self.scheduled_time}"
+
+
+class DrugInteractionCheck(models.Model):
+    """Record of drug interaction checks performed"""
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='interaction_checks'
+    )
+    medications_checked = models.JSONField()
+    # List of medication names checked
+    interaction_found = models.BooleanField(default=False)
+    severity = models.CharField(
+        max_length=20,
+        choices=[
+            ('none', 'No Interaction'),
+            ('minor', 'Minor'),
+            ('moderate', 'Moderate'),
+            ('major', 'Major'),
+            ('contraindicated', 'Contraindicated'),
+        ],
+        default='none'
+    )
+    ai_analysis = models.TextField(blank=True)
+    checked_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='performed_interaction_checks'
+    )
+    checked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-checked_at']
+
+    def __str__(self):
+        return f"Interaction check for {self.patient.full_name} — {self.severity}"
