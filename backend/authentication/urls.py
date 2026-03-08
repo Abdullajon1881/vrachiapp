@@ -137,5 +137,10 @@ urlpatterns = [
     # SMS notifications
     path('sms/test/', views.send_test_sms, name='send_test_sms'),
 
+    # AI Medical History
+    path('ai/medical-summary/', views.ai_medical_summary, name='ai_medical_summary'),
+    path('ai/medical-summary/<int:patient_id>/', views.ai_medical_summary, name='ai_medical_summary_patient'),
+    path('ai/risk-assessment/', views.ai_patient_risk_assessment, name='ai_patient_risk_assessment'),
+    path('ai/risk-assessment/<int:patient_id>/', views.ai_patient_risk_assessment, name='ai_patient_risk_assessment_patient'),
 
 ] 

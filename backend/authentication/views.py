@@ -3906,3 +3906,215 @@ def send_test_sms(request):
     if success:
         return Response({'message': f'Test SMS sent to {phone}'})
     return Response({'message': f'SMS disabled or failed. Check SMS_ENABLED in .env', 'sent': False})
+
+# ============================================
+# AI MEDICAL HISTORY SUMMARY
+# ============================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ai_medical_summary(request, patient_id=None):
+    """Generate AI-powered medical history summary for a patient"""
+    user = request.user
+
+    # Determine which patient to summarize
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required for doctors/admins'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    # Gather all medical data
+    medical_records = MedicalRecord.objects.filter(
+        patient=target_patient
+    ).select_related('doctor').order_by('-created_at')[:20]
+
+    appointments = Appointment.objects.filter(
+        patient=target_patient,
+        status='completed'
+    ).select_related('doctor').order_by('-appointment_date')[:10]
+
+    vital_signs = VitalSigns.objects.filter(
+        patient=target_patient
+    ).order_by('-recorded_at')[:10] if hasattr(target_patient, 'vital_signs') else []
+
+    if not medical_records.exists() and not appointments.exists():
+        return Response({
+            'patient_id': target_patient.id,
+            'patient_name': target_patient.full_name,
+            'summary': None,
+            'message': 'No medical history found for this patient',
+        })
+
+    # Build context for Claude
+    records_text = ""
+    for r in medical_records:
+        records_text += (
+            f"\n- [{r.record_type.upper()}] {r.title} "
+            f"(by Dr. {r.doctor.full_name}, {r.created_at.strftime('%Y-%m-%d')}): "
+            f"{r.description[:300]}"
+        )
+
+    appointments_text = ""
+    for a in appointments:
+        appointments_text += (
+            f"\n- {a.appointment_date} with Dr. {a.doctor.full_name}"
+            f"{' — ' + a.doctor_notes[:200] if a.doctor_notes else ''}"
+        )
+
+    vitals_text = ""
+    if vital_signs:
+        latest = vital_signs[0] if vital_signs else None
+        if latest:
+            vitals_text = (
+                f"\nLatest vitals ({latest.recorded_at.strftime('%Y-%m-%d')}): "
+                f"BP: {getattr(latest, 'blood_pressure', 'N/A')}, "
+                f"HR: {getattr(latest, 'heart_rate', 'N/A')} bpm, "
+                f"Temp: {getattr(latest, 'temperature', 'N/A')}°C, "
+                f"Weight: {getattr(latest, 'weight', 'N/A')} kg"
+            )
+
+    patient_age = ""
+    if hasattr(target_patient, 'profile') and target_patient.profile:
+        dob = getattr(target_patient.profile, 'date_of_birth', None)
+        if dob:
+            from datetime import date as date_type
+            age = (date_type.today() - dob).days // 365
+            patient_age = f", Age: {age}"
+
+    prompt = f"""You are a medical AI assistant. Analyze this patient's medical history and create a comprehensive summary in Russian.
+
+Patient: {target_patient.full_name}{patient_age}
+
+MEDICAL RECORDS:
+{records_text if records_text else 'No records available'}
+
+COMPLETED APPOINTMENTS:
+{appointments_text if appointments_text else 'No completed appointments'}
+
+VITAL SIGNS:
+{vitals_text if vitals_text else 'No vital signs recorded'}
+
+Please provide a structured medical summary in Russian with these sections:
+1. **Общая картина здоровья** — overall health status
+2. **Основные диагнозы и состояния** — main diagnoses and conditions
+3. **История лечения** — treatment history
+4. **Текущие показатели** — current vitals if available
+5. **Рекомендации** — recommendations for the patient or doctor
+6. **Важные предупреждения** — any red flags or urgent concerns (if any)
+
+Be concise, professional, and clinically accurate. Use simple language where possible."""
+
+    try:
+        from django.conf import settings as django_settings
+        import anthropic
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1500,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        summary_text = response.content[0].text
+
+        return Response({
+            'patient_id': target_patient.id,
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'data_points': {
+                'medical_records': medical_records.count(),
+                'appointments': appointments.count(),
+                'has_vitals': bool(vitals_text),
+            },
+            'summary': summary_text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'AI summary generation failed: {str(e)}'}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ai_patient_risk_assessment(request, patient_id=None):
+    """AI-powered risk assessment for a patient based on their history"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    # Gather records
+    medical_records = MedicalRecord.objects.filter(
+        patient=target_patient
+    ).order_by('-created_at')[:15]
+
+    if not medical_records.exists():
+        return Response({
+            'patient_id': target_patient.id,
+            'risk_level': 'unknown',
+            'message': 'Insufficient medical history for risk assessment',
+        })
+
+    records_text = "\n".join([
+        f"- [{r.record_type}] {r.title}: {r.description[:200]}"
+        for r in medical_records
+    ])
+
+    prompt = f"""Based on this patient's medical records, provide a brief risk assessment in Russian.
+
+Patient: {target_patient.full_name}
+Medical Records:
+{records_text}
+
+Respond ONLY with a JSON object (no markdown, no extra text):
+{{
+  "risk_level": "low|medium|high",
+  "risk_factors": ["factor1", "factor2"],
+  "protective_factors": ["factor1", "factor2"],
+  "immediate_concerns": ["concern1"],
+  "recommended_screenings": ["screening1", "screening2"],
+  "lifestyle_recommendations": ["recommendation1"],
+  "summary": "2-3 sentence summary in Russian"
+}}"""
+
+    try:
+        from django.conf import settings as django_settings
+        import anthropic
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        raw = response.content[0].text.strip()
+        # Clean JSON
+        if '```' in raw:
+            raw = raw.split('```')[1]
+            if raw.startswith('json'):
+                raw = raw[4:]
+        assessment = json.loads(raw)
+
+        return Response({
+            'patient_id': target_patient.id,
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'assessment': assessment,
+        })
+
+    except json.JSONDecodeError:
+        return Response({'error': 'Failed to parse AI response'}, status=500)
+    except Exception as e:
+        return Response({'error': f'Risk assessment failed: {str(e)}'}, status=500)
