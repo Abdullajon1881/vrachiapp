@@ -1889,3 +1889,132 @@ class PediatricVisit(models.Model):
 
     def __str__(self):
         return f"{self.visit_type} — {self.child.full_name} ({self.visit_date})"
+    
+
+
+# ============================================
+# LAB RESULTS MODULE
+# ============================================
+
+class LabOrder(models.Model):
+    """Lab test order issued by a doctor"""
+    STATUS_CHOICES = [
+        ('ordered', 'Ordered'),
+        ('sample_collected', 'Sample Collected'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('routine', 'Routine'),
+        ('urgent', 'Urgent'),
+        ('stat', 'STAT (Emergency)'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='lab_orders'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='issued_lab_orders'
+    )
+    order_date = models.DateField()
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='ordered'
+    )
+    priority = models.CharField(
+        max_length=10, choices=PRIORITY_CHOICES, default='routine'
+    )
+    clinical_notes = models.TextField(blank=True)
+    diagnosis_code = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-order_date']
+
+    def __str__(self):
+        return f"Lab order — {self.patient.full_name} ({self.order_date}) [{self.status}]"
+
+
+class LabTest(models.Model):
+    """Individual lab test within an order"""
+    CATEGORY_CHOICES = [
+        ('hematology', 'Hematology (CBC)'),
+        ('biochemistry', 'Biochemistry'),
+        ('urine', 'Urinalysis'),
+        ('microbiology', 'Microbiology'),
+        ('immunology', 'Immunology/Serology'),
+        ('hormones', 'Hormones/Endocrinology'),
+        ('coagulation', 'Coagulation'),
+        ('tumor_markers', 'Tumor Markers'),
+        ('vitamins', 'Vitamins & Minerals'),
+        ('cardiac', 'Cardiac Markers'),
+        ('lipids', 'Lipid Panel'),
+        ('liver', 'Liver Function'),
+        ('kidney', 'Kidney Function'),
+        ('thyroid', 'Thyroid Function'),
+        ('diabetes', 'Diabetes Panel'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    order = models.ForeignKey(
+        LabOrder, on_delete=models.CASCADE,
+        related_name='tests'
+    )
+    test_name = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='pending'
+    )
+    result_value = models.CharField(max_length=200, blank=True)
+    result_unit = models.CharField(max_length=50, blank=True)
+    reference_range_min = models.FloatField(null=True, blank=True)
+    reference_range_max = models.FloatField(null=True, blank=True)
+    reference_range_text = models.CharField(max_length=100, blank=True)
+    is_abnormal = models.BooleanField(default=False)
+    abnormal_flag = models.CharField(
+        max_length=5, blank=True,
+        choices=[('H', 'High'), ('L', 'Low'), ('HH', 'Critical High'), ('LL', 'Critical Low'), ('A', 'Abnormal')]
+    )
+    result_date = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['category', 'test_name']
+
+    def __str__(self):
+        return f"{self.test_name} — {self.order.patient.full_name}"
+
+
+class LabReport(models.Model):
+    """Full lab report attached to an order"""
+    order = models.OneToOneField(
+        LabOrder, on_delete=models.CASCADE,
+        related_name='report'
+    )
+    reported_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='lab_reports'
+    )
+    report_date = models.DateTimeField()
+    summary = models.TextField(blank=True)
+    ai_interpretation = models.TextField(blank=True)
+    report_file = models.FileField(
+        upload_to='lab_reports/', null=True, blank=True
+    )
+    is_reviewed_by_doctor = models.BooleanField(default=False)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Lab report — {self.order.patient.full_name} ({self.report_date.date()})"

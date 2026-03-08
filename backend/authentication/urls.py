@@ -201,4 +201,10 @@ urlpatterns = [
     path('pediatrics/children/<int:child_id>/visits/', views.pediatric_visits, name='pediatric_visits'),
     path('pediatrics/children/<int:child_id>/summary/', views.pediatrics_summary, name='pediatrics_summary'),
 
+    # Lab results module
+    path('lab/orders/', views.lab_orders, name='lab_orders'),
+    path('lab/orders/<int:order_id>/', views.lab_order_detail, name='lab_order_detail'),
+    path('lab/orders/<int:order_id>/results/', views.submit_lab_results, name='submit_lab_results'),
+    path('lab/orders/<int:order_id>/interpret/', views.generate_lab_ai_interpretation, name='generate_lab_ai_interpretation'),
+
 ] 

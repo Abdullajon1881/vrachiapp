@@ -25,6 +25,8 @@ from .ai_service import ai_service
 import html
 from django.core.cache import cache
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from .models import LabOrder, LabTest, LabReport
+
 
 from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message, UserProfile
 from .serializers import (
@@ -7373,3 +7375,312 @@ def pediatrics_summary(request, child_id):
 
     except Exception as e:
         return Response({'error': f'Summary failed: {str(e)}'}, status=500)
+    
+# LAB RESULTS MODULE
+
+from .models import LabOrder, LabTest, LabReport
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def lab_orders(request):
+    """Get or create lab orders"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            orders = LabOrder.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor').prefetch_related('tests')
+        elif user.role == 'patient':
+            orders = LabOrder.objects.filter(
+                patient=user
+            ).select_related('doctor').prefetch_related('tests')
+        elif user.role == 'doctor':
+            orders = LabOrder.objects.filter(
+                doctor=user
+            ).select_related('patient').prefetch_related('tests')
+        else:
+            orders = LabOrder.objects.all().select_related('doctor', 'patient')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            orders = orders.filter(status=status_filter)
+
+        return Response({
+            'count': orders.count(),
+            'orders': [{
+                'id': o.id,
+                'order_date': str(o.order_date),
+                'status': o.status,
+                'priority': o.priority,
+                'patient': o.patient.full_name,
+                'doctor': o.doctor.full_name if o.doctor else None,
+                'clinical_notes': o.clinical_notes,
+                'tests_count': o.tests.count(),
+                'abnormal_count': o.tests.filter(is_abnormal=True).count(),
+                'created_at': o.created_at.isoformat(),
+            } for o in orders],
+        })
+
+    # POST — doctors only
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can create lab orders'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('order_date'):
+        return Response({'error': 'patient_id and order_date are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    order = LabOrder.objects.create(
+        patient=target_patient,
+        doctor=user,
+        order_date=request.data.get('order_date'),
+        status='ordered',
+        priority=request.data.get('priority', 'routine'),
+        clinical_notes=request.data.get('clinical_notes', ''),
+        diagnosis_code=request.data.get('diagnosis_code', ''),
+    )
+
+    # Create individual tests if provided
+    tests_data = request.data.get('tests', [])
+    for test in tests_data:
+        LabTest.objects.create(
+            order=order,
+            test_name=test.get('test_name', ''),
+            category=test.get('category', 'other'),
+            status='pending',
+        )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Lab Tests Ordered',
+        message=f'Dr. {user.full_name} ordered {len(tests_data)} lab test(s) for you.',
+        link='/lab/',
+    )
+
+    return Response({
+        'message': 'Lab order created successfully',
+        'id': order.id,
+        'order_date': str(order.order_date),
+        'tests_created': len(tests_data),
+    }, status=201)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def lab_order_detail(request, order_id):
+    """Get or update a specific lab order"""
+    try:
+        order = LabOrder.objects.get(id=order_id)
+    except LabOrder.DoesNotExist:
+        return Response({'error': 'Lab order not found'}, status=404)
+
+    user = request.user
+    if order.patient != user and user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        tests = order.tests.all()
+        report = None
+        try:
+            r = order.report
+            report = {
+                'id': r.id,
+                'report_date': r.report_date.isoformat(),
+                'summary': r.summary,
+                'ai_interpretation': r.ai_interpretation,
+                'is_reviewed_by_doctor': r.is_reviewed_by_doctor,
+                'report_file': request.build_absolute_uri(r.report_file.url) if r.report_file else None,
+            }
+        except LabReport.DoesNotExist:
+            pass
+
+        return Response({
+            'id': order.id,
+            'order_date': str(order.order_date),
+            'status': order.status,
+            'priority': order.priority,
+            'patient': order.patient.full_name,
+            'doctor': order.doctor.full_name if order.doctor else None,
+            'clinical_notes': order.clinical_notes,
+            'tests': [{
+                'id': t.id,
+                'test_name': t.test_name,
+                'category': t.category,
+                'status': t.status,
+                'result_value': t.result_value,
+                'result_unit': t.result_unit,
+                'reference_range_min': t.reference_range_min,
+                'reference_range_max': t.reference_range_max,
+                'reference_range_text': t.reference_range_text,
+                'is_abnormal': t.is_abnormal,
+                'abnormal_flag': t.abnormal_flag,
+                'result_date': t.result_date.isoformat() if t.result_date else None,
+                'notes': t.notes,
+            } for t in tests],
+            'report': report,
+        })
+
+    # PATCH — update order status
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if 'status' in request.data:
+        order.status = request.data['status']
+    if 'clinical_notes' in request.data:
+        order.clinical_notes = request.data['clinical_notes']
+    order.save()
+
+    return Response({'message': 'Lab order updated successfully'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_lab_results(request, order_id):
+    """Submit results for lab tests in an order"""
+    if request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    try:
+        order = LabOrder.objects.get(id=order_id)
+    except LabOrder.DoesNotExist:
+        return Response({'error': 'Lab order not found'}, status=404)
+
+    results = request.data.get('results', [])
+    if not results:
+        return Response({'error': 'results array is required'}, status=400)
+
+    updated_tests = []
+    abnormal_tests = []
+
+    for result in results:
+        test_id = result.get('test_id')
+        try:
+            test = LabTest.objects.get(id=test_id, order=order)
+        except LabTest.DoesNotExist:
+            continue
+
+        test.result_value = result.get('result_value', '')
+        test.result_unit = result.get('result_unit', '')
+        test.reference_range_min = result.get('reference_range_min')
+        test.reference_range_max = result.get('reference_range_max')
+        test.reference_range_text = result.get('reference_range_text', '')
+        test.is_abnormal = result.get('is_abnormal', False)
+        test.abnormal_flag = result.get('abnormal_flag', '')
+        test.result_date = timezone.now()
+        test.notes = result.get('notes', '')
+        test.status = 'completed'
+        test.save()
+
+        updated_tests.append(test.test_name)
+        if test.is_abnormal:
+            abnormal_tests.append(f"{test.test_name} ({test.abnormal_flag})")
+
+    # Update order status
+    order.status = 'completed'
+    order.save()
+
+    # Notify patient
+    msg = f'Your lab results are ready. {len(updated_tests)} test(s) completed.'
+    if abnormal_tests:
+        msg += f' ⚠️ {len(abnormal_tests)} abnormal result(s) found.'
+
+    create_notification(
+        recipient=order.patient,
+        sender=request.user,
+        notification_type='general',
+        title='Lab Results Ready',
+        message=msg,
+        link=f'/lab/orders/{order.id}/',
+    )
+
+    return Response({
+        'message': 'Lab results submitted successfully',
+        'updated_tests': len(updated_tests),
+        'abnormal_tests': abnormal_tests,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_lab_ai_interpretation(request, order_id):
+    """Generate AI interpretation of lab results"""
+    try:
+        order = LabOrder.objects.get(id=order_id)
+    except LabOrder.DoesNotExist:
+        return Response({'error': 'Lab order not found'}, status=404)
+
+    if order.patient != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    tests = order.tests.filter(status='completed')
+    if not tests.exists():
+        return Response({'error': 'No completed tests to interpret'}, status=400)
+
+    # Build test results text
+    results_text = ""
+    for t in tests:
+        flag = f" [{t.abnormal_flag}]" if t.abnormal_flag else ""
+        ref = f" (ref: {t.reference_range_text or f'{t.reference_range_min}-{t.reference_range_max}'})" if (t.reference_range_text or t.reference_range_min) else ""
+        results_text += f"- {t.test_name}: {t.result_value} {t.result_unit}{ref}{flag}\n"
+
+    prompt = f"""Ты лаборант-ассистент. Интерпретируй результаты анализов пациента.
+
+Пациент: {order.patient.full_name}
+Дата заказа: {order.order_date}
+Клинические заметки: {order.clinical_notes or 'Нет'}
+
+Результаты анализов:
+{results_text}
+
+Дай краткую клиническую интерпретацию на русском:
+1. **Нормальные показатели**
+2. **Отклонения от нормы** (если есть)
+3. **Клиническое значение**
+4. **Рекомендации**
+5. **Требует срочного внимания** 🔴 (если есть критические значения)
+
+Важно: не ставь диагноз, только интерпретируй лабораторные данные."""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        interpretation = response.content[0].text
+
+        # Save to report
+        report, created = LabReport.objects.get_or_create(
+            order=order,
+            defaults={
+                'reported_by': request.user,
+                'report_date': timezone.now(),
+                'ai_interpretation': interpretation,
+            }
+        )
+        if not created:
+            report.ai_interpretation = interpretation
+            report.save()
+
+        return Response({
+            'order_id': order.id,
+            'patient': order.patient.full_name,
+            'tests_interpreted': tests.count(),
+            'abnormal_count': tests.filter(is_abnormal=True).count(),
+            'interpretation': interpretation,
+        })
+
+    except Exception as e:
+        return Response({'error': f'AI interpretation failed: {str(e)}'}, status=500)
