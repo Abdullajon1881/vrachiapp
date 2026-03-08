@@ -3003,3 +3003,173 @@ def send_test_email(request):
     """
     send_email_notification(recipient, "Healzy — Test Email", html)
     return Response({'message': f'Test email sent to {recipient}'})
+
+# ADDITIONAL API FEATURES
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Change user password"""
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not old_password or not new_password:
+        return Response({'error': 'old_password and new_password are required'}, status=400)
+
+    if not request.user.check_password(old_password):
+        return Response({'error': 'Current password is incorrect'}, status=400)
+
+    if len(new_password) < 8:
+        return Response({'error': 'New password must be at least 8 characters'}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save()
+    return Response({'message': 'Password changed successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_statistics(request):
+    """Get statistics for the current user"""
+    user = request.user
+
+    if user.role == 'patient':
+        stats = {
+            'total_appointments': user.patient_appointments.count(),
+            'upcoming_appointments': user.patient_appointments.filter(
+                status__in=['pending', 'confirmed'],
+                appointment_date__gte=date.today()
+            ).count(),
+            'completed_appointments': user.patient_appointments.filter(status='completed').count(),
+            'total_consultations': user.patient_consultations.count(),
+            'total_medical_records': user.medical_records.filter(is_visible_to_patient=True).count(),
+            'active_prescriptions': user.prescriptions.filter(status='active').count(),
+            'total_reviews_given': user.given_reviews.count(),
+            'unread_notifications': user.notifications.filter(is_read=False).count(),
+        }
+    elif user.role == 'doctor':
+        stats = {
+            'total_appointments': user.doctor_appointments.count(),
+            'upcoming_appointments': user.doctor_appointments.filter(
+                status__in=['pending', 'confirmed'],
+                appointment_date__gte=date.today()
+            ).count(),
+            'completed_appointments': user.doctor_appointments.filter(status='completed').count(),
+            'total_consultations': user.doctor_consultations.count(),
+            'completed_consultations': user.doctor_consultations.filter(status='completed').count(),
+            'total_patients': user.doctor_consultations.values('patient').distinct().count(),
+            'total_medical_records_created': user.created_records.count(),
+            'avg_rating': None,
+            'total_reviews': user.received_reviews.count(),
+            'unread_notifications': user.notifications.filter(is_read=False).count(),
+        }
+        reviews = user.received_reviews.all()
+        if reviews.exists():
+            stats['avg_rating'] = round(
+                sum(r.rating for r in reviews) / reviews.count(), 1
+            )
+    else:
+        stats = {
+            'total_users': User.objects.count(),
+            'total_doctors': User.objects.filter(role='doctor').count(),
+            'total_patients': User.objects.filter(role='patient').count(),
+            'total_consultations': Consultation.objects.count(),
+            'total_appointments': Appointment.objects.count(),
+        }
+
+    return Response({'role': user.role, 'statistics': stats})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_issue(request):
+    """Report a bug or issue"""
+    title = request.data.get('title', '').strip()
+    description = request.data.get('description', '').strip()
+    category = request.data.get('category', 'general')
+
+    if not title or not description:
+        return Response({'error': 'title and description are required'}, status=400)
+
+    # Send to Telegram support
+    import html as html_lib
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    chat_id = getattr(settings, 'TELEGRAM_SUPPORT_CHAT_ID', '')
+
+    if bot_token and chat_id:
+        try:
+            import requests as req
+            text = (
+                f"🐛 Bug Report\n"
+                f"👤 User: {html_lib.escape(request.user.full_name)} (ID: {request.user.id})\n"
+                f"📧 Email: {html_lib.escape(request.user.email)}\n"
+                f"🔖 Category: {html_lib.escape(category)}\n"
+                f"📌 Title: {html_lib.escape(title)}\n\n"
+                f"📝 Description:\n{html_lib.escape(description)}"
+            )
+            req.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={'chat_id': chat_id, 'text': text},
+                timeout=5
+            )
+        except Exception:
+            pass
+
+    return Response({'message': 'Issue reported successfully. Thank you!'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search_global(request):
+    """Global search across doctors, records and appointments"""
+    query = request.query_params.get('q', '').strip()
+    if len(query) < 2:
+        return Response({'error': 'Query must be at least 2 characters'}, status=400)
+
+    results = {}
+    user = request.user
+
+    # Search doctors
+    doctors = User.objects.filter(
+        role='doctor',
+        is_active=True
+    ).filter(
+        models.Q(first_name__icontains=query) |
+        models.Q(last_name__icontains=query) |
+        models.Q(profile__specialization__icontains=query)
+    ).select_related('profile')[:5]
+
+    results['doctors'] = [{
+        'id': d.id,
+        'full_name': d.full_name,
+        'specialization': getattr(d.profile, 'specialization', None) if hasattr(d, 'profile') else None,
+        'avatar': d.avatar,
+    } for d in doctors]
+
+    # Search medical records (for patients and doctors)
+    if user.role == 'patient':
+        records = MedicalRecord.objects.filter(
+            patient=user,
+            is_visible_to_patient=True
+        ).filter(
+            models.Q(title__icontains=query) |
+            models.Q(description__icontains=query)
+        )[:5]
+    elif user.role == 'doctor':
+        records = MedicalRecord.objects.filter(
+            doctor=user
+        ).filter(
+            models.Q(title__icontains=query) |
+            models.Q(description__icontains=query)
+        )[:5]
+    else:
+        records = MedicalRecord.objects.none()
+
+    results['medical_records'] = [{
+        'id': r.id,
+        'title': r.title,
+        'record_type': r.record_type,
+        'created_at': r.created_at.isoformat(),
+    } for r in records]
+
+    return Response({'query': query, 'results': results})

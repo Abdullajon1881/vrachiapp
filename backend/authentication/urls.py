@@ -113,4 +113,11 @@ urlpatterns = [
         # Email notifications
     path('email/test/', views.send_test_email, name='send_test_email'),
 
+    # Additional features
+    path('change-password/', views.change_password, name='change_password'),
+    path('statistics/', views.user_statistics, name='user_statistics'),
+    path('report-issue/', views.report_issue, name='report_issue'),
+    path('search/', views.search_global, name='search_global'),
+
+
 ] 
