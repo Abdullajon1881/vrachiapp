@@ -361,5 +361,5 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
-from decouple import config
-ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY')
+import os
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
