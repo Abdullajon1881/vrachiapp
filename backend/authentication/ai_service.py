@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 import os
 client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-haiku-4-5-20251001"
 
 
 class HealzyAIService:
