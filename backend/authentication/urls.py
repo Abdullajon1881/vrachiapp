@@ -143,4 +143,12 @@ urlpatterns = [
     path('ai/risk-assessment/', views.ai_patient_risk_assessment, name='ai_patient_risk_assessment'),
     path('ai/risk-assessment/<int:patient_id>/', views.ai_patient_risk_assessment, name='ai_patient_risk_assessment_patient'),
 
+    # Video calls / telemedicine
+    path('video-calls/create/', views.create_video_call, name='create_video_call'),
+    path('video-calls/my/', views.my_video_calls, name='my_video_calls'),
+    path('video-calls/<str:room_id>/', views.get_video_call, name='get_video_call'),
+    path('video-calls/<str:room_id>/status/', views.update_video_call_status, name='update_video_call_status'),
+    path('video-calls/<str:room_id>/signal/', views.send_webrtc_signal, name='send_webrtc_signal'),
+    path('video-calls/<str:room_id>/signals/', views.get_webrtc_signals, name='get_webrtc_signals'),
+
 ] 

@@ -564,3 +564,71 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review by {self.patient.full_name} for Dr. {self.doctor.full_name} - {self.rating}/5"
+    
+# ============================================
+# VIDEO CALL MODELS
+# ============================================
+
+class VideoCall(models.Model):
+    STATUS_CHOICES = [
+        ('waiting', 'Waiting'),
+        ('active', 'Active'),
+        ('ended', 'Ended'),
+        ('missed', 'Missed'),
+    ]
+
+    appointment = models.OneToOneField(
+        Appointment, on_delete=models.CASCADE,
+        related_name='video_call', null=True, blank=True
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='doctor_video_calls'
+    )
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='patient_video_calls'
+    )
+    room_id = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"VideoCall {self.room_id} — {self.doctor.full_name} & {self.patient.full_name}"
+
+    @property
+    def duration_minutes(self):
+        return round(self.duration_seconds / 60, 1)
+
+
+class VideoCallSignal(models.Model):
+    SIGNAL_TYPES = [
+        ('offer', 'Offer'),
+        ('answer', 'Answer'),
+        ('ice_candidate', 'ICE Candidate'),
+        ('end_call', 'End Call'),
+    ]
+
+    call = models.ForeignKey(
+        VideoCall, on_delete=models.CASCADE,
+        related_name='signals'
+    )
+    sender = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='sent_signals'
+    )
+    signal_type = models.CharField(max_length=20, choices=SIGNAL_TYPES)
+    payload = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Video Call Signal'
+        verbose_name_plural = 'Video Call Signals'
+ 

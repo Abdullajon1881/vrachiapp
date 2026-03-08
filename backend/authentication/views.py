@@ -4118,3 +4118,226 @@ Respond ONLY with a JSON object (no markdown, no extra text):
         return Response({'error': 'Failed to parse AI response'}, status=500)
     except Exception as e:
         return Response({'error': f'Risk assessment failed: {str(e)}'}, status=500)
+    
+# VIDEO CALL / TELEMEDICINE
+
+from .models import VideoCall, VideoCallSignal
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_video_call(request):
+    """Create a new video call room"""
+    user = request.user
+    other_user_id = request.data.get('user_id')
+    appointment_id = request.data.get('appointment_id')
+
+    if not other_user_id:
+        return Response({'error': 'user_id is required'}, status=400)
+
+    try:
+        other_user = User.objects.get(id=other_user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    # Determine doctor and patient
+    if user.role == 'doctor' and other_user.role == 'patient':
+        doctor, patient = user, other_user
+    elif user.role == 'patient' and other_user.role == 'doctor':
+        doctor, patient = other_user, user
+    else:
+        return Response({'error': 'Video call must be between a doctor and a patient'}, status=400)
+
+    # Get appointment if provided
+    appointment = None
+    if appointment_id:
+        try:
+            appointment = Appointment.objects.get(
+                id=appointment_id, doctor=doctor, patient=patient
+            )
+        except Appointment.DoesNotExist:
+            pass
+
+    # Generate unique room ID
+    room_id = f"healzy_{uuid.uuid4().hex[:12]}"
+
+    # Create video call
+    call = VideoCall.objects.create(
+        doctor=doctor,
+        patient=patient,
+        appointment=appointment,
+        room_id=room_id,
+        status='waiting',
+    )
+
+    # Notify the other user
+    create_notification(
+        recipient=other_user,
+        sender=user,
+        notification_type='general',
+        title='Incoming Video Call',
+        message=f'{user.full_name} is calling you. Join the video call now.',
+        link=f'/video-call/{room_id}/',
+    )
+
+    # Send SMS notification
+    call_msg = f"Healzy: {user.full_name} начинает видеозвонок. Присоединитесь: healzy.uz/video-call/{room_id}/"
+    other_phone = getattr(other_user, 'phone_number', None)
+    if other_phone:
+        send_sms(other_phone, call_msg)
+
+    return Response({
+        'room_id': room_id,
+        'call_id': call.id,
+        'doctor': {'id': doctor.id, 'full_name': doctor.full_name, 'avatar': doctor.avatar},
+        'patient': {'id': patient.id, 'full_name': patient.full_name, 'avatar': patient.avatar},
+        'status': call.status,
+        'created_at': call.created_at.isoformat(),
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_video_call(request, room_id):
+    """Get video call details by room ID"""
+    try:
+        call = VideoCall.objects.get(room_id=room_id)
+    except VideoCall.DoesNotExist:
+        return Response({'error': 'Video call room not found'}, status=404)
+
+    if request.user not in [call.doctor, call.patient]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    return Response({
+        'room_id': call.room_id,
+        'call_id': call.id,
+        'status': call.status,
+        'doctor': {'id': call.doctor.id, 'full_name': call.doctor.full_name, 'avatar': call.doctor.avatar},
+        'patient': {'id': call.patient.id, 'full_name': call.patient.full_name, 'avatar': call.patient.avatar},
+        'started_at': call.started_at.isoformat() if call.started_at else None,
+        'ended_at': call.ended_at.isoformat() if call.ended_at else None,
+        'duration_minutes': call.duration_minutes,
+        'created_at': call.created_at.isoformat(),
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_video_call_status(request, room_id):
+    """Update video call status (active, ended, missed)"""
+    try:
+        call = VideoCall.objects.get(room_id=room_id)
+    except VideoCall.DoesNotExist:
+        return Response({'error': 'Video call room not found'}, status=404)
+
+    if request.user not in [call.doctor, call.patient]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    new_status = request.data.get('status')
+    if new_status not in ['active', 'ended', 'missed']:
+        return Response({'error': 'status must be active, ended or missed'}, status=400)
+
+    if new_status == 'active' and call.status == 'waiting':
+        call.started_at = timezone.now()
+
+    if new_status == 'ended' and call.started_at:
+        call.ended_at = timezone.now()
+        call.duration_seconds = int((call.ended_at - call.started_at).total_seconds())
+
+    call.status = new_status
+    call.save()
+
+    return Response({
+        'room_id': room_id,
+        'status': call.status,
+        'duration_seconds': call.duration_seconds,
+        'duration_minutes': call.duration_minutes,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_webrtc_signal(request, room_id):
+    """Send WebRTC signaling data (offer, answer, ICE candidate)"""
+    try:
+        call = VideoCall.objects.get(room_id=room_id)
+    except VideoCall.DoesNotExist:
+        return Response({'error': 'Video call room not found'}, status=404)
+
+    if request.user not in [call.doctor, call.patient]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    signal_type = request.data.get('signal_type')
+    payload = request.data.get('payload')
+
+    if signal_type not in ['offer', 'answer', 'ice_candidate', 'end_call']:
+        return Response({'error': 'Invalid signal_type'}, status=400)
+
+    if not payload:
+        return Response({'error': 'payload is required'}, status=400)
+
+    signal = VideoCallSignal.objects.create(
+        call=call,
+        sender=request.user,
+        signal_type=signal_type,
+        payload=payload,
+    )
+
+    return Response({
+        'signal_id': signal.id,
+        'signal_type': signal_type,
+        'created_at': signal.created_at.isoformat(),
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_webrtc_signals(request, room_id):
+    """Poll for new WebRTC signals (for the other participant)"""
+    try:
+        call = VideoCall.objects.get(room_id=room_id)
+    except VideoCall.DoesNotExist:
+        return Response({'error': 'Video call room not found'}, status=404)
+
+    if request.user not in [call.doctor, call.patient]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    # Get signals sent by the OTHER user (not self)
+    after_id = request.query_params.get('after_id', 0)
+    signals = VideoCallSignal.objects.filter(
+        call=call,
+        id__gt=after_id,
+    ).exclude(sender=request.user).order_by('created_at')
+
+    return Response({
+        'signals': [{
+            'id': s.id,
+            'signal_type': s.signal_type,
+            'payload': s.payload,
+            'created_at': s.created_at.isoformat(),
+        } for s in signals],
+        'count': signals.count(),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_video_calls(request):
+    """Get video call history for the current user"""
+    user = request.user
+
+    if user.role == 'doctor':
+        calls = VideoCall.objects.filter(doctor=user).order_by('-created_at')[:20]
+    else:
+        calls = VideoCall.objects.filter(patient=user).order_by('-created_at')[:20]
+
+    data = [{
+        'room_id': c.room_id,
+        'call_id': c.id,
+        'status': c.status,
+        'doctor': {'id': c.doctor.id, 'full_name': c.doctor.full_name},
+        'patient': {'id': c.patient.id, 'full_name': c.patient.full_name},
+        'duration_minutes': c.duration_minutes,
+        'created_at': c.created_at.isoformat(),
+    } for c in calls]
+
+    return Response({'calls': data, 'count': len(data)})
