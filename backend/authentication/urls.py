@@ -125,5 +125,9 @@ urlpatterns = [
     path('appointments/history/', views.appointment_history, name='appointment_history'),
     path('appointments/<int:appointment_id>/reschedule/', views.reschedule_appointment, name='reschedule_appointment'),
 
+    # AI dialogue management
+    path('ai/dialogue/new/', views.start_new_ai_dialogue, name='start_new_ai_dialogue'),
+    path('ai/dialogue/<int:dialogue_id>/close/', views.close_ai_dialogue, name='close_ai_dialogue'),
+
 
 ] 

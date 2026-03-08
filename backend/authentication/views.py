@@ -3499,3 +3499,27 @@ def reschedule_appointment(request, appointment_id):
         'new_time': new_time,
         'status': appointment.status,
     })
+
+# AI DIALOGUE MANAGEMENT
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def start_new_ai_dialogue(request):
+    """Start a fresh AI dialogue (clears history)"""
+    title = request.data.get('title', '')
+    dialogue = ai_service.start_new_dialogue(request.user, title or None)
+    return Response({
+        'message': 'New dialogue started',
+        'dialogue_id': dialogue.id,
+        'title': dialogue.title,
+    }, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def close_ai_dialogue(request, dialogue_id):
+    """Close a specific AI dialogue"""
+    success = ai_service.close_dialogue(request.user, dialogue_id)
+    if success:
+        return Response({'message': 'Dialogue closed'})
+    return Response({'error': 'Dialogue not found'}, status=404)
