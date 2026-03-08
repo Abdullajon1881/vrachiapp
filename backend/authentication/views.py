@@ -5997,3 +5997,479 @@ def ophthalmology_summary(request, patient_id=None):
 
     except Exception as e:
         return Response({'error': f'Summary failed: {str(e)}'}, status=500)
+    
+# ============================================
+# CARDIOLOGY MODULE
+# ============================================
+
+from .models import BloodPressureLog, ECGRecord, HeartCondition, CardiologyVisit
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def blood_pressure_logs(request):
+    """Get or add blood pressure logs"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            logs = BloodPressureLog.objects.filter(patient_id=patient_id)
+        else:
+            logs = BloodPressureLog.objects.filter(patient=user)
+
+        date_from = request.query_params.get('date_from')
+        if date_from:
+            logs = logs.filter(measured_at__date__gte=date_from)
+
+        date_to = request.query_params.get('date_to')
+        if date_to:
+            logs = logs.filter(measured_at__date__lte=date_to)
+
+        from django.db.models import Avg, Max, Min, Count
+        stats = logs.aggregate(
+            avg_systolic=Avg('systolic'),
+            avg_diastolic=Avg('diastolic'),
+            avg_pulse=Avg('pulse'),
+            max_systolic=Max('systolic'),
+            min_systolic=Min('systolic'),
+            total=Count('id'),
+        )
+
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        start = (page - 1) * page_size
+        paginated = logs[start:start + page_size]
+
+        return Response({
+            'stats': {
+                'total': stats['total'],
+                'avg_systolic': round(stats['avg_systolic'], 1) if stats['avg_systolic'] else None,
+                'avg_diastolic': round(stats['avg_diastolic'], 1) if stats['avg_diastolic'] else None,
+                'avg_pulse': round(stats['avg_pulse'], 1) if stats['avg_pulse'] else None,
+                'max_systolic': stats['max_systolic'],
+                'min_systolic': stats['min_systolic'],
+            },
+            'count': stats['total'],
+            'page': page,
+            'logs': [{
+                'id': l.id,
+                'systolic': l.systolic,
+                'diastolic': l.diastolic,
+                'pulse': l.pulse,
+                'position': l.position,
+                'arm': l.arm,
+                'measured_at': l.measured_at.isoformat(),
+                'category': l.category,
+                'category_label': l.category_label,
+                'notes': l.notes,
+            } for l in paginated],
+        })
+
+    # POST — patients and doctors can log BP
+    required = ['systolic', 'diastolic', 'measured_at']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    patient_id = request.data.get('patient_id')
+    if patient_id and user.role in ['doctor', 'admin']:
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        target_patient = user
+
+    systolic = int(request.data.get('systolic'))
+    diastolic = int(request.data.get('diastolic'))
+
+    if systolic < 50 or systolic > 300:
+        return Response({'error': 'Invalid systolic value'}, status=400)
+    if diastolic < 30 or diastolic > 200:
+        return Response({'error': 'Invalid diastolic value'}, status=400)
+
+    log = BloodPressureLog.objects.create(
+        patient=target_patient,
+        recorded_by=user if user != target_patient else None,
+        systolic=systolic,
+        diastolic=diastolic,
+        pulse=request.data.get('pulse'),
+        position=request.data.get('position', 'sitting'),
+        arm=request.data.get('arm', 'left'),
+        measured_at=request.data.get('measured_at'),
+        notes=request.data.get('notes', ''),
+    )
+
+    # Alert if BP is critical
+    if log.category in ['high_stage2', 'crisis']:
+        create_notification(
+            recipient=target_patient,
+            sender=None,
+            notification_type='general',
+            title='⚠️ High Blood Pressure Alert',
+            message=f'Your BP reading {systolic}/{diastolic} mmHg is {log.category_label}. Please consult your doctor.',
+            link='/cardiology/',
+        )
+
+    return Response({
+        'message': 'Blood pressure logged successfully',
+        'id': log.id,
+        'systolic': log.systolic,
+        'diastolic': log.diastolic,
+        'category': log.category,
+        'category_label': log.category_label,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ecg_records(request):
+    """Get or add ECG records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            records = ECGRecord.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        elif user.role == 'patient':
+            records = ECGRecord.objects.filter(
+                patient=user
+            ).select_related('doctor')
+        elif user.role == 'doctor':
+            records = ECGRecord.objects.filter(
+                doctor=user
+            ).select_related('patient')
+        else:
+            records = ECGRecord.objects.all().select_related('doctor', 'patient')
+
+        return Response({
+            'count': records.count(),
+            'records': [{
+                'id': r.id,
+                'recorded_at': r.recorded_at.isoformat(),
+                'heart_rate': r.heart_rate,
+                'rhythm': r.rhythm,
+                'pr_interval': r.pr_interval,
+                'qrs_duration': r.qrs_duration,
+                'qt_interval': r.qt_interval,
+                'qtc_interval': r.qtc_interval,
+                'axis': r.axis,
+                'interpretation': r.interpretation,
+                'is_abnormal': r.is_abnormal,
+                'ecg_file': request.build_absolute_uri(r.ecg_file.url) if r.ecg_file else None,
+                'doctor': r.doctor.full_name if r.doctor else None,
+                'notes': r.notes,
+            } for r in records],
+        })
+
+    # POST — doctors only
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add ECG records'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id:
+        return Response({'error': 'patient_id is required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    if not request.data.get('recorded_at'):
+        return Response({'error': 'recorded_at is required'}, status=400)
+
+    record = ECGRecord.objects.create(
+        patient=target_patient,
+        doctor=user,
+        recorded_at=request.data.get('recorded_at'),
+        heart_rate=request.data.get('heart_rate'),
+        rhythm=request.data.get('rhythm', 'normal_sinus'),
+        pr_interval=request.data.get('pr_interval'),
+        qrs_duration=request.data.get('qrs_duration'),
+        qt_interval=request.data.get('qt_interval'),
+        qtc_interval=request.data.get('qtc_interval'),
+        axis=request.data.get('axis', ''),
+        interpretation=request.data.get('interpretation', ''),
+        is_abnormal=request.data.get('is_abnormal', False),
+        notes=request.data.get('notes', ''),
+    )
+
+    # Handle ECG file upload
+    if 'ecg_file' in request.FILES:
+        record.ecg_file = request.FILES['ecg_file']
+        record.save()
+
+    if record.is_abnormal:
+        create_notification(
+            recipient=target_patient,
+            sender=user,
+            notification_type='general',
+            title='⚠️ Abnormal ECG Result',
+            message=f'Dr. {user.full_name} recorded an abnormal ECG. Please review with your doctor.',
+            link='/cardiology/ecg/',
+        )
+
+    return Response({
+        'message': 'ECG record added successfully',
+        'id': record.id,
+        'rhythm': record.rhythm,
+        'is_abnormal': record.is_abnormal,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def heart_conditions(request):
+    """Get or add heart conditions"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            conditions = HeartCondition.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        else:
+            conditions = HeartCondition.objects.filter(
+                patient=user
+            ).select_related('doctor')
+
+        return Response({
+            'count': conditions.count(),
+            'conditions': [{
+                'id': c.id,
+                'condition': c.condition,
+                'status': c.status,
+                'diagnosed_date': str(c.diagnosed_date) if c.diagnosed_date else None,
+                'doctor': c.doctor.full_name if c.doctor else None,
+                'notes': c.notes,
+                'created_at': c.created_at.isoformat(),
+            } for c in conditions],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add heart conditions'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('condition'):
+        return Response({'error': 'patient_id and condition are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    condition = HeartCondition.objects.create(
+        patient=target_patient,
+        doctor=user,
+        condition=request.data.get('condition'),
+        status=request.data.get('status', 'active'),
+        diagnosed_date=request.data.get('diagnosed_date'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Heart Condition Recorded',
+        message=f'Dr. {user.full_name} recorded a heart condition: {condition.condition}.',
+        link='/cardiology/',
+    )
+
+    return Response({
+        'message': 'Heart condition added successfully',
+        'id': condition.id,
+        'condition': condition.condition,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def cardiology_visits(request):
+    """Get or add cardiology visit records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            visits = CardiologyVisit.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        elif user.role == 'patient':
+            visits = CardiologyVisit.objects.filter(
+                patient=user
+            ).select_related('doctor')
+        elif user.role == 'doctor':
+            visits = CardiologyVisit.objects.filter(
+                doctor=user
+            ).select_related('patient')
+        else:
+            visits = CardiologyVisit.objects.all().select_related('doctor', 'patient')
+
+        return Response({
+            'count': visits.count(),
+            'visits': [{
+                'id': v.id,
+                'visit_date': str(v.visit_date),
+                'doctor': v.doctor.full_name if v.doctor else None,
+                'patient': v.patient.full_name,
+                'chief_complaint': v.chief_complaint,
+                'diagnosis': v.diagnosis,
+                'examination_findings': v.examination_findings,
+                'medications_prescribed': v.medications_prescribed,
+                'tests_ordered': v.tests_ordered,
+                'lifestyle_recommendations': v.lifestyle_recommendations,
+                'next_visit': str(v.next_visit) if v.next_visit else None,
+                'notes': v.notes,
+            } for v in visits],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add cardiology visits'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('visit_date'):
+        return Response({'error': 'patient_id and visit_date are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    visit = CardiologyVisit.objects.create(
+        patient=target_patient,
+        doctor=user,
+        visit_date=request.data.get('visit_date'),
+        chief_complaint=request.data.get('chief_complaint', ''),
+        diagnosis=request.data.get('diagnosis', ''),
+        examination_findings=request.data.get('examination_findings', ''),
+        medications_prescribed=request.data.get('medications_prescribed', []),
+        tests_ordered=request.data.get('tests_ordered', []),
+        lifestyle_recommendations=request.data.get('lifestyle_recommendations', ''),
+        next_visit=request.data.get('next_visit'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Cardiology Visit Added',
+        message=f'Dr. {user.full_name} added a cardiology visit record for {visit.visit_date}.',
+        link='/cardiology/',
+    )
+
+    return Response({
+        'message': 'Cardiology visit added successfully',
+        'id': visit.id,
+        'visit_date': str(visit.visit_date),
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def cardiology_summary(request, patient_id=None):
+    """AI-powered cardiology summary and cardiac risk assessment"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    bp_logs = BloodPressureLog.objects.filter(patient=target_patient)
+    ecgs = ECGRecord.objects.filter(patient=target_patient)
+    conditions = HeartCondition.objects.filter(patient=target_patient)
+    visits = CardiologyVisit.objects.filter(patient=target_patient)
+
+    if not bp_logs.exists() and not ecgs.exists() and not conditions.exists():
+        return Response({
+            'patient_name': target_patient.full_name,
+            'summary': 'Нет кардиологических данных.',
+            'bp_count': 0,
+            'ecg_count': 0,
+        })
+
+    from django.db.models import Avg
+    bp_stats = bp_logs.aggregate(
+        avg_sys=Avg('systolic'),
+        avg_dia=Avg('diastolic'),
+    )
+
+    latest_bp = bp_logs.first()
+    bp_text = ""
+    if latest_bp:
+        bp_text = (
+            f"Последнее АД: {latest_bp.systolic}/{latest_bp.diastolic} mmHg "
+            f"({latest_bp.category_label}) — {latest_bp.measured_at.date()}\n"
+            f"Среднее АД: {round(bp_stats['avg_sys'] or 0, 1)}/{round(bp_stats['avg_dia'] or 0, 1)} mmHg"
+        )
+
+    ecg_text = ""
+    latest_ecg = ecgs.first()
+    if latest_ecg:
+        ecg_text = (
+            f"Последнее ЭКГ: {latest_ecg.recorded_at.date()}\n"
+            f"Ритм: {latest_ecg.rhythm}, ЧСС: {latest_ecg.heart_rate} уд/мин\n"
+            f"Патология: {'Да' if latest_ecg.is_abnormal else 'Нет'}"
+        )
+
+    conditions_text = "\n".join([
+        f"- {c.condition} ({c.status})"
+        for c in conditions
+    ])
+
+    prompt = f"""Ты кардиолог-ассистент. Проанализируй сердечно-сосудистую историю пациента.
+
+Пациент: {target_patient.full_name}
+
+Артериальное давление:
+{bp_text if bp_text else 'Нет данных'}
+
+ЭКГ:
+{ecg_text if ecg_text else 'Нет данных'}
+
+Сердечно-сосудистые заболевания:
+{conditions_text if conditions_text else 'Нет'}
+
+Дай краткое профессиональное резюме на русском:
+1. **Состояние сердечно-сосудистой системы**
+2. **Ключевые показатели**
+3. **Факторы риска**
+4. **Рекомендации**
+5. **Тревожные симптомы** (если есть 🔴)"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        return Response({
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'bp_count': bp_logs.count(),
+            'ecg_count': ecgs.count(),
+            'condition_count': conditions.count(),
+            'visit_count': visits.count(),
+            'summary': response.content[0].text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Summary failed: {str(e)}'}, status=500)
+    

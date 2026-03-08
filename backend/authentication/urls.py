@@ -176,4 +176,12 @@ urlpatterns = [
     path('ophthalmology/summary/', views.ophthalmology_summary, name='ophthalmology_summary'),
     path('ophthalmology/summary/<int:patient_id>/', views.ophthalmology_summary, name='ophthalmology_summary_patient'),
 
+    # Cardiology module
+    path('cardiology/bp/', views.blood_pressure_logs, name='blood_pressure_logs'),
+    path('cardiology/ecg/', views.ecg_records, name='ecg_records'),
+    path('cardiology/conditions/', views.heart_conditions, name='heart_conditions'),
+    path('cardiology/visits/', views.cardiology_visits, name='cardiology_visits'),
+    path('cardiology/summary/', views.cardiology_summary, name='cardiology_summary'),
+    path('cardiology/summary/<int:patient_id>/', views.cardiology_summary, name='cardiology_summary_patient'),
+
 ] 

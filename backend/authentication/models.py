@@ -1276,3 +1276,198 @@ class EyeCondition(models.Model):
 
     def __str__(self):
         return f"{self.condition} — {self.patient.full_name} ({self.status})"
+    
+# CARDIOLOGY MODULE
+
+class BloodPressureLog(models.Model):
+    """Blood pressure measurement log"""
+    POSITION_CHOICES = [
+        ('sitting', 'Sitting'),
+        ('standing', 'Standing'),
+        ('lying', 'Lying Down'),
+    ]
+
+    ARM_CHOICES = [
+        ('left', 'Left Arm'),
+        ('right', 'Right Arm'),
+        ('both', 'Both Arms'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='bp_logs'
+    )
+    recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='recorded_bp_logs'
+    )
+    systolic = models.IntegerField()   # mmHg upper number
+    diastolic = models.IntegerField()  # mmHg lower number
+    pulse = models.IntegerField(null=True, blank=True)  # bpm
+    position = models.CharField(
+        max_length=10, choices=POSITION_CHOICES, default='sitting'
+    )
+    arm = models.CharField(
+        max_length=10, choices=ARM_CHOICES, default='left'
+    )
+    measured_at = models.DateTimeField()
+    notes = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-measured_at']
+
+    def __str__(self):
+        return f"BP {self.systolic}/{self.diastolic} — {self.patient.full_name} ({self.measured_at.date()})"
+
+    @property
+    def category(self):
+        """Classify BP according to AHA guidelines"""
+        if self.systolic < 120 and self.diastolic < 80:
+            return 'normal'
+        elif self.systolic < 130 and self.diastolic < 80:
+            return 'elevated'
+        elif self.systolic < 140 or self.diastolic < 90:
+            return 'high_stage1'
+        elif self.systolic >= 140 or self.diastolic >= 90:
+            return 'high_stage2'
+        elif self.systolic >= 180 or self.diastolic >= 120:
+            return 'crisis'
+        return 'unknown'
+
+    @property
+    def category_label(self):
+        labels = {
+            'normal': '🟢 Normal',
+            'elevated': '🟡 Elevated',
+            'high_stage1': '🟠 High Stage 1',
+            'high_stage2': '🔴 High Stage 2',
+            'crisis': '🚨 Hypertensive Crisis',
+        }
+        return labels.get(self.category, 'Unknown')
+
+
+class ECGRecord(models.Model):
+    """ECG/EKG record for a patient"""
+    RHYTHM_CHOICES = [
+        ('normal_sinus', 'Normal Sinus Rhythm'),
+        ('sinus_tachycardia', 'Sinus Tachycardia'),
+        ('sinus_bradycardia', 'Sinus Bradycardia'),
+        ('atrial_fibrillation', 'Atrial Fibrillation'),
+        ('atrial_flutter', 'Atrial Flutter'),
+        ('svt', 'Supraventricular Tachycardia'),
+        ('ventricular_tachycardia', 'Ventricular Tachycardia'),
+        ('heart_block', 'Heart Block'),
+        ('paced', 'Paced Rhythm'),
+        ('other', 'Other'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='ecg_records'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='interpreted_ecgs'
+    )
+    recorded_at = models.DateTimeField()
+    heart_rate = models.IntegerField(null=True, blank=True)  # bpm
+    rhythm = models.CharField(
+        max_length=30, choices=RHYTHM_CHOICES, default='normal_sinus'
+    )
+    pr_interval = models.FloatField(null=True, blank=True)   # ms
+    qrs_duration = models.FloatField(null=True, blank=True)  # ms
+    qt_interval = models.FloatField(null=True, blank=True)   # ms
+    qtc_interval = models.FloatField(null=True, blank=True)  # ms corrected
+    axis = models.CharField(max_length=50, blank=True)       # e.g. "Normal axis"
+    interpretation = models.TextField(blank=True)
+    is_abnormal = models.BooleanField(default=False)
+    ecg_file = models.FileField(
+        upload_to='ecg_files/', null=True, blank=True
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recorded_at']
+
+    def __str__(self):
+        return f"ECG — {self.patient.full_name} ({self.recorded_at.date()}) — {self.rhythm}"
+
+
+class HeartCondition(models.Model):
+    """Diagnosed heart condition for a patient"""
+    CONDITION_CHOICES = [
+        ('hypertension', 'Hypertension'),
+        ('coronary_artery_disease', 'Coronary Artery Disease'),
+        ('heart_failure', 'Heart Failure'),
+        ('atrial_fibrillation', 'Atrial Fibrillation'),
+        ('arrhythmia', 'Arrhythmia'),
+        ('valve_disease', 'Heart Valve Disease'),
+        ('cardiomyopathy', 'Cardiomyopathy'),
+        ('pericarditis', 'Pericarditis'),
+        ('myocarditis', 'Myocarditis'),
+        ('congenital', 'Congenital Heart Defect'),
+        ('angina', 'Angina'),
+        ('heart_attack', 'Heart Attack (MI)'),
+        ('stroke', 'Stroke'),
+        ('dvt', 'Deep Vein Thrombosis'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('managed', 'Managed'),
+        ('resolved', 'Resolved'),
+        ('monitoring', 'Monitoring'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='heart_conditions'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='diagnosed_heart_conditions'
+    )
+    condition = models.CharField(max_length=30, choices=CONDITION_CHOICES)
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='active'
+    )
+    diagnosed_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.condition} — {self.patient.full_name} ({self.status})"
+
+
+class CardiologyVisit(models.Model):
+    """Cardiology clinic visit record"""
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='cardiology_visits'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='cardiology_consultations'
+    )
+    visit_date = models.DateField()
+    chief_complaint = models.CharField(max_length=300, blank=True)
+    diagnosis = models.CharField(max_length=300, blank=True)
+    examination_findings = models.TextField(blank=True)
+    medications_prescribed = models.JSONField(default=list, blank=True)
+    tests_ordered = models.JSONField(default=list, blank=True)
+    lifestyle_recommendations = models.TextField(blank=True)
+    next_visit = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-visit_date']
+
+    def __str__(self):
+        return f"Cardiology visit — {self.patient.full_name} ({self.visit_date})"
