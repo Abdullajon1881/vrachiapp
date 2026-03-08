@@ -1199,6 +1199,8 @@ def ai_diagnosis(request):
                 allowed = getattr(settings, 'ALLOWED_IMAGE_MIME_TYPES', ['image/jpeg', 'image/png', 'image/gif'])
             elif file_type == 'audio':
                 allowed = getattr(settings, 'ALLOWED_AUDIO_MIME_TYPES', ['audio/webm', 'audio/wav', 'audio/mp3', 'audio/ogg'])
+            elif file_type == 'pdf':
+                allowed = ['application/pdf']
             elif file_type == 'video':
                 allowed = getattr(settings, 'ALLOWED_VIDEO_MIME_TYPES', ['video/mp4', 'video/webm'])
             
@@ -1206,26 +1208,35 @@ def ai_diagnosis(request):
                 return Response({'error': 'Неподдерживаемый тип файла'}, status=status.HTTP_400_BAD_REQUEST)
             
             # Используем обновленный сервис
+            if allowed and getattr(file, 'content_type', '') not in allowed:
+                return Response({'error': 'Неподдерживаемый тип файла'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Обработка по типу файла
             if file_type == 'image':
-                # Асинхронная обработка изображения
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
                     result = loop.run_until_complete(ai_service.process_image_message(user, file))
                 finally:
                     loop.close()
-                    
+
             elif file_type == 'audio':
-                # Асинхронная обработка аудио с полным голосовым циклом
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
                     result = loop.run_until_complete(ai_service.process_audio_message(user, file))
                 finally:
                     loop.close()
-                    
+
+            elif file_type == 'pdf':
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(ai_service.process_pdf_message(user, file))
+                finally:
+                    loop.close()
+
             elif file_type == 'video':
-                # Пока что видео обрабатываем как изображение
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
@@ -1233,9 +1244,7 @@ def ai_diagnosis(request):
                 finally:
                     loop.close()
             else:
-                return Response({
-                    'error': 'Неподдерживаемый тип файла'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Неподдерживаемый тип файла'}, status=status.HTTP_400_BAD_REQUEST)
                 
             if result['success']:
                 # Сохраняем пользовательское сообщение
@@ -3499,6 +3508,7 @@ def reschedule_appointment(request, appointment_id):
         'new_time': new_time,
         'status': appointment.status,
     })
+
 
 # AI DIALOGUE MANAGEMENT
 

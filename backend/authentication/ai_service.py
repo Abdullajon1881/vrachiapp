@@ -2,17 +2,18 @@ import os
 import logging
 import tempfile
 import requests
+import base64
 from typing import Optional, Dict, Any, List
 
 import anthropic
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.conf import settings as django_settings
 from .models import AIDialogue, AIMessage, User
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_API_KEY = "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"
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
 MODEL = "claude-sonnet-4-20250514"
 
 
@@ -30,7 +31,7 @@ class HealzyAIService:
 - Не начинаешь ответ с приветствия — сразу по делу
 - Никогда не говоришь "как ИИ я не могу..." — ты врач
 
-СПЕЦИАЛИЗАЦИИ (знаешь всё):
+СПЕЦИАЛИЗАЦИИ:
 🫀 Кардиология — сердце, давление, сосуды
 🧠 Неврология — головная боль, головокружение, сон
 🫁 Пульмонология — кашель, дыхание, бронхи
@@ -42,29 +43,29 @@ class HealzyAIService:
 👂 ЛОР — уши, нос, горло
 🤰 Гинекология — женское здоровье
 👶 Педиатрия — здоровье детей
-🧪 Общая терапия — общие симптомы, ОРВИ, грипп
+🧪 Общая терапия — симптомы, ОРВИ, грипп
 
 КАК ОТВЕЧАТЬ:
 ✅ Анализируй симптомы внимательно и детально
-✅ Объясняй возможные причины (дифференциальный анализ)
+✅ Объясняй возможные причины
 ✅ Давай конкретные практические советы
-✅ Рекомендуй домашнее лечение когда уместно
-✅ Указывай когда нужно срочно к врачу
 ✅ Используй контекст предыдущих сообщений
-✅ Задавай уточняющие вопросы если нужно больше информации
-✅ Структурируй длинные ответы (причины / симптомы / лечение)
+✅ Задавай уточняющие вопросы если нужно
 
 УРОВНИ СРОЧНОСТИ:
-🟢 Не срочно — можно лечить дома, наблюдать
+🟢 Не срочно — можно лечить дома
 🟡 Умеренно — записаться к врачу в ближайшие дни
-🔴 Срочно — нужен врач сегодня или скорая помощь
+🔴 Срочно — нужен врач сегодня или скорая
 
 ЗАПРЕЩЕНО:
-❌ Ставить точный диагноз (только вероятные причины)
+❌ Ставить точный диагноз
 ❌ Назначать конкретные дозы лекарств
 ❌ Отвечать на немедицинские вопросы
-❌ Говорить о себе в мужском роде
-❌ Добавлять одинаковые предупреждения к каждому ответу"""
+❌ Говорить о себе в мужском роде"""
+
+    # ==========================================
+    # CONVERSATION HISTORY
+    # ==========================================
 
     def _get_conversation_history(self, user: User) -> List[Dict]:
         """Получает историю последних сообщений диалога"""
@@ -74,11 +75,9 @@ class HealzyAIService:
             ).first()
             if not dialogue:
                 return []
-
             messages = AIMessage.objects.filter(
                 dialogue=dialogue
             ).order_by('-timestamp')[:self.max_history_messages]
-
             history = []
             for msg in reversed(messages):
                 role = 'user' if msg.sender_type == 'user' else 'assistant'
@@ -90,16 +89,20 @@ class HealzyAIService:
             logger.error(f"Ошибка получения истории: {e}")
             return []
 
+    # ==========================================
+    # HELPERS
+    # ==========================================
+
     def _detect_urgency(self, message: str) -> Optional[str]:
         message_lower = message.lower()
         emergency_keywords = [
             'боль в груди', 'не могу дышать', 'потеря сознания', 'упал в обморок',
             'инсульт', 'инфаркт', 'судороги', 'рвота с кровью', 'кровотечение',
-            'сильная аллергия', 'отёк горла', 'не могу говорить', 'парализовало'
+            'отёк горла', 'парализовало'
         ]
         urgent_keywords = [
             'высокая температура', 'сильная боль', 'не проходит', 'ухудшается',
-            'несколько дней', 'кровь в моче', 'желтуха', 'сильное головокружение'
+            'кровь в моче', 'желтуха', 'сильное головокружение'
         ]
         for kw in emergency_keywords:
             if kw in message_lower:
@@ -119,9 +122,9 @@ class HealzyAIService:
             'ортопед': ['сустав', 'колено', 'спина болит', 'позвоночник', 'перелом'],
             'пульмонолог': ['кашель', 'дыхание', 'астма', 'бронхит', 'одышка'],
             'лор': ['горло', 'нос', 'уши', 'насморк', 'ухо болит', 'гайморит'],
-            'офтальмолог': ['глаза', 'зрение', 'глаз болит', 'покраснение глаз'],
+            'офтальмолог': ['глаза', 'зрение', 'глаз болит'],
             'эндокринолог': ['щитовидка', 'диабет', 'сахар', 'гормоны'],
-            'уролог': ['почки', 'мочевой', 'боль при мочеиспускании', 'моча'],
+            'уролог': ['почки', 'мочевой', 'боль при мочеиспускании'],
         }
         for specialist, keywords in specialists.items():
             for kw in keywords:
@@ -140,12 +143,11 @@ class HealzyAIService:
         return any(kw in text_lower for kw in greeting_keywords)
 
     def _is_medical_question(self, text: str) -> bool:
-        """Быстрая проверка на медицинскую тему по ключевым словам"""
         non_medical_keywords = [
             'политика', 'экономика', 'бизнес', 'финансы', 'акции', 'криптовалюта',
             'спорт', 'футбол', 'кино', 'музыка', 'игры', 'программирование',
-            'история', 'география', 'математика', 'физика', 'химия',
-            'кулинария', 'рецепт', 'готовить', 'путешествия', 'туризм'
+            'история', 'география', 'математика', 'физика',
+            'кулинария', 'рецепт', 'путешествия',
         ]
         text_lower = text.lower()
         for kw in non_medical_keywords:
@@ -161,7 +163,7 @@ class HealzyAIService:
         return ai_response
 
     def _call_claude(self, messages: List[Dict], max_tokens: int = 1024) -> Optional[str]:
-        """Вызывает Claude API синхронно"""
+        """Вызывает Claude API"""
         try:
             response = client.messages.create(
                 model=MODEL,
@@ -174,10 +176,87 @@ class HealzyAIService:
             logger.error(f"Ошибка Claude API: {e}")
             return None
 
+    # ==========================================
+    # SPEECH TO TEXT (STT)
+    # ==========================================
+
+    async def _transcribe_audio(self, audio_file) -> Optional[str]:
+        """Транскрибирует аудио в текст используя OpenAI Whisper API"""
+        try:
+            # Try OpenAI Whisper if key is configured
+            openai_key = getattr(django_settings, 'OPENAI_API_KEY', None)
+            if openai_key:
+                import openai
+                openai_client = openai.OpenAI(api_key=openai_key)
+
+                # Save audio to temp file
+                with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as tmp:
+                    tmp_path = tmp.name
+                    if hasattr(audio_file, 'read'):
+                        tmp.write(audio_file.read())
+                        audio_file.seek(0)
+                    else:
+                        tmp.write(audio_file)
+
+                try:
+                    with open(tmp_path, 'rb') as f:
+                        transcript = openai_client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=f,
+                            language="ru"
+                        )
+                    os.unlink(tmp_path)
+                    if transcript.text:
+                        logger.info(f"Whisper STT: '{transcript.text[:50]}'")
+                        return transcript.text
+                except Exception as e:
+                    logger.error(f"Whisper error: {e}")
+                    os.unlink(tmp_path)
+
+            # Fallback: Google Speech Recognition
+            try:
+                import speech_recognition as sr
+                recognizer = sr.Recognizer()
+
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                    tmp_path = tmp.name
+                    if hasattr(audio_file, 'read'):
+                        tmp.write(audio_file.read())
+                        audio_file.seek(0)
+                    else:
+                        tmp.write(audio_file)
+
+                with sr.AudioFile(tmp_path) as source:
+                    audio_data = recognizer.record(source)
+
+                text = recognizer.recognize_google(audio_data, language='ru-RU')
+                os.unlink(tmp_path)
+                logger.info(f"Google STT: '{text[:50]}'")
+                return text
+
+            except Exception as e:
+                logger.error(f"Google STT error: {e}")
+
+            return None
+
+        except Exception as e:
+            logger.error(f"STT error: {e}")
+            return None
+
+    # ==========================================
+    # TEXT TO SPEECH (TTS)
+    # ==========================================
+
     async def _generate_speech_with_edge_tts(self, text: str) -> Optional[bytes]:
         try:
             import edge_tts
             clean_text = text.strip()[:1000]
+            # Remove markdown bold/italic for cleaner speech
+            import re
+            clean_text = re.sub(r'\*+', '', clean_text)
+            clean_text = re.sub(r'#{1,6}\s', '', clean_text)
+            clean_text = re.sub(r'[🟢🟡🔴💡⚠️✅❌🫀🧠🫁🦷🍽️🦴🧴👁️👂🤰👶🧪]', '', clean_text)
+
             female_voices = [
                 "ru-RU-SvetlanaNeural",
                 "ru-RU-DariyaNeural",
@@ -206,7 +285,9 @@ class HealzyAIService:
     async def _generate_speech_with_google_tts(self, text: str) -> Optional[bytes]:
         try:
             import urllib.parse
-            clean_text = text.strip()[:1000]
+            import re
+            clean_text = re.sub(r'\*+', '', text.strip()[:500])
+            clean_text = re.sub(r'[🟢🟡🔴💡⚠️✅❌]', '', clean_text)
             encoded = urllib.parse.quote(clean_text)
             url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl=ru&client=tw-ob&q={encoded}"
             headers = {"User-Agent": "Mozilla/5.0"}
@@ -227,16 +308,43 @@ class HealzyAIService:
             return audio
         return None
 
+    # ==========================================
+    # PDF EXTRACTION
+    # ==========================================
+
+    def _extract_pdf_text(self, file_data: bytes) -> str:
+        """Извлекает текст из PDF файла"""
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(stream=file_data, filetype="pdf")
+            text_parts = []
+            for page_num in range(min(doc.page_count, 10)):  # Max 10 pages
+                page = doc[page_num]
+                text_parts.append(f"[Страница {page_num + 1}]\n{page.get_text()}")
+            doc.close()
+            full_text = "\n\n".join(text_parts)
+            # Limit to 8000 chars to stay within token limits
+            return full_text[:8000] if len(full_text) > 8000 else full_text
+        except ImportError:
+            logger.error("PyMuPDF не установлен")
+            return ""
+        except Exception as e:
+            logger.error(f"PDF extraction error: {e}")
+            return ""
+
+    # ==========================================
+    # MAIN PROCESSING METHODS
+    # ==========================================
+
     async def process_text_message(self, user: User, message: str) -> Dict[str, Any]:
         """Обрабатывает текстовое сообщение через Claude"""
         try:
-            # Handle greetings
             if self._is_greeting(message):
                 history = self._get_conversation_history(user)
                 if history:
                     response_text = 'Снова привет! Чем могу помочь со здоровьем?'
                 else:
-                    response_text = 'Привет! Я Healzy — ваша медицинская помощница на базе Claude AI. Расскажите, что вас беспокоит?'
+                    response_text = 'Привет! Я Healzy — ваша медицинская помощница. Расскажите, что вас беспокоит?'
                 audio = await self._generate_speech_best_quality(response_text)
                 return {
                     'success': True, 'response': response_text,
@@ -244,7 +352,6 @@ class HealzyAIService:
                     'has_voice': audio is not None
                 }
 
-            # Check if medical
             if not self._is_medical_question(message):
                 response_text = (
                     "Я специализируюсь только на медицинских вопросах. "
@@ -257,24 +364,15 @@ class HealzyAIService:
                     'has_voice': audio is not None
                 }
 
-            # Build messages with conversation history
+            # Build messages with history
             history = self._get_conversation_history(user)
-            messages = []
-
-            # Add history
-            for h in history:
-                messages.append({'role': h['role'], 'content': h['content']})
-
-            # Add current message
+            messages = [{'role': h['role'], 'content': h['content']} for h in history]
             messages.append({'role': 'user', 'content': message})
 
-            # Call Claude
             ai_response = self._call_claude(messages)
 
             if ai_response:
                 ai_response = self._add_urgency_note(message, ai_response)
-
-                # Add specialist suggestion if not already mentioned
                 specialist = self._suggest_specialist(message)
                 if specialist and specialist not in ai_response.lower():
                     ai_response += f"\n\n💡 По этим симптомам рекомендую обратиться к **{specialist}у**."
@@ -286,8 +384,7 @@ class HealzyAIService:
                     'has_voice': audio is not None,
                     'specialist_suggestion': specialist,
                 }
-            else:
-                return {'success': False, 'error': 'Не удалось получить ответ от AI'}
+            return {'success': False, 'error': 'Не удалось получить ответ от AI'}
 
         except Exception as e:
             logger.error(f"Ошибка обработки текста: {e}")
@@ -296,21 +393,16 @@ class HealzyAIService:
     async def process_image_message(self, user: User, image_file) -> Dict[str, Any]:
         """Обрабатывает изображение через Claude Vision"""
         try:
-            import base64
             file_path = default_storage.save(f'temp/ai_images/{image_file.name}', image_file)
-
             with default_storage.open(file_path, 'rb') as f:
                 image_data = base64.standard_b64encode(f.read()).decode('utf-8')
-
             default_storage.delete(file_path)
 
-            # Get history for context
             history = self._get_conversation_history(user)
             messages = []
             for h in history[-4:]:
                 messages.append({'role': h['role'], 'content': h['content']})
 
-            # Add image message
             messages.append({
                 'role': 'user',
                 'content': [
@@ -325,48 +417,126 @@ class HealzyAIService:
                     {
                         'type': 'text',
                         'text': (
-                            'Пациент прислал изображение для медицинского анализа. '
-                            'Опиши что видишь, дай медицинскую оценку, '
-                            'укажи возможные причины и рекомендации. '
-                            'Скажи нужен ли врач (🟢/🟡/🔴).'
+                            'Пациент прислал медицинское изображение. '
+                            'Проанализируй его: опиши что видишь, дай медицинскую оценку, '
+                            'укажи возможные причины, дай рекомендации и '
+                            'укажи уровень срочности (🟢/🟡/🔴).'
                         )
                     }
                 ]
             })
 
             ai_response = self._call_claude(messages, max_tokens=1500)
-
             if ai_response:
-                return {'success': True, 'response': ai_response, 'type': 'image'}
+                audio = await self._generate_speech_best_quality(ai_response[:500])
+                return {
+                    'success': True, 'response': ai_response,
+                    'type': 'image', 'audio_content': audio,
+                    'has_voice': audio is not None,
+                }
             return {'success': False, 'error': 'Не удалось проанализировать изображение'}
 
         except Exception as e:
             logger.error(f"Ошибка обработки изображения: {e}")
             return {'success': False, 'error': 'Ошибка при анализе изображения'}
 
-    async def process_audio_message(self, user: User, audio_file) -> Dict[str, Any]:
-        """Обрабатывает аудио сообщение"""
+    async def process_pdf_message(self, user: User, pdf_file) -> Dict[str, Any]:
+        """Обрабатывает PDF файл — извлекает текст и анализирует через Claude"""
         try:
-            response_text = (
-                "Получила ваше голосовое сообщение! "
-                "Распознавание речи на сервере пока недоступно. "
-                "Используйте текстовый ввод или микрофон браузера для полного голосового общения."
-            )
-            audio = await self._generate_speech_best_quality(response_text)
-            return {
-                'success': True, 'response': response_text,
-                'type': 'voice_response', 'transcription': None,
-                'audio_content': audio, 'has_voice': audio is not None
-            }
+            file_data = pdf_file.read()
+            pdf_file.seek(0)
+
+            pdf_text = self._extract_pdf_text(file_data)
+
+            if not pdf_text.strip():
+                return {
+                    'success': False,
+                    'error': 'Не удалось извлечь текст из PDF. Возможно, файл содержит только изображения.'
+                }
+
+            history = self._get_conversation_history(user)
+            messages = []
+            for h in history[-4:]:
+                messages.append({'role': h['role'], 'content': h['content']})
+
+            messages.append({
+                'role': 'user',
+                'content': (
+                    f"Пациент загрузил медицинский документ (PDF). Проанализируй его содержимое:\n\n"
+                    f"{pdf_text}\n\n"
+                    f"Пожалуйста:\n"
+                    f"1. Определи тип документа (анализы, рецепт, выписка, снимок и т.д.)\n"
+                    f"2. Выдели ключевые медицинские показатели\n"
+                    f"3. Объясни что означают результаты простым языком\n"
+                    f"4. Укажи если что-то выходит за пределы нормы\n"
+                    f"5. Дай рекомендации и укажи уровень срочности (🟢/🟡/🔴)"
+                )
+            })
+
+            ai_response = self._call_claude(messages, max_tokens=2000)
+            if ai_response:
+                audio = await self._generate_speech_best_quality(ai_response[:500])
+                return {
+                    'success': True, 'response': ai_response,
+                    'type': 'pdf', 'audio_content': audio,
+                    'has_voice': audio is not None,
+                    'pages_analyzed': pdf_text.count('[Страница'),
+                }
+            return {'success': False, 'error': 'Не удалось проанализировать документ'}
+
+        except Exception as e:
+            logger.error(f"Ошибка обработки PDF: {e}")
+            return {'success': False, 'error': 'Ошибка при анализе PDF документа'}
+
+    async def process_audio_message(self, user: User, audio_file) -> Dict[str, Any]:
+        """Обрабатывает аудио — STT → Claude → TTS (полный голосовой цикл)"""
+        try:
+            logger.info(f"Обработка аудио от {user.email}")
+
+            # Step 1: Speech to Text
+            transcription = await self._transcribe_audio(audio_file)
+
+            if not transcription:
+                response_text = (
+                    "Получила ваше голосовое сообщение, но не смогла распознать речь. "
+                    "Пожалуйста, говорите чётче или используйте текстовый ввод."
+                )
+                audio = await self._generate_speech_best_quality(response_text)
+                return {
+                    'success': True, 'response': response_text,
+                    'type': 'voice_response', 'transcription': None,
+                    'audio_content': audio, 'has_voice': audio is not None
+                }
+
+            logger.info(f"Распознано: '{transcription}'")
+
+            # Step 2: Process text through Claude
+            text_result = await self.process_text_message(user, transcription)
+
+            if text_result['success']:
+                return {
+                    'success': True,
+                    'response': text_result['response'],
+                    'type': 'voice_response',
+                    'transcription': transcription,
+                    'audio_content': text_result.get('audio_content'),
+                    'has_voice': text_result.get('has_voice', False),
+                    'specialist_suggestion': text_result.get('specialist_suggestion'),
+                }
+            return text_result
+
         except Exception as e:
             logger.error(f"Ошибка обработки аудио: {e}")
             return {'success': False, 'error': 'Ошибка при обработке аудио'}
+
+    # ==========================================
+    # DIALOGUE MANAGEMENT
+    # ==========================================
 
     def save_dialogue_message(self, user: User, content: str, sender_type: str,
                               message_type: str = 'text', audio_file=None,
                               transcription: str = None,
                               audio_duration: float = None) -> AIMessage:
-        """Сохраняет сообщение в диалоге"""
         try:
             dialogue, created = AIDialogue.objects.get_or_create(
                 user=user, is_active=True,
@@ -393,7 +563,6 @@ class HealzyAIService:
             raise
 
     def start_new_dialogue(self, user: User, title: Optional[str] = None) -> AIDialogue:
-        """Создает новый диалог"""
         AIDialogue.objects.filter(user=user, is_active=True).update(is_active=False)
         return AIDialogue.objects.create(
             user=user,
@@ -402,7 +571,6 @@ class HealzyAIService:
         )
 
     def close_dialogue(self, user: User, dialogue_id: int) -> bool:
-        """Закрывает диалог"""
         try:
             dialogue = AIDialogue.objects.get(id=dialogue_id, user=user)
             dialogue.is_active = False

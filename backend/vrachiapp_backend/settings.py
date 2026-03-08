@@ -360,3 +360,6 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
 }
+
+from decouple import config
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY')
