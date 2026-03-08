@@ -4795,3 +4795,456 @@ def patient_dental_summary(request, patient_id=None):
 
     except Exception as e:
         return Response({'error': f'Summary generation failed: {str(e)}'}, status=500)
+    
+# ============================================
+# NEUROLOGY MODULE
+# ============================================
+
+from .models import HeadacheDiary, SeizureRecord, NeurologyVisit
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def headache_diary(request):
+    """Get or add headache diary entries"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            entries = HeadacheDiary.objects.filter(patient_id=patient_id)
+        else:
+            entries = HeadacheDiary.objects.filter(patient=user)
+
+        # Filters
+        headache_type = request.query_params.get('type')
+        if headache_type:
+            entries = entries.filter(headache_type=headache_type)
+
+        date_from = request.query_params.get('date_from')
+        if date_from:
+            entries = entries.filter(started_at__date__gte=date_from)
+
+        date_to = request.query_params.get('date_to')
+        if date_to:
+            entries = entries.filter(started_at__date__lte=date_to)
+
+        min_severity = request.query_params.get('min_severity')
+        if min_severity:
+            entries = entries.filter(severity__gte=int(min_severity))
+
+        # Stats
+        total = entries.count()
+        avg_severity = entries.aggregate(
+            avg=models.Avg('severity')
+        )['avg']
+
+        # Frequency by type
+        from django.db.models import Count
+        by_type = entries.values('headache_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+        # Pagination
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        start = (page - 1) * page_size
+        paginated = entries[start:start + page_size]
+
+        return Response({
+            'stats': {
+                'total_entries': total,
+                'avg_severity': round(avg_severity, 1) if avg_severity else None,
+                'by_type': list(by_type),
+            },
+            'count': total,
+            'page': page,
+            'entries': [{
+                'id': e.id,
+                'headache_type': e.headache_type,
+                'severity': e.severity,
+                'location': e.location,
+                'started_at': e.started_at.isoformat(),
+                'ended_at': e.ended_at.isoformat() if e.ended_at else None,
+                'duration_minutes': e.duration_minutes,
+                'nausea': e.nausea,
+                'vomiting': e.vomiting,
+                'light_sensitivity': e.light_sensitivity,
+                'sound_sensitivity': e.sound_sensitivity,
+                'aura': e.aura,
+                'aura_description': e.aura_description,
+                'triggers': e.triggers,
+                'medication_taken': e.medication_taken,
+                'medication_helped': e.medication_helped,
+                'notes': e.notes,
+                'created_at': e.created_at.isoformat(),
+            } for e in paginated],
+        })
+
+    # POST — add new entry
+    required = ['severity', 'started_at']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    severity = int(request.data.get('severity'))
+    if severity < 1 or severity > 10:
+        return Response({'error': 'severity must be between 1 and 10'}, status=400)
+
+    entry = HeadacheDiary.objects.create(
+        patient=user,
+        headache_type=request.data.get('headache_type', 'unknown'),
+        severity=severity,
+        location=request.data.get('location', 'whole_head'),
+        started_at=request.data.get('started_at'),
+        ended_at=request.data.get('ended_at'),
+        nausea=request.data.get('nausea', False),
+        vomiting=request.data.get('vomiting', False),
+        light_sensitivity=request.data.get('light_sensitivity', False),
+        sound_sensitivity=request.data.get('sound_sensitivity', False),
+        aura=request.data.get('aura', False),
+        aura_description=request.data.get('aura_description', ''),
+        triggers=request.data.get('triggers', []),
+        medication_taken=request.data.get('medication_taken', ''),
+        medication_helped=request.data.get('medication_helped'),
+        notes=request.data.get('notes', ''),
+    )
+
+    return Response({
+        'message': 'Headache entry added successfully',
+        'id': entry.id,
+        'severity': entry.severity,
+        'headache_type': entry.headache_type,
+        'started_at': entry.started_at.isoformat(),
+        'duration_minutes': entry.duration_minutes,
+    }, status=201)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def headache_entry_detail(request, entry_id):
+    """Get, update or delete a headache diary entry"""
+    try:
+        entry = HeadacheDiary.objects.get(id=entry_id)
+    except HeadacheDiary.DoesNotExist:
+        return Response({'error': 'Entry not found'}, status=404)
+
+    if entry.patient != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        return Response({
+            'id': entry.id,
+            'headache_type': entry.headache_type,
+            'severity': entry.severity,
+            'location': entry.location,
+            'started_at': entry.started_at.isoformat(),
+            'ended_at': entry.ended_at.isoformat() if entry.ended_at else None,
+            'duration_minutes': entry.duration_minutes,
+            'nausea': entry.nausea,
+            'vomiting': entry.vomiting,
+            'light_sensitivity': entry.light_sensitivity,
+            'sound_sensitivity': entry.sound_sensitivity,
+            'aura': entry.aura,
+            'aura_description': entry.aura_description,
+            'triggers': entry.triggers,
+            'medication_taken': entry.medication_taken,
+            'medication_helped': entry.medication_helped,
+            'notes': entry.notes,
+        })
+
+    if request.method == 'PATCH':
+        if entry.patient != request.user:
+            return Response({'error': 'Permission denied'}, status=403)
+        fields = [
+            'headache_type', 'severity', 'location', 'ended_at',
+            'nausea', 'vomiting', 'light_sensitivity', 'sound_sensitivity',
+            'aura', 'aura_description', 'triggers', 'medication_taken',
+            'medication_helped', 'notes'
+        ]
+        for field in fields:
+            if field in request.data:
+                setattr(entry, field, request.data[field])
+        entry.save()
+        return Response({'message': 'Entry updated successfully'})
+
+    if request.method == 'DELETE':
+        if entry.patient != request.user and request.user.role != 'admin':
+            return Response({'error': 'Permission denied'}, status=403)
+        entry.delete()
+        return Response({'message': 'Entry deleted successfully'})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def seizure_records(request):
+    """Get or add seizure records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            records = SeizureRecord.objects.filter(patient_id=patient_id)
+        else:
+            records = SeizureRecord.objects.filter(patient=user)
+
+        date_from = request.query_params.get('date_from')
+        if date_from:
+            records = records.filter(occurred_at__date__gte=date_from)
+
+        total = records.count()
+        from django.db.models import Count, Avg
+        by_type = records.values('seizure_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+        avg_duration = records.aggregate(avg=Avg('duration_seconds'))['avg']
+
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        start = (page - 1) * page_size
+        paginated = records[start:start + page_size]
+
+        return Response({
+            'stats': {
+                'total_seizures': total,
+                'avg_duration_seconds': round(avg_duration, 1) if avg_duration else None,
+                'by_type': list(by_type),
+            },
+            'count': total,
+            'records': [{
+                'id': r.id,
+                'seizure_type': r.seizure_type,
+                'occurred_at': r.occurred_at.isoformat(),
+                'duration_seconds': r.duration_seconds,
+                'duration_minutes': r.duration_minutes,
+                'consciousness': r.consciousness,
+                'warning_signs': r.warning_signs,
+                'potential_trigger': r.potential_trigger,
+                'body_parts_affected': r.body_parts_affected,
+                'fell_down': r.fell_down,
+                'injury_occurred': r.injury_occurred,
+                'injury_description': r.injury_description,
+                'recovery_time_minutes': r.recovery_time_minutes,
+                'post_seizure_symptoms': r.post_seizure_symptoms,
+                'emergency_services_called': r.emergency_services_called,
+                'witnessed_by': r.witnessed_by,
+                'notes': r.notes,
+                'created_at': r.created_at.isoformat(),
+            } for r in paginated],
+        })
+
+    # POST
+    required = ['occurred_at', 'duration_seconds', 'seizure_type']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    # Patients log their own, doctors can log for patients
+    patient_id = request.data.get('patient_id')
+    if patient_id and user.role in ['doctor', 'admin']:
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        target_patient = user
+
+    record = SeizureRecord.objects.create(
+        patient=target_patient,
+        seizure_type=request.data.get('seizure_type', 'unknown'),
+        occurred_at=request.data.get('occurred_at'),
+        duration_seconds=int(request.data.get('duration_seconds')),
+        consciousness=request.data.get('consciousness', 'lost'),
+        warning_signs=request.data.get('warning_signs', ''),
+        potential_trigger=request.data.get('potential_trigger', ''),
+        body_parts_affected=request.data.get('body_parts_affected', []),
+        fell_down=request.data.get('fell_down', False),
+        injury_occurred=request.data.get('injury_occurred', False),
+        injury_description=request.data.get('injury_description', ''),
+        recovery_time_minutes=request.data.get('recovery_time_minutes'),
+        post_seizure_symptoms=request.data.get('post_seizure_symptoms', ''),
+        emergency_services_called=request.data.get('emergency_services_called', False),
+        witnessed_by=request.data.get('witnessed_by', ''),
+        recorded_by=user,
+        notes=request.data.get('notes', ''),
+    )
+
+    return Response({
+        'message': 'Seizure record added successfully',
+        'id': record.id,
+        'seizure_type': record.seizure_type,
+        'occurred_at': record.occurred_at.isoformat(),
+        'duration_seconds': record.duration_seconds,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def neurology_visits(request):
+    """Get or add neurology visit records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            visits = NeurologyVisit.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        elif user.role == 'patient':
+            visits = NeurologyVisit.objects.filter(
+                patient=user
+            ).select_related('doctor')
+        elif user.role == 'doctor':
+            visits = NeurologyVisit.objects.filter(
+                doctor=user
+            ).select_related('patient')
+        else:
+            visits = NeurologyVisit.objects.all().select_related('doctor', 'patient')
+
+        return Response({
+            'count': visits.count(),
+            'visits': [{
+                'id': v.id,
+                'visit_date': str(v.visit_date),
+                'doctor': v.doctor.full_name if v.doctor else None,
+                'patient': v.patient.full_name,
+                'diagnosis': v.diagnosis,
+                'symptoms_reported': v.symptoms_reported,
+                'examination_findings': v.examination_findings,
+                'medications_prescribed': v.medications_prescribed,
+                'tests_ordered': v.tests_ordered,
+                'next_visit': str(v.next_visit) if v.next_visit else None,
+                'notes': v.notes,
+            } for v in visits],
+        })
+
+    # POST — doctors only
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add neurology visits'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id:
+        return Response({'error': 'patient_id is required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    if not request.data.get('visit_date'):
+        return Response({'error': 'visit_date is required'}, status=400)
+
+    visit = NeurologyVisit.objects.create(
+        patient=target_patient,
+        doctor=user,
+        visit_date=request.data.get('visit_date'),
+        diagnosis=request.data.get('diagnosis', ''),
+        symptoms_reported=request.data.get('symptoms_reported', ''),
+        examination_findings=request.data.get('examination_findings', ''),
+        medications_prescribed=request.data.get('medications_prescribed', []),
+        tests_ordered=request.data.get('tests_ordered', []),
+        next_visit=request.data.get('next_visit'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Neurology Visit Added',
+        message=f'Dr. {user.full_name} added a neurology visit record for {visit.visit_date}.',
+        link='/neurology/',
+    )
+
+    return Response({
+        'message': 'Neurology visit added successfully',
+        'id': visit.id,
+        'visit_date': str(visit.visit_date),
+        'diagnosis': visit.diagnosis,
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def neurology_summary(request, patient_id=None):
+    """AI-powered neurology summary for a patient"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    headaches = HeadacheDiary.objects.filter(patient=target_patient)
+    seizures = SeizureRecord.objects.filter(patient=target_patient)
+    visits = NeurologyVisit.objects.filter(patient=target_patient).select_related('doctor')
+
+    if not headaches.exists() and not seizures.exists() and not visits.exists():
+        return Response({
+            'patient_name': target_patient.full_name,
+            'summary': 'No neurological history found.',
+            'headache_count': 0,
+            'seizure_count': 0,
+        })
+
+    from django.db.models import Avg, Count
+    headache_stats = headaches.aggregate(
+        count=Count('id'),
+        avg_severity=Avg('severity')
+    )
+    seizure_count = seizures.count()
+
+    headache_text = f"Total headaches: {headache_stats['count']}, avg severity: {round(headache_stats['avg_severity'] or 0, 1)}/10"
+    seizure_text = f"Total seizures: {seizure_count}"
+    if seizures.exists():
+        latest_seizure = seizures.first()
+        seizure_text += f", latest: {latest_seizure.seizure_type} on {latest_seizure.occurred_at.date()}"
+
+    visits_text = "\n".join([
+        f"- {v.visit_date}: {v.diagnosis or 'No diagnosis'} (Dr. {v.doctor.full_name if v.doctor else 'Unknown'})"
+        for v in visits[:5]
+    ])
+
+    prompt = f"""Ты невролог-ассистент. Проанализируй неврологическую историю пациента.
+
+Пациент: {target_patient.full_name}
+
+Головные боли: {headache_text}
+Судороги/приступы: {seizure_text}
+Визиты к неврологу:
+{visits_text if visits_text else 'Нет'}
+
+Дай краткое профессиональное резюме на русском языке:
+1. **Общая картина**
+2. **Основные проблемы**
+3. **Паттерны и триггеры** (если есть)
+4. **Рекомендации**
+5. **Тревожные симптомы** (если есть 🔴)"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        return Response({
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'headache_count': headache_stats['count'],
+            'seizure_count': seizure_count,
+            'visit_count': visits.count(),
+            'summary': response.content[0].text,
+        })
+    except Exception as e:
+        return Response({'error': f'Summary failed: {str(e)}'}, status=500)

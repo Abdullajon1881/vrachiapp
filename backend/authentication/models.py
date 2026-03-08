@@ -786,5 +786,171 @@ class ToothXray(models.Model):
 
     def __str__(self):
         return f"{self.file_type} — Tooth {self.tooth.fdi_number} ({self.taken_at})"
+    
+# NEUROLOGY MODULE
 
- 
+class HeadacheDiary(models.Model):
+    """Headache/migraine diary entry for a patient"""
+    HEADACHE_TYPES = [
+        ('tension', 'Tension Headache'),
+        ('migraine', 'Migraine'),
+        ('cluster', 'Cluster Headache'),
+        ('sinus', 'Sinus Headache'),
+        ('rebound', 'Rebound Headache'),
+        ('thunderclap', 'Thunderclap Headache'),
+        ('unknown', 'Unknown'),
+    ]
+
+    SEVERITY_CHOICES = [(i, str(i)) for i in range(1, 11)]  # 1-10 scale
+
+    LOCATION_CHOICES = [
+        ('front', 'Front of head'),
+        ('back', 'Back of head'),
+        ('left', 'Left side'),
+        ('right', 'Right side'),
+        ('both_sides', 'Both sides'),
+        ('top', 'Top of head'),
+        ('around_eye', 'Around eye'),
+        ('whole_head', 'Whole head'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='headache_diary'
+    )
+    headache_type = models.CharField(
+        max_length=20, choices=HEADACHE_TYPES, default='unknown'
+    )
+    severity = models.IntegerField(choices=SEVERITY_CHOICES)
+    location = models.CharField(
+        max_length=20, choices=LOCATION_CHOICES, default='whole_head'
+    )
+    started_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration_minutes = models.IntegerField(null=True, blank=True)
+
+    # Symptoms
+    nausea = models.BooleanField(default=False)
+    vomiting = models.BooleanField(default=False)
+    light_sensitivity = models.BooleanField(default=False)
+    sound_sensitivity = models.BooleanField(default=False)
+    aura = models.BooleanField(default=False)
+    aura_description = models.TextField(blank=True)
+
+    # Triggers
+    triggers = models.JSONField(default=list, blank=True)
+    # e.g. ["stress", "lack_of_sleep", "alcohol", "bright_light"]
+
+    # Treatment
+    medication_taken = models.CharField(max_length=200, blank=True)
+    medication_helped = models.BooleanField(null=True, blank=True)
+
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.headache_type} headache — {self.patient.full_name} ({self.started_at.date()})"
+
+    def save(self, *args, **kwargs):
+        if self.started_at and self.ended_at:
+            delta = self.ended_at - self.started_at
+            self.duration_minutes = int(delta.total_seconds() / 60)
+        super().save(*args, **kwargs)
+
+
+class SeizureRecord(models.Model):
+    """Seizure tracking record for a patient"""
+    SEIZURE_TYPES = [
+        ('tonic_clonic', 'Tonic-Clonic (Grand Mal)'),
+        ('absence', 'Absence (Petit Mal)'),
+        ('focal', 'Focal Seizure'),
+        ('myoclonic', 'Myoclonic'),
+        ('atonic', 'Atonic (Drop Attack)'),
+        ('tonic', 'Tonic'),
+        ('clonic', 'Clonic'),
+        ('unknown', 'Unknown'),
+    ]
+
+    CONSCIOUSNESS_CHOICES = [
+        ('full', 'Fully Conscious'),
+        ('partial', 'Partially Conscious'),
+        ('lost', 'Lost Consciousness'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='seizure_records'
+    )
+    seizure_type = models.CharField(
+        max_length=20, choices=SEIZURE_TYPES, default='unknown'
+    )
+    occurred_at = models.DateTimeField()
+    duration_seconds = models.IntegerField()
+    consciousness = models.CharField(
+        max_length=10, choices=CONSCIOUSNESS_CHOICES, default='lost'
+    )
+
+    # Before seizure
+    warning_signs = models.TextField(blank=True)
+    potential_trigger = models.CharField(max_length=200, blank=True)
+
+    # During seizure
+    body_parts_affected = models.JSONField(default=list, blank=True)
+    fell_down = models.BooleanField(default=False)
+    injury_occurred = models.BooleanField(default=False)
+    injury_description = models.TextField(blank=True)
+
+    # After seizure
+    recovery_time_minutes = models.IntegerField(null=True, blank=True)
+    post_seizure_symptoms = models.TextField(blank=True)
+    emergency_services_called = models.BooleanField(default=False)
+
+    # Medical
+    witnessed_by = models.CharField(max_length=200, blank=True)
+    recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='recorded_seizures'
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-occurred_at']
+
+    def __str__(self):
+        return f"{self.seizure_type} — {self.patient.full_name} ({self.occurred_at.date()})"
+
+    @property
+    def duration_minutes(self):
+        return round(self.duration_seconds / 60, 1)
+
+
+class NeurologyVisit(models.Model):
+    """Neurology clinic visit record"""
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='neurology_visits'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='neurology_consultations'
+    )
+    visit_date = models.DateField()
+    diagnosis = models.CharField(max_length=300, blank=True)
+    symptoms_reported = models.TextField(blank=True)
+    examination_findings = models.TextField(blank=True)
+    medications_prescribed = models.JSONField(default=list, blank=True)
+    tests_ordered = models.JSONField(default=list, blank=True)
+    # e.g. ["MRI", "EEG", "CT scan", "blood test"]
+    next_visit = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-visit_date']
+
+    def __str__(self):
+        return f"Neurology visit — {self.patient.full_name} ({self.visit_date})"
