@@ -6473,3 +6473,489 @@ def cardiology_summary(request, patient_id=None):
     except Exception as e:
         return Response({'error': f'Summary failed: {str(e)}'}, status=500)
     
+
+
+
+# ORTHOPEDICS MODULE
+
+from .models import OrthoCondition, OrthoImaging, OrthoSurgery, RehabilitationPlan
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ortho_conditions(request):
+    """Get or add orthopedic conditions"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            conditions = OrthoCondition.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        else:
+            conditions = OrthoCondition.objects.filter(
+                patient=user
+            ).select_related('doctor')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            conditions = conditions.filter(status=status_filter)
+
+        body_part = request.query_params.get('body_part')
+        if body_part:
+            conditions = conditions.filter(body_part=body_part)
+
+        return Response({
+            'count': conditions.count(),
+            'conditions': [{
+                'id': c.id,
+                'condition': c.condition,
+                'body_part': c.body_part,
+                'status': c.status,
+                'severity': c.severity,
+                'diagnosed_date': str(c.diagnosed_date) if c.diagnosed_date else None,
+                'injury_date': str(c.injury_date) if c.injury_date else None,
+                'injury_cause': c.injury_cause,
+                'doctor': c.doctor.full_name if c.doctor else None,
+                'notes': c.notes,
+                'created_at': c.created_at.isoformat(),
+            } for c in conditions],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add orthopedic conditions'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('condition') or not request.data.get('body_part'):
+        return Response({'error': 'patient_id, condition and body_part are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    condition = OrthoCondition.objects.create(
+        patient=target_patient,
+        doctor=user,
+        condition=request.data.get('condition'),
+        body_part=request.data.get('body_part'),
+        status=request.data.get('status', 'active'),
+        severity=request.data.get('severity'),
+        diagnosed_date=request.data.get('diagnosed_date'),
+        injury_date=request.data.get('injury_date'),
+        injury_cause=request.data.get('injury_cause', ''),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Orthopedic Condition Recorded',
+        message=f'Dr. {user.full_name} recorded: {condition.condition} ({condition.body_part}).',
+        link='/orthopedics/',
+    )
+
+    return Response({
+        'message': 'Orthopedic condition added successfully',
+        'id': condition.id,
+        'condition': condition.condition,
+        'body_part': condition.body_part,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ortho_imaging(request):
+    """Get or add orthopedic imaging records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            imaging = OrthoImaging.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        else:
+            imaging = OrthoImaging.objects.filter(
+                patient=user
+            ).select_related('doctor')
+
+        imaging_type = request.query_params.get('type')
+        if imaging_type:
+            imaging = imaging.filter(imaging_type=imaging_type)
+
+        return Response({
+            'count': imaging.count(),
+            'imaging': [{
+                'id': i.id,
+                'imaging_type': i.imaging_type,
+                'body_part': i.body_part,
+                'imaging_date': str(i.imaging_date),
+                'findings': i.findings,
+                'impression': i.impression,
+                'file_url': request.build_absolute_uri(i.file.url) if i.file else None,
+                'doctor': i.doctor.full_name if i.doctor else None,
+                'notes': i.notes,
+            } for i in imaging],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add imaging records'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('imaging_type') or not request.data.get('imaging_date'):
+        return Response({'error': 'patient_id, imaging_type and imaging_date are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    condition_id = request.data.get('condition_id')
+    condition = None
+    if condition_id:
+        try:
+            condition = OrthoCondition.objects.get(id=condition_id, patient=target_patient)
+        except OrthoCondition.DoesNotExist:
+            pass
+
+    imaging = OrthoImaging.objects.create(
+        patient=target_patient,
+        doctor=user,
+        condition=condition,
+        imaging_type=request.data.get('imaging_type'),
+        body_part=request.data.get('body_part', ''),
+        imaging_date=request.data.get('imaging_date'),
+        findings=request.data.get('findings', ''),
+        impression=request.data.get('impression', ''),
+        notes=request.data.get('notes', ''),
+    )
+
+    if 'file' in request.FILES:
+        imaging.file = request.FILES['file']
+        imaging.save()
+
+    return Response({
+        'message': 'Imaging record added successfully',
+        'id': imaging.id,
+        'imaging_type': imaging.imaging_type,
+        'body_part': imaging.body_part,
+        'imaging_date': str(imaging.imaging_date),
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ortho_surgeries(request):
+    """Get or add orthopedic surgery records"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            surgeries = OrthoSurgery.objects.filter(
+                patient_id=patient_id
+            ).select_related('surgeon')
+        else:
+            surgeries = OrthoSurgery.objects.filter(
+                patient=user
+            ).select_related('surgeon')
+
+        return Response({
+            'count': surgeries.count(),
+            'surgeries': [{
+                'id': s.id,
+                'surgery_type': s.surgery_type,
+                'body_part': s.body_part,
+                'surgery_date': str(s.surgery_date),
+                'duration_minutes': s.duration_minutes,
+                'outcome': s.outcome,
+                'complications': s.complications,
+                'implants_used': s.implants_used,
+                'rehabilitation_required': s.rehabilitation_required,
+                'rehabilitation_duration_weeks': s.rehabilitation_duration_weeks,
+                'follow_up_date': str(s.follow_up_date) if s.follow_up_date else None,
+                'surgeon': s.surgeon.full_name if s.surgeon else None,
+                'notes': s.notes,
+            } for s in surgeries],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add surgery records'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('surgery_type') or not request.data.get('surgery_date'):
+        return Response({'error': 'patient_id, surgery_type and surgery_date are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    condition_id = request.data.get('condition_id')
+    condition = None
+    if condition_id:
+        try:
+            condition = OrthoCondition.objects.get(id=condition_id, patient=target_patient)
+        except OrthoCondition.DoesNotExist:
+            pass
+
+    surgery = OrthoSurgery.objects.create(
+        patient=target_patient,
+        surgeon=user,
+        condition=condition,
+        surgery_type=request.data.get('surgery_type'),
+        body_part=request.data.get('body_part', ''),
+        surgery_date=request.data.get('surgery_date'),
+        duration_minutes=request.data.get('duration_minutes'),
+        outcome=request.data.get('outcome', 'successful'),
+        complications=request.data.get('complications', ''),
+        implants_used=request.data.get('implants_used', ''),
+        rehabilitation_required=request.data.get('rehabilitation_required', True),
+        rehabilitation_duration_weeks=request.data.get('rehabilitation_duration_weeks'),
+        follow_up_date=request.data.get('follow_up_date'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Surgery Record Added',
+        message=f'Dr. {user.full_name} added surgery record: {surgery.surgery_type} on {surgery.surgery_date}.',
+        link='/orthopedics/surgeries/',
+    )
+
+    return Response({
+        'message': 'Surgery record added successfully',
+        'id': surgery.id,
+        'surgery_type': surgery.surgery_type,
+        'surgery_date': str(surgery.surgery_date),
+        'outcome': surgery.outcome,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def rehab_plans(request):
+    """Get or add rehabilitation plans"""
+    user = request.user
+
+    if request.method == 'GET':
+        patient_id = request.query_params.get('patient_id')
+        if patient_id and user.role in ['doctor', 'admin']:
+            plans = RehabilitationPlan.objects.filter(
+                patient_id=patient_id
+            ).select_related('doctor')
+        else:
+            plans = RehabilitationPlan.objects.filter(
+                patient=user
+            ).select_related('doctor')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            plans = plans.filter(status=status_filter)
+
+        return Response({
+            'count': plans.count(),
+            'plans': [{
+                'id': p.id,
+                'title': p.title,
+                'status': p.status,
+                'start_date': str(p.start_date),
+                'end_date': str(p.end_date) if p.end_date else None,
+                'frequency_per_week': p.frequency_per_week,
+                'exercises': p.exercises,
+                'goals': p.goals,
+                'progress_notes': p.progress_notes,
+                'pain_level_start': p.pain_level_start,
+                'pain_level_current': p.pain_level_current,
+                'doctor': p.doctor.full_name if p.doctor else None,
+                'notes': p.notes,
+                'updated_at': p.updated_at.isoformat(),
+            } for p in plans],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can create rehabilitation plans'}, status=403)
+
+    patient_id = request.data.get('patient_id')
+    if not patient_id or not request.data.get('title') or not request.data.get('start_date'):
+        return Response({'error': 'patient_id, title and start_date are required'}, status=400)
+
+    try:
+        target_patient = User.objects.get(id=patient_id, role='patient')
+    except User.DoesNotExist:
+        return Response({'error': 'Patient not found'}, status=404)
+
+    condition_id = request.data.get('condition_id')
+    condition = None
+    if condition_id:
+        try:
+            condition = OrthoCondition.objects.get(id=condition_id, patient=target_patient)
+        except OrthoCondition.DoesNotExist:
+            pass
+
+    surgery_id = request.data.get('surgery_id')
+    surgery = None
+    if surgery_id:
+        try:
+            surgery = OrthoSurgery.objects.get(id=surgery_id, patient=target_patient)
+        except OrthoSurgery.DoesNotExist:
+            pass
+
+    plan = RehabilitationPlan.objects.create(
+        patient=target_patient,
+        doctor=user,
+        condition=condition,
+        surgery=surgery,
+        title=request.data.get('title'),
+        start_date=request.data.get('start_date'),
+        end_date=request.data.get('end_date'),
+        status='active',
+        frequency_per_week=request.data.get('frequency_per_week', 3),
+        exercises=request.data.get('exercises', []),
+        goals=request.data.get('goals', ''),
+        pain_level_start=request.data.get('pain_level_start'),
+        pain_level_current=request.data.get('pain_level_current'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=target_patient,
+        sender=user,
+        notification_type='general',
+        title='Rehabilitation Plan Created',
+        message=f'Dr. {user.full_name} created a rehabilitation plan: {plan.title}.',
+        link='/orthopedics/rehab/',
+    )
+
+    return Response({
+        'message': 'Rehabilitation plan created successfully',
+        'id': plan.id,
+        'title': plan.title,
+        'start_date': str(plan.start_date),
+    }, status=201)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_rehab_plan(request, plan_id):
+    """Update rehabilitation plan progress"""
+    try:
+        plan = RehabilitationPlan.objects.get(id=plan_id)
+    except RehabilitationPlan.DoesNotExist:
+        return Response({'error': 'Plan not found'}, status=404)
+
+    if plan.patient != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    updatable = [
+        'status', 'progress_notes', 'pain_level_current',
+        'exercises', 'end_date', 'notes', 'frequency_per_week'
+    ]
+    for field in updatable:
+        if field in request.data:
+            setattr(plan, field, request.data[field])
+    plan.save()
+
+    return Response({'message': 'Rehabilitation plan updated successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def orthopedics_summary(request, patient_id=None):
+    """AI-powered orthopedics summary"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    conditions = OrthoCondition.objects.filter(patient=target_patient)
+    surgeries = OrthoSurgery.objects.filter(patient=target_patient)
+    imaging = OrthoImaging.objects.filter(patient=target_patient)
+    rehab = RehabilitationPlan.objects.filter(patient=target_patient)
+
+    if not conditions.exists() and not surgeries.exists():
+        return Response({
+            'patient_name': target_patient.full_name,
+            'summary': 'Нет ортопедических данных.',
+            'condition_count': 0,
+            'surgery_count': 0,
+        })
+
+    conditions_text = "\n".join([
+        f"- {c.condition} ({c.body_part}, {c.status})"
+        f"{', severity: ' + str(c.severity) + '/10' if c.severity else ''}"
+        for c in conditions
+    ])
+
+    surgeries_text = "\n".join([
+        f"- {s.surgery_type} on {s.body_part} ({s.surgery_date}, outcome: {s.outcome})"
+        for s in surgeries
+    ])
+
+    active_rehab = rehab.filter(status='active').first()
+    rehab_text = ""
+    if active_rehab:
+        rehab_text = (
+            f"Активная реабилитация: {active_rehab.title}\n"
+            f"Частота: {active_rehab.frequency_per_week}x в неделю\n"
+            f"Боль: {active_rehab.pain_level_current}/10"
+        )
+
+    prompt = f"""Ты ортопед-ассистент. Проанализируй ортопедическую историю пациента.
+
+Пациент: {target_patient.full_name}
+
+Диагнозы:
+{conditions_text if conditions_text else 'Нет'}
+
+Операции:
+{surgeries_text if surgeries_text else 'Нет'}
+
+Визуализация: {imaging.count()} записей (МРТ/рентген/КТ)
+
+{rehab_text}
+
+Дай краткое профессиональное резюме на русском:
+1. **Общее состояние опорно-двигательного аппарата**
+2. **Основные проблемы и травмы**
+3. **История операций**
+4. **Реабилитация**
+5. **Рекомендации**
+6. **Тревожные симптомы** (если есть 🔴)"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        return Response({
+            'patient_name': target_patient.full_name,
+            'generated_at': timezone.now().isoformat(),
+            'condition_count': conditions.count(),
+            'surgery_count': surgeries.count(),
+            'imaging_count': imaging.count(),
+            'rehab_count': rehab.count(),
+            'summary': response.content[0].text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Summary failed: {str(e)}'}, status=500)

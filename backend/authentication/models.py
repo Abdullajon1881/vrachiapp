@@ -1471,3 +1471,237 @@ class CardiologyVisit(models.Model):
 
     def __str__(self):
         return f"Cardiology visit — {self.patient.full_name} ({self.visit_date})"
+    
+# ORTHOPEDICS MODULE
+
+class OrthoCondition(models.Model):
+    """Orthopedic condition or diagnosis"""
+    CONDITION_CHOICES = [
+        ('fracture', 'Fracture'),
+        ('dislocation', 'Dislocation'),
+        ('sprain', 'Sprain'),
+        ('strain', 'Strain/Muscle Tear'),
+        ('tendinitis', 'Tendinitis'),
+        ('bursitis', 'Bursitis'),
+        ('arthritis', 'Arthritis'),
+        ('osteoporosis', 'Osteoporosis'),
+        ('herniated_disc', 'Herniated Disc'),
+        ('scoliosis', 'Scoliosis'),
+        ('carpal_tunnel', 'Carpal Tunnel Syndrome'),
+        ('rotator_cuff', 'Rotator Cuff Injury'),
+        ('acl_injury', 'ACL Injury'),
+        ('meniscus_tear', 'Meniscus Tear'),
+        ('plantar_fasciitis', 'Plantar Fasciitis'),
+        ('osteoarthritis', 'Osteoarthritis'),
+        ('rheumatoid_arthritis', 'Rheumatoid Arthritis'),
+        ('back_pain', 'Back Pain'),
+        ('neck_pain', 'Neck Pain'),
+        ('other', 'Other'),
+    ]
+
+    BODY_PART_CHOICES = [
+        ('spine', 'Spine'),
+        ('neck', 'Neck'),
+        ('shoulder_left', 'Left Shoulder'),
+        ('shoulder_right', 'Right Shoulder'),
+        ('elbow_left', 'Left Elbow'),
+        ('elbow_right', 'Right Elbow'),
+        ('wrist_left', 'Left Wrist'),
+        ('wrist_right', 'Right Wrist'),
+        ('hand_left', 'Left Hand'),
+        ('hand_right', 'Right Hand'),
+        ('hip_left', 'Left Hip'),
+        ('hip_right', 'Right Hip'),
+        ('knee_left', 'Left Knee'),
+        ('knee_right', 'Right Knee'),
+        ('ankle_left', 'Left Ankle'),
+        ('ankle_right', 'Right Ankle'),
+        ('foot_left', 'Left Foot'),
+        ('foot_right', 'Right Foot'),
+        ('pelvis', 'Pelvis'),
+        ('ribs', 'Ribs'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('healing', 'Healing'),
+        ('chronic', 'Chronic'),
+        ('resolved', 'Resolved'),
+        ('post_surgery', 'Post Surgery'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='ortho_conditions'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='diagnosed_ortho_conditions'
+    )
+    condition = models.CharField(max_length=30, choices=CONDITION_CHOICES)
+    body_part = models.CharField(max_length=20, choices=BODY_PART_CHOICES)
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='active'
+    )
+    severity = models.IntegerField(
+        null=True, blank=True,
+        choices=[(i, str(i)) for i in range(1, 11)]
+    )
+    diagnosed_date = models.DateField(null=True, blank=True)
+    injury_date = models.DateField(null=True, blank=True)
+    injury_cause = models.CharField(max_length=300, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.condition} ({self.body_part}) — {self.patient.full_name}"
+
+
+class OrthoImaging(models.Model):
+    """MRI, X-ray, CT scan records for orthopedic conditions"""
+    IMAGING_TYPES = [
+        ('xray', 'X-Ray'),
+        ('mri', 'MRI'),
+        ('ct_scan', 'CT Scan'),
+        ('ultrasound', 'Ultrasound'),
+        ('bone_scan', 'Bone Scan'),
+        ('dexa', 'DEXA Scan (Bone Density)'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='ortho_imaging'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='ordered_ortho_imaging'
+    )
+    condition = models.ForeignKey(
+        OrthoCondition, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='imaging'
+    )
+    imaging_type = models.CharField(max_length=15, choices=IMAGING_TYPES)
+    body_part = models.CharField(max_length=20)
+    imaging_date = models.DateField()
+    findings = models.TextField(blank=True)
+    impression = models.TextField(blank=True)
+    file = models.FileField(upload_to='ortho_imaging/', null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-imaging_date']
+
+    def __str__(self):
+        return f"{self.imaging_type} — {self.body_part} — {self.patient.full_name} ({self.imaging_date})"
+
+
+class OrthoSurgery(models.Model):
+    """Orthopedic surgery record"""
+    SURGERY_TYPES = [
+        ('arthroplasty', 'Joint Replacement (Arthroplasty)'),
+        ('arthroscopy', 'Arthroscopy'),
+        ('acl_reconstruction', 'ACL Reconstruction'),
+        ('spinal_fusion', 'Spinal Fusion'),
+        ('discectomy', 'Discectomy'),
+        ('fracture_repair', 'Fracture Repair/ORIF'),
+        ('tendon_repair', 'Tendon Repair'),
+        ('rotator_cuff_repair', 'Rotator Cuff Repair'),
+        ('meniscus_repair', 'Meniscus Repair'),
+        ('carpal_tunnel_release', 'Carpal Tunnel Release'),
+        ('amputation', 'Amputation'),
+        ('bone_graft', 'Bone Graft'),
+        ('other', 'Other'),
+    ]
+
+    OUTCOME_CHOICES = [
+        ('successful', 'Successful'),
+        ('partial', 'Partial Success'),
+        ('complicated', 'Complicated'),
+        ('revision_needed', 'Revision Needed'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='ortho_surgeries'
+    )
+    surgeon = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='performed_ortho_surgeries'
+    )
+    condition = models.ForeignKey(
+        OrthoCondition, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='surgeries'
+    )
+    surgery_type = models.CharField(max_length=30, choices=SURGERY_TYPES)
+    body_part = models.CharField(max_length=20)
+    surgery_date = models.DateField()
+    duration_minutes = models.IntegerField(null=True, blank=True)
+    outcome = models.CharField(
+        max_length=20, choices=OUTCOME_CHOICES, default='successful'
+    )
+    complications = models.TextField(blank=True)
+    implants_used = models.CharField(max_length=300, blank=True)
+    rehabilitation_required = models.BooleanField(default=True)
+    rehabilitation_duration_weeks = models.IntegerField(null=True, blank=True)
+    follow_up_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-surgery_date']
+
+    def __str__(self):
+        return f"{self.surgery_type} — {self.patient.full_name} ({self.surgery_date})"
+
+
+class RehabilitationPlan(models.Model):
+    """Rehabilitation/physiotherapy plan"""
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('paused', 'Paused'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    patient = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='rehab_plans'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='created_rehab_plans'
+    )
+    condition = models.ForeignKey(
+        OrthoCondition, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='rehab_plans'
+    )
+    surgery = models.ForeignKey(
+        OrthoSurgery, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='rehab_plans'
+    )
+    title = models.CharField(max_length=200)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='active'
+    )
+    frequency_per_week = models.IntegerField(default=3)
+    exercises = models.JSONField(default=list, blank=True)
+    goals = models.TextField(blank=True)
+    progress_notes = models.TextField(blank=True)
+    pain_level_start = models.IntegerField(null=True, blank=True)
+    pain_level_current = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Rehab: {self.title} — {self.patient.full_name} ({self.status})"
