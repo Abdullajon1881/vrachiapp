@@ -2127,3 +2127,33 @@ class ScheduleBlockout(models.Model):
 
     def __str__(self):
         return f"Blockout — {self.doctor.full_name} {self.date} {self.start_time}-{self.end_time}"
+    
+class FCMDevice(models.Model):
+    """Firebase Cloud Messaging device token"""
+    PLATFORM_CHOICES = [
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+        ('web', 'Web'),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='fcm_devices'
+    )
+    token = models.CharField(max_length=500)
+    platform = models.CharField(
+        max_length=10, choices=PLATFORM_CHOICES, default='android'
+    )
+    device_name = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.full_name} — {self.platform} ({self.device_name})"

@@ -8033,3 +8033,208 @@ def doctor_schedule_overview(request, doctor_id):
             'end_time': str(h.end_time) if h.end_time else None,
         } for h in custom_hours],
     })
+
+# FIREBASE PUSH NOTIFICATIONS
+
+from .models import FCMDevice
+
+
+def get_firebase_app():
+    """Initialize Firebase app (singleton)"""
+    import firebase_admin
+    from firebase_admin import credentials
+    from django.conf import settings as django_settings
+    import os
+
+    if not firebase_admin._apps:
+        cred_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            django_settings.FIREBASE_CREDENTIALS_PATH
+        )
+        if os.path.exists(cred_path):
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+    return firebase_admin.get_app() if firebase_admin._apps else None
+
+
+def send_push_notification(user, title, body, data=None):
+    """Send FCM push notification to all active devices of a user"""
+    from django.conf import settings as django_settings
+    if not django_settings.FCM_ENABLED:
+        return {'sent': 0, 'reason': 'FCM disabled'}
+
+    try:
+        import firebase_admin
+        from firebase_admin import messaging
+
+        app = get_firebase_app()
+        if not app:
+            return {'sent': 0, 'reason': 'Firebase not initialized'}
+
+        devices = FCMDevice.objects.filter(user=user, is_active=True)
+        if not devices.exists():
+            return {'sent': 0, 'reason': 'No active devices'}
+
+        sent = 0
+        failed_tokens = []
+
+        for device in devices:
+            try:
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=title,
+                        body=body,
+                    ),
+                    data=data or {},
+                    token=device.token,
+                    android=messaging.AndroidConfig(
+                        priority='high',
+                        notification=messaging.AndroidNotification(
+                            icon='ic_notification',
+                            color='#2196F3',
+                            sound='default',
+                        ),
+                    ),
+                    apns=messaging.APNSConfig(
+                        payload=messaging.APNSPayload(
+                            aps=messaging.Aps(
+                                sound='default',
+                                badge=1,
+                            ),
+                        ),
+                    ),
+                )
+                messaging.send(message)
+                sent += 1
+            except Exception as e:
+                error_str = str(e)
+                if 'registration-token-not-registered' in error_str or \
+                   'invalid-registration-token' in error_str:
+                    failed_tokens.append(device.token)
+
+        # Deactivate invalid tokens
+        if failed_tokens:
+            FCMDevice.objects.filter(
+                user=user, token__in=failed_tokens
+            ).update(is_active=False)
+
+        return {'sent': sent, 'failed': len(failed_tokens)}
+
+    except Exception as e:
+        return {'sent': 0, 'error': str(e)}
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def register_fcm_device(request):
+    """Register or update FCM device token"""
+    token = request.data.get('token')
+    platform = request.data.get('platform', 'android')
+    device_name = request.data.get('device_name', '')
+
+    if not token:
+        return Response({'error': 'token is required'}, status=400)
+
+    if platform not in ['android', 'ios', 'web']:
+        return Response({'error': 'platform must be android, ios or web'}, status=400)
+
+    device, created = FCMDevice.objects.update_or_create(
+        user=request.user,
+        token=token,
+        defaults={
+            'platform': platform,
+            'device_name': device_name,
+            'is_active': True,
+        }
+    )
+
+    return Response({
+        'message': f'Device {"registered" if created else "updated"} successfully',
+        'id': device.id,
+        'platform': device.platform,
+        'device_name': device.device_name,
+    }, status=201 if created else 200)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def unregister_fcm_device(request):
+    """Unregister FCM device token (logout)"""
+    token = request.data.get('token')
+    if not token:
+        return Response({'error': 'token is required'}, status=400)
+
+    deleted = FCMDevice.objects.filter(
+        user=request.user, token=token
+    ).delete()
+
+    if deleted[0] == 0:
+        return Response({'error': 'Device not found'}, status=404)
+
+    return Response({'message': 'Device unregistered successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_fcm_devices(request):
+    """List all registered devices for the current user"""
+    devices = FCMDevice.objects.filter(user=request.user)
+    return Response({
+        'count': devices.count(),
+        'devices': [{
+            'id': d.id,
+            'platform': d.platform,
+            'device_name': d.device_name,
+            'is_active': d.is_active,
+            'created_at': d.created_at.isoformat(),
+        } for d in devices],
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_test_push(request):
+    """Send a test push notification to yourself"""
+    result = send_push_notification(
+        user=request.user,
+        title='🔔 Healzy Test Notification',
+        body='Push notifications are working correctly!',
+        data={'type': 'test', 'url': '/'},
+    )
+    return Response({
+        'message': 'Test notification sent',
+        'result': result,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_push_to_user(request):
+    """Admin sends push notification to any user"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Only admins can send push notifications'}, status=403)
+
+    user_id = request.data.get('user_id')
+    title = request.data.get('title')
+    body = request.data.get('body')
+
+    if not all([user_id, title, body]):
+        return Response({'error': 'user_id, title and body are required'}, status=400)
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    result = send_push_notification(
+        user=target_user,
+        title=title,
+        body=body,
+        data=request.data.get('data', {}),
+    )
+
+    return Response({
+        'message': 'Push notification sent',
+        'recipient': target_user.full_name,
+        'result': result,
+    })

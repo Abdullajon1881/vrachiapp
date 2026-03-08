@@ -215,4 +215,11 @@ urlpatterns = [
     path('schedule/blockouts/<int:blockout_id>/', views.delete_schedule_blockout, name='delete_schedule_blockout'),
     path('schedule/overview/<int:doctor_id>/', views.doctor_schedule_overview, name='doctor_schedule_overview'),
 
+    # Firebase push notifications
+    path('push/register/', views.register_fcm_device, name='register_fcm_device'),
+    path('push/unregister/', views.unregister_fcm_device, name='unregister_fcm_device'),
+    path('push/devices/', views.list_fcm_devices, name='list_fcm_devices'),
+    path('push/test/', views.send_test_push, name='send_test_push'),
+    path('push/send/', views.send_push_to_user, name='send_push_to_user'),
+
 ] 
