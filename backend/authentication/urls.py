@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .views import FacilityListView, FacilityDetailView, FacilityReviewCreateView, MedCityListView, MedDistrictListView
 
 urlpatterns = [
     # Аутентификация
@@ -230,5 +231,12 @@ urlpatterns = [
     path('analytics/patient/<int:patient_id>/', views.patient_analytics, name='patient_analytics_detail'),
     path('analytics/appointments/', views.appointment_report, name='appointment_report'),
     path('analytics/top-doctors/', views.top_doctors_report, name='top_doctors_report'),
+
+    # Medical Facilities
+    path('facilities/', views.FacilityListView.as_view(), name='facility-list'),
+    path('facilities/<int:pk>/', views.FacilityDetailView.as_view(), name='facility-detail'),
+    path('facilities/<int:pk>/review/', views.FacilityReviewCreateView.as_view(), name='facility-review'),
+    path('cities/', views.MedCityListView.as_view(), name='med-city-list'),
+    path('districts/', views.MedDistrictListView.as_view(), name='med-district-list'),
 
 ] 

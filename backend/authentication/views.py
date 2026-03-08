@@ -28,13 +28,18 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from .models import LabOrder, LabTest, LabReport
 
 
-from .models import User, UserProfile, Region, City, District, DoctorApplication, Consultation, Message, UserProfile
+from .models import (
+    User, UserProfile, Region, City, District,
+    DoctorApplication, Consultation, Message,
+    MedCity, MedDistrict, MedicalFacility, FacilityReview,
+)
 from .serializers import (
-    UserSerializer, RegisterSerializer, LoginSerializer, 
-    GoogleAuthSerializer, PasswordResetSerializer, UserProfileSerializer, UserProfileReadSerializer,
+    UserSerializer, RegisterSerializer, LoginSerializer,
+    GoogleAuthSerializer, PasswordResetSerializer,
+    UserProfileSerializer, UserProfileReadSerializer,
     RegionSerializer, CitySerializer, DistrictSerializer,
-    DoctorApplicationSerializer, DoctorApplicationCreateSerializer, DoctorApplicationUpdateSerializer,
-    ConsultationSerializer, ConsultationCreateSerializer, ConsultationUpdateSerializer, MessageSerializer
+    MedCitySerializer, MedDistrictSerializer,
+    FacilityListSerializer, FacilityDetailSerializer, FacilityReviewSerializer,
 )
 from .utils import create_user_with_verification, send_verification_email, verify_email_token, create_google_user
 
@@ -8686,3 +8691,100 @@ def top_doctors_report(request):
             'total_reviews': d.total_reviews,
         } for d in top_doctors],
     })
+
+from .models import MedicalFacility, FacilityReview, MedCity, MedDistrict
+from .serializers import (
+    FacilityListSerializer, FacilityDetailSerializer,
+    FacilityReviewSerializer, MedCitySerializer, MedDistrictSerializer
+)
+
+
+class MedCityListView(generics.ListAPIView):
+    serializer_class = MedCitySerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = MedCity.objects.select_related('region').all()
+        region_id = self.request.query_params.get('region')
+        if region_id:
+            queryset = queryset.filter(region_id=region_id)
+        return queryset
+
+
+class MedDistrictListView(generics.ListAPIView):
+    serializer_class = MedDistrictSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = MedDistrict.objects.select_related('city', 'region').all()
+        city_id = self.request.query_params.get('city')
+        if city_id:
+            queryset = queryset.filter(city_id=city_id)
+        return queryset
+
+
+class FacilityListView(generics.ListAPIView):
+    serializer_class = FacilityListSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = MedicalFacility.objects.select_related(
+            'city', 'district', 'city__region'
+        ).filter(is_active=True)
+
+        # Filters
+        region = self.request.query_params.get('region')
+        city = self.request.query_params.get('city')
+        district = self.request.query_params.get('district')
+        facility_type = self.request.query_params.get('type')
+        ownership = self.request.query_params.get('ownership')
+        search = self.request.query_params.get('search')
+        is_24h = self.request.query_params.get('is_24h')
+        has_ambulance = self.request.query_params.get('has_ambulance')
+        verified = self.request.query_params.get('verified')
+
+        if region:
+            queryset = queryset.filter(city__region_id=region)
+        if city:
+            queryset = queryset.filter(city_id=city)
+        if district:
+            queryset = queryset.filter(district_id=district)
+        if facility_type:
+            queryset = queryset.filter(facility_type=facility_type)
+        if ownership:
+            queryset = queryset.filter(ownership_type=ownership)
+        if search:
+            queryset = queryset.filter(
+                models.Q(name__icontains=search) |
+                models.Q(name_ru__icontains=search) |
+                models.Q(address__icontains=search)
+            )
+        if is_24h == 'true':
+            queryset = queryset.filter(is_24_hours=True)
+        if has_ambulance == 'true':
+            queryset = queryset.filter(has_ambulance=True)
+        if verified == 'true':
+            queryset = queryset.filter(is_verified=True)
+
+        return queryset
+
+
+class FacilityDetailView(generics.RetrieveAPIView):
+    serializer_class = FacilityDetailSerializer
+    permission_classes = [AllowAny]
+    queryset = MedicalFacility.objects.filter(is_active=True)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.total_views += 1
+        instance.save(update_fields=['total_views'])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+
+class FacilityReviewCreateView(generics.CreateAPIView):
+    serializer_class = FacilityReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

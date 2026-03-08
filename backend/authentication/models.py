@@ -70,7 +70,7 @@ class Region(models.Model):
         ordering = ['type', 'name']
 
 
-class City(models.Model):
+class MedCity(models.Model):
     """Города Узбекистана"""
     name = models.CharField(max_length=100)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='cities')
@@ -84,11 +84,11 @@ class City(models.Model):
         unique_together = ['name', 'region']
 
 
-class District(models.Model):
+class MedDistrict(models.Model):
     """Районы Узбекистана"""
     name = models.CharField(max_length=100)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name='districts')
-    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name='districts', null=True, blank=True)
+    city = models.ForeignKey(MedCity, on_delete=models.CASCADE, related_name='districts')
     name_uz = models.CharField(max_length=100, blank=True, null=True)
     
     def __str__(self):
@@ -116,8 +116,8 @@ class UserProfile(models.Model):
     
     # Адрес
     region = models.ForeignKey(Region, on_delete=models.SET_NULL, blank=True, null=True)
-    city = models.ForeignKey(City, on_delete=models.SET_NULL, blank=True, null=True)
-    district = models.ForeignKey(District, on_delete=models.SET_NULL, blank=True, null=True)
+    city = models.ForeignKey(MedCity, on_delete=models.SET_NULL, blank=True, null=True)
+    district = models.ForeignKey(MedDistrict, on_delete=models.SET_NULL, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     
     # Медицинская информация
@@ -152,8 +152,8 @@ class DoctorApplication(models.Model):
     last_name = models.CharField(max_length=100, default='')
     specialization = models.CharField(max_length=100)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, null=True, blank=True)
-    city = models.ForeignKey(City, on_delete=models.CASCADE, null=True, blank=True)
-    district = models.ForeignKey(District, on_delete=models.CASCADE, null=True, blank=True)
+    city = models.ForeignKey(MedCity, on_delete=models.CASCADE, null=True, blank=True)
+    district = models.ForeignKey(MedDistrict, on_delete=models.CASCADE, null=True, blank=True)
     languages = models.JSONField(default=list)
     experience = models.TextField()
     education = models.TextField()
@@ -2157,3 +2157,196 @@ class FCMDevice(models.Model):
 
     def __str__(self):
         return f"{self.user.full_name} — {self.platform} ({self.device_name})"
+    
+# ============================================
+# MEDICAL FACILITIES DIRECTORY
+# ============================================
+
+class City(models.Model):
+    """City in any country"""
+    name = models.CharField(max_length=100)
+    name_ru = models.CharField(max_length=100, blank=True)
+    country = models.CharField(max_length=100, default='Uzbekistan')
+    country_code = models.CharField(max_length=5, blank=True)
+    region = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['country', 'name']
+        verbose_name_plural = 'Cities'
+
+    def __str__(self):
+        return f"{self.name}, {self.country}"
+
+
+class District(models.Model):
+    """District/neighborhood within a city"""
+    city = models.ForeignKey(
+        City, on_delete=models.CASCADE,
+        related_name='districts'
+    )
+    name = models.CharField(max_length=100)
+    name_ru = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name}, {self.city.name}"
+
+
+class MedicalFacility(models.Model):
+    """Medical clinic, hospital or facility"""
+    FACILITY_TYPES = [
+        ('hospital', 'Hospital'),
+        ('clinic', 'Clinic'),
+        ('polyclinic', 'Polyclinic'),
+        ('dental', 'Dental Clinic'),
+        ('pharmacy', 'Pharmacy'),
+        ('diagnostic', 'Diagnostic Center'),
+        ('maternity', 'Maternity Hospital'),
+        ('children', 'Children\'s Hospital'),
+        ('eye_clinic', 'Eye Clinic'),
+        ('cardio_center', 'Cardiology Center'),
+        ('rehabilitation', 'Rehabilitation Center'),
+        ('mental_health', 'Mental Health Center'),
+        ('emergency', 'Emergency Center'),
+        ('laboratory', 'Laboratory'),
+        ('other', 'Other'),
+    ]
+
+    OWNERSHIP_TYPES = [
+        ('public', 'Public'),
+        ('private', 'Private'),
+        ('joint', 'Joint Venture'),
+    ]
+
+    name = models.CharField(max_length=300)
+    name_ru = models.CharField(max_length=300, blank=True)
+    facility_type = models.CharField(max_length=20, choices=FACILITY_TYPES)
+    ownership_type = models.CharField(
+        max_length=10, choices=OWNERSHIP_TYPES, default='private'
+    )
+    description = models.TextField(blank=True)
+
+    # Location
+    city = models.ForeignKey(
+        MedCity, on_delete=models.SET_NULL, null=True,
+        related_name='facilities'
+    )
+    district = models.ForeignKey(
+        MedDistrict, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='facilities'
+    )
+    address = models.CharField(max_length=500, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+
+    # Contact
+    phone = models.CharField(max_length=50, blank=True)
+    phone_2 = models.CharField(max_length=50, blank=True)
+    email = models.EmailField(blank=True)
+    website = models.URLField(blank=True)
+    telegram = models.CharField(max_length=100, blank=True)
+    instagram = models.CharField(max_length=100, blank=True)
+
+    # Hours
+    working_hours = models.CharField(max_length=200, blank=True)
+    is_24_hours = models.BooleanField(default=False)
+    is_open_weekends = models.BooleanField(default=False)
+
+    # Services
+    specializations = models.JSONField(default=list, blank=True)
+    services = models.JSONField(default=list, blank=True)
+    languages = models.JSONField(default=list, blank=True)
+    has_ambulance = models.BooleanField(default=False)
+    has_pharmacy = models.BooleanField(default=False)
+    has_lab = models.BooleanField(default=False)
+    accepts_insurance = models.BooleanField(default=False)
+
+    # Cached stats
+    avg_rating = models.FloatField(default=0.0)
+    total_reviews = models.IntegerField(default=0)
+    total_views = models.IntegerField(default=0)
+
+    # Status
+    is_verified = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    added_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='added_facilities'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_featured', '-avg_rating', '-total_reviews']
+        verbose_name_plural = 'Medical Facilities'
+
+    def __str__(self):
+        return f"{self.name} ({self.facility_type})"
+
+    def update_rating_cache(self):
+        from django.db.models import Avg, Count
+        stats = self.facility_reviews.aggregate(
+            avg=Avg('rating'), count=Count('id')
+        )
+        self.avg_rating = round(stats['avg'] or 0, 2)
+        self.total_reviews = stats['count'] or 0
+        self.save(update_fields=['avg_rating', 'total_reviews'])
+
+
+class FacilityReview(models.Model):
+    """User review for a medical facility"""
+    facility = models.ForeignKey(
+        MedicalFacility, on_delete=models.CASCADE,
+        related_name='facility_reviews'
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='facility_reviews'
+    )
+    rating = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    title = models.CharField(max_length=200, blank=True)
+    comment = models.TextField(blank=True)
+    rating_service = models.IntegerField(null=True, blank=True)
+    rating_cleanliness = models.IntegerField(null=True, blank=True)
+    rating_equipment = models.IntegerField(null=True, blank=True)
+    rating_price = models.IntegerField(null=True, blank=True)
+    helpful_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['facility', 'user']
+
+    def __str__(self):
+        return f"{self.rating}★ — {self.facility.name} by {self.user.full_name}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.facility.update_rating_cache()
+
+
+class FacilityPhoto(models.Model):
+    """Photos of a medical facility"""
+    facility = models.ForeignKey(
+        MedicalFacility, on_delete=models.CASCADE,
+        related_name='photos'
+    )
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='facility_photos'
+    )
+    photo = models.ImageField(upload_to='facility_photos/')
+    caption = models.CharField(max_length=200, blank=True)
+    is_approved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Photo — {self.facility.name}"
