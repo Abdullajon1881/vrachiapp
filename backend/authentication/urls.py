@@ -119,5 +119,11 @@ urlpatterns = [
     path('report-issue/', views.report_issue, name='report_issue'),
     path('search/', views.search_global, name='search_global'),
 
+    # Calendar & reminders
+    path('calendar/<int:doctor_id>/', views.doctor_calendar, name='doctor_calendar'),
+    path('appointments/reminders/', views.appointment_reminders, name='appointment_reminders'),
+    path('appointments/history/', views.appointment_history, name='appointment_history'),
+    path('appointments/<int:appointment_id>/reschedule/', views.reschedule_appointment, name='reschedule_appointment'),
+
 
 ] 

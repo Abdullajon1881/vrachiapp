@@ -3173,3 +3173,329 @@ def search_global(request):
     } for r in records]
 
     return Response({'query': query, 'results': results})
+
+# APPOINTMENT REMINDERS & CALENDAR
+
+from datetime import datetime, date, timedelta
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_calendar(request, doctor_id):
+    """Get full month calendar for a doctor — available and booked slots"""
+    year = int(request.query_params.get('year', date.today().year))
+    month = int(request.query_params.get('month', date.today().month))
+
+    try:
+        doctor = User.objects.get(id=doctor_id, role='doctor')
+    except User.DoesNotExist:
+        return Response({'error': 'Doctor not found'}, status=404)
+
+    # Get doctor's weekly schedule
+    schedules = DoctorSchedule.objects.filter(doctor=doctor, is_available=True)
+    schedule_map = {s.day_of_week: s for s in schedules}
+
+    # Get all booked appointments for that month
+    booked = Appointment.objects.filter(
+        doctor=doctor,
+        appointment_date__year=year,
+        appointment_date__month=month,
+        status__in=['pending', 'confirmed']
+    ).values('appointment_date', 'appointment_time', 'status')
+
+    booked_map = {}
+    for b in booked:
+        d = str(b['appointment_date'])
+        if d not in booked_map:
+            booked_map[d] = []
+        booked_map[d].append(b['appointment_time'].strftime('%H:%M'))
+
+    # Build calendar days
+    import calendar
+    _, days_in_month = calendar.monthrange(year, month)
+
+    calendar_data = []
+    for day in range(1, days_in_month + 1):
+        current_date = date(year, month, day)
+        day_of_week = current_date.weekday()
+        date_str = str(current_date)
+
+        if day_of_week not in schedule_map:
+            calendar_data.append({
+                'date': date_str,
+                'is_working_day': False,
+                'available_slots': [],
+                'booked_slots': [],
+                'total_slots': 0,
+                'available_count': 0,
+            })
+            continue
+
+        schedule = schedule_map[day_of_week]
+        slot_duration = schedule.slot_duration_minutes
+
+        # Generate all slots
+        all_slots = []
+        current = datetime.combine(current_date, schedule.start_time)
+        end = datetime.combine(current_date, schedule.end_time)
+        while current + timedelta(minutes=slot_duration) <= end:
+            all_slots.append(current.strftime('%H:%M'))
+            current += timedelta(minutes=slot_duration)
+
+        booked_times = booked_map.get(date_str, [])
+        available_slots = [s for s in all_slots if s not in booked_times]
+
+        calendar_data.append({
+            'date': date_str,
+            'is_working_day': True,
+            'is_past': current_date < date.today(),
+            'available_slots': available_slots if current_date >= date.today() else [],
+            'booked_slots': booked_times,
+            'total_slots': len(all_slots),
+            'available_count': len(available_slots) if current_date >= date.today() else 0,
+        })
+
+    return Response({
+        'doctor_id': doctor_id,
+        'doctor_name': doctor.full_name,
+        'year': year,
+        'month': month,
+        'calendar': calendar_data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def appointment_reminders(request):
+    """Get upcoming appointments that need reminders (24h and 1h)"""
+    user = request.user
+    now = timezone.now()
+    today = now.date()
+    tomorrow = today + timedelta(days=1)
+
+    if user.role == 'patient':
+        base_qs = Appointment.objects.filter(
+            patient=user,
+            status__in=['pending', 'confirmed']
+        ).select_related('doctor', 'doctor__profile')
+    elif user.role == 'doctor':
+        base_qs = Appointment.objects.filter(
+            doctor=user,
+            status__in=['pending', 'confirmed']
+        ).select_related('patient', 'patient__profile')
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    # Appointments in next 24 hours
+    next_24h = base_qs.filter(
+        appointment_date__in=[today, tomorrow]
+    ).order_by('appointment_date', 'appointment_time')
+
+    reminders = []
+    for appt in next_24h:
+        appt_datetime = datetime.combine(appt.appointment_date, appt.appointment_time)
+        appt_datetime = timezone.make_aware(appt_datetime)
+        hours_until = (appt_datetime - now).total_seconds() / 3600
+
+        if hours_until < 0:
+            continue
+
+        if hours_until <= 1:
+            urgency = 'now'
+            message = 'Your appointment is in less than 1 hour!'
+        elif hours_until <= 3:
+            urgency = 'soon'
+            message = f'Your appointment is in {int(hours_until)} hours.'
+        elif hours_until <= 24:
+            urgency = 'tomorrow'
+            message = 'Your appointment is tomorrow.'
+        else:
+            continue
+
+        if user.role == 'patient':
+            other_person = appt.doctor.full_name
+            other_label = 'doctor'
+        else:
+            other_person = appt.patient.full_name
+            other_label = 'patient'
+
+        reminders.append({
+            'appointment_id': appt.id,
+            'urgency': urgency,
+            'message': message,
+            'hours_until': round(hours_until, 1),
+            other_label: other_person,
+            'appointment_date': str(appt.appointment_date),
+            'appointment_time': str(appt.appointment_time),
+            'status': appt.status,
+            'reason': appt.reason,
+        })
+
+    return Response({
+        'reminders': reminders,
+        'count': len(reminders),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def appointment_history(request):
+    """Get paginated appointment history with stats"""
+    user = request.user
+
+    if user.role == 'patient':
+        queryset = Appointment.objects.filter(
+            patient=user
+        ).select_related('doctor', 'doctor__profile').order_by('-appointment_date', '-appointment_time')
+    elif user.role == 'doctor':
+        queryset = Appointment.objects.filter(
+            doctor=user
+        ).select_related('patient', 'patient__profile').order_by('-appointment_date', '-appointment_time')
+    else:
+        queryset = Appointment.objects.all().select_related(
+            'patient', 'doctor'
+        ).order_by('-appointment_date', '-appointment_time')
+
+    # Filters
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    date_from = request.query_params.get('date_from')
+    if date_from:
+        queryset = queryset.filter(appointment_date__gte=date_from)
+
+    date_to = request.query_params.get('date_to')
+    if date_to:
+        queryset = queryset.filter(appointment_date__lte=date_to)
+
+    # Stats
+    total = queryset.count()
+    completed = queryset.filter(status='completed').count()
+    cancelled = queryset.filter(status='cancelled').count()
+    upcoming = queryset.filter(
+        status__in=['pending', 'confirmed'],
+        appointment_date__gte=date.today()
+    ).count()
+
+    # Pagination
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 10))
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated = queryset[start:end]
+
+    data = []
+    for a in paginated:
+        entry = {
+            'id': a.id,
+            'appointment_date': str(a.appointment_date),
+            'appointment_time': str(a.appointment_time),
+            'duration_minutes': a.duration_minutes,
+            'status': a.status,
+            'reason': a.reason,
+            'notes': a.notes,
+            'doctor_notes': a.doctor_notes,
+            'created_at': a.created_at.isoformat(),
+        }
+        if user.role == 'patient':
+            entry['doctor'] = {
+                'id': a.doctor.id,
+                'full_name': a.doctor.full_name,
+                'avatar': a.doctor.avatar,
+                'specialization': getattr(a.doctor.profile, 'specialization', None) if hasattr(a.doctor, 'profile') else None,
+            }
+        else:
+            entry['patient'] = {
+                'id': a.patient.id,
+                'full_name': a.patient.full_name,
+                'avatar': a.patient.avatar,
+            }
+        data.append(entry)
+
+    return Response({
+        'stats': {
+            'total': total,
+            'completed': completed,
+            'cancelled': cancelled,
+            'upcoming': upcoming,
+        },
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size,
+        'appointments': data,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reschedule_appointment(request, appointment_id):
+    """Reschedule an existing appointment to a new date/time"""
+    try:
+        appointment = Appointment.objects.get(id=appointment_id)
+    except Appointment.DoesNotExist:
+        return Response({'error': 'Appointment not found'}, status=404)
+
+    if request.user not in [appointment.patient, appointment.doctor]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if appointment.status in ['completed', 'cancelled']:
+        return Response({'error': 'Cannot reschedule a completed or cancelled appointment'}, status=400)
+
+    new_date = request.data.get('appointment_date')
+    new_time = request.data.get('appointment_time')
+
+    if not new_date or not new_time:
+        return Response({'error': 'appointment_date and appointment_time are required'}, status=400)
+
+    # Check new slot is not taken
+    if Appointment.objects.filter(
+        doctor=appointment.doctor,
+        appointment_date=new_date,
+        appointment_time=new_time,
+        status__in=['pending', 'confirmed']
+    ).exclude(id=appointment_id).exists():
+        return Response({'error': 'This time slot is already booked'}, status=400)
+
+    # Check not in the past
+    try:
+        new_date_obj = datetime.strptime(new_date, '%Y-%m-%d').date()
+        if new_date_obj < date.today():
+            return Response({'error': 'Cannot reschedule to a past date'}, status=400)
+    except ValueError:
+        return Response({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+
+    old_date = appointment.appointment_date
+    old_time = appointment.appointment_time
+
+    appointment.appointment_date = new_date
+    appointment.appointment_time = new_time
+    appointment.status = 'pending'
+    appointment.save()
+
+    # Notify the other party
+    if request.user == appointment.patient:
+        recipient = appointment.doctor
+        msg = f'Patient {appointment.patient.full_name} rescheduled their appointment.'
+    else:
+        recipient = appointment.patient
+        msg = f'Dr. {appointment.doctor.full_name} rescheduled your appointment.'
+
+    create_notification(
+        recipient=recipient,
+        sender=request.user,
+        notification_type='appointment_reminder',
+        title='Appointment Rescheduled',
+        message=f'{msg} New time: {new_date} at {new_time}.',
+        link=f'/appointments/{appointment.id}/',
+    )
+
+    return Response({
+        'message': 'Appointment rescheduled successfully',
+        'old_date': str(old_date),
+        'old_time': str(old_time),
+        'new_date': new_date,
+        'new_time': new_time,
+        'status': appointment.status,
+    })
