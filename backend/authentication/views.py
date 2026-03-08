@@ -8238,3 +8238,451 @@ def send_push_to_user(request):
         'recipient': target_user.full_name,
         'result': result,
     })
+
+# ADVANCED ANALYTICS & REPORTS
+
+from django.db.models import Count, Avg, Sum, Q, F
+from django.db.models.functions import TruncMonth, TruncWeek, TruncDate
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def platform_analytics(request):
+    """Overall platform statistics — admin only"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    from .models import Appointment, Review
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+
+    # User stats
+    total_patients = User.objects.filter(role='patient').count()
+    total_doctors = User.objects.filter(role='doctor', is_approved=True).count()
+    new_patients_this_month = User.objects.filter(
+        role='patient', date_joined__date__gte=this_month_start
+    ).count()
+    new_doctors_this_month = User.objects.filter(
+        role='doctor', date_joined__date__gte=this_month_start
+    ).count()
+
+    # Appointment stats
+    total_appointments = Appointment.objects.count()
+    appointments_this_month = Appointment.objects.filter(
+        date__gte=this_month_start
+    ).count()
+    completed_appointments = Appointment.objects.filter(status='completed').count()
+    cancelled_appointments = Appointment.objects.filter(status='cancelled').count()
+    completion_rate = round(
+        (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0, 1
+    )
+
+    # Revenue (if payment model exists)
+    # Appointments by status
+    appointment_status_breakdown = Appointment.objects.values('status').annotate(
+        count=Count('id')
+    ).order_by('-count')
+
+    # Monthly growth — patients
+    monthly_signups = User.objects.filter(
+        role='patient',
+        date_joined__date__gte=today - timedelta(days=180)
+    ).annotate(
+        month=TruncMonth('date_joined')
+    ).values('month').annotate(count=Count('id')).order_by('month')
+
+    # Monthly appointments
+    monthly_appointments = Appointment.objects.filter(
+        date__gte=today - timedelta(days=180)
+    ).annotate(
+        month=TruncMonth('date')
+    ).values('month').annotate(count=Count('id')).order_by('month')
+
+    # Top specializations by appointment count
+    top_specializations = Appointment.objects.values(
+        'doctor__specialization'
+    ).annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+
+    # Review stats
+    avg_platform_rating = Review.objects.aggregate(avg=Avg('rating'))['avg']
+
+    # Active doctors (had appointment in last 30 days)
+    active_doctors = Appointment.objects.filter(
+        date__gte=today - timedelta(days=30)
+    ).values('doctor').distinct().count()
+
+    return Response({
+        'generated_at': timezone.now().isoformat(),
+        'users': {
+            'total_patients': total_patients,
+            'total_doctors': total_doctors,
+            'new_patients_this_month': new_patients_this_month,
+            'new_doctors_this_month': new_doctors_this_month,
+            'active_doctors_last_30_days': active_doctors,
+        },
+        'appointments': {
+            'total': total_appointments,
+            'this_month': appointments_this_month,
+            'completed': completed_appointments,
+            'cancelled': cancelled_appointments,
+            'completion_rate_percent': completion_rate,
+            'by_status': list(appointment_status_breakdown),
+        },
+        'reviews': {
+            'avg_platform_rating': round(avg_platform_rating, 2) if avg_platform_rating else None,
+            'total_reviews': Review.objects.count(),
+        },
+        'growth': {
+            'monthly_patient_signups': [
+                {'month': str(m['month'])[:7], 'count': m['count']}
+                for m in monthly_signups
+            ],
+            'monthly_appointments': [
+                {'month': str(m['month'])[:7], 'count': m['count']}
+                for m in monthly_appointments
+            ],
+        },
+        'top_specializations': [
+            {'specialization': s['doctor__specialization'], 'appointments': s['count']}
+            for s in top_specializations if s['doctor__specialization']
+        ],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doctor_analytics(request, doctor_id=None):
+    """Doctor performance analytics"""
+    user = request.user
+
+    if user.role == 'doctor':
+        target_doctor = user
+    elif user.role == 'admin':
+        if not doctor_id:
+            return Response({'error': 'doctor_id is required'}, status=400)
+        try:
+            target_doctor = User.objects.get(id=doctor_id, role='doctor')
+        except User.DoesNotExist:
+            return Response({'error': 'Doctor not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    from .models import Appointment, Review
+    today = date.today()
+    this_month_start = today.replace(day=1)
+
+    appointments = Appointment.objects.filter(doctor=target_doctor)
+    reviews = Review.objects.filter(doctor=target_doctor)
+
+    # Appointment stats
+    total = appointments.count()
+    completed = appointments.filter(status='completed').count()
+    cancelled = appointments.filter(status='cancelled').count()
+    this_month = appointments.filter(date__gte=this_month_start).count()
+    completion_rate = round((completed / total * 100) if total > 0 else 0, 1)
+
+    # Rating stats
+    avg_rating = reviews.aggregate(avg=Avg('rating'))['avg']
+    rating_breakdown = reviews.values('rating').annotate(
+        count=Count('id')
+    ).order_by('rating')
+
+    # Weekly appointments for last 8 weeks
+    weekly_appointments = appointments.filter(
+        date__gte=today - timedelta(weeks=8)
+    ).annotate(
+        week=TruncWeek('date')
+    ).values('week').annotate(count=Count('id')).order_by('week')
+
+    # Busiest days of week
+    from django.db.models.functions import ExtractWeekDay
+    busiest_days = appointments.filter(
+        status='completed'
+    ).annotate(
+        weekday=ExtractWeekDay('date')
+    ).values('weekday').annotate(
+        count=Count('id')
+    ).order_by('-count')
+
+    day_names = {1: 'Sunday', 2: 'Monday', 3: 'Tuesday', 4: 'Wednesday',
+                 5: 'Thursday', 6: 'Friday', 7: 'Saturday'}
+
+    # Patient retention — patients with 2+ appointments
+    repeat_patients = appointments.values('patient').annotate(
+        visits=Count('id')
+    ).filter(visits__gte=2).count()
+
+    total_unique_patients = appointments.values('patient').distinct().count()
+    retention_rate = round(
+        (repeat_patients / total_unique_patients * 100)
+        if total_unique_patients > 0 else 0, 1
+    )
+
+    # Recent reviews
+    recent_reviews = reviews.order_by('-created_at')[:5]
+
+    return Response({
+        'doctor': target_doctor.full_name,
+        'specialization': target_doctor.specialization,
+        'generated_at': timezone.now().isoformat(),
+        'appointments': {
+            'total': total,
+            'completed': completed,
+            'cancelled': cancelled,
+            'this_month': this_month,
+            'completion_rate_percent': completion_rate,
+        },
+        'patients': {
+            'total_unique': total_unique_patients,
+            'repeat_patients': repeat_patients,
+            'retention_rate_percent': retention_rate,
+        },
+        'ratings': {
+            'average': round(avg_rating, 2) if avg_rating else None,
+            'total_reviews': reviews.count(),
+            'breakdown': {str(r['rating']): r['count'] for r in rating_breakdown},
+        },
+        'trends': {
+            'weekly_appointments': [
+                {'week': str(w['week'])[:10], 'count': w['count']}
+                for w in weekly_appointments
+            ],
+            'busiest_days': [
+                {'day': day_names.get(d['weekday'], 'Unknown'), 'count': d['count']}
+                for d in busiest_days
+            ],
+        },
+        'recent_reviews': [{
+            'rating': r.rating,
+            'comment': r.comment,
+            'patient': r.patient.full_name,
+            'date': r.created_at.strftime('%Y-%m-%d'),
+        } for r in recent_reviews],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_analytics(request, patient_id=None):
+    """Patient health analytics"""
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    from .models import (
+        Appointment, MedicalRecord, VitalSign,
+        BloodPressureLog, Medication, LabOrder
+    )
+
+    today = date.today()
+
+    # Appointment history
+    appointments = Appointment.objects.filter(patient=target_patient)
+    total_appointments = appointments.count()
+    completed_appointments = appointments.filter(status='completed').count()
+
+    # Doctors visited
+    doctors_visited = appointments.values('doctor').distinct().count()
+
+    # Specializations visited
+    specializations = appointments.filter(
+        status='completed'
+    ).values('doctor__specialization').distinct()
+
+    # Vital signs trends (last 30 days)
+    vitals = VitalSign.objects.filter(
+        patient=target_patient,
+        recorded_at__date__gte=today - timedelta(days=30)
+    ).order_by('recorded_at')
+
+    vitals_trend = [{
+        'date': str(v.recorded_at.date()),
+        'blood_pressure_systolic': v.blood_pressure_systolic,
+        'blood_pressure_diastolic': v.blood_pressure_diastolic,
+        'heart_rate': v.heart_rate,
+        'temperature': v.temperature,
+        'weight': v.weight,
+    } for v in vitals]
+
+    # BP trend
+    bp_logs = BloodPressureLog.objects.filter(
+        patient=target_patient
+    ).order_by('-measured_at')[:30]
+
+    bp_trend = [{
+        'date': str(b.measured_at.date()),
+        'systolic': b.systolic,
+        'diastolic': b.diastolic,
+        'category': b.category,
+    } for b in bp_logs]
+
+    # Active medications
+    active_meds = Medication.objects.filter(
+        patient=target_patient,
+        is_active=True
+    ).count() if hasattr(Medication, 'is_active') else 0
+
+    # Lab orders
+    lab_orders = LabOrder.objects.filter(patient=target_patient)
+    abnormal_labs = 0
+    for order in lab_orders:
+        if order.tests.filter(is_abnormal=True).exists():
+            abnormal_labs += 1
+
+    # Monthly appointment frequency
+    monthly_visits = appointments.filter(
+        date__gte=today - timedelta(days=365)
+    ).annotate(
+        month=TruncMonth('date')
+    ).values('month').annotate(count=Count('id')).order_by('month')
+
+    return Response({
+        'patient': target_patient.full_name,
+        'generated_at': timezone.now().isoformat(),
+        'appointments': {
+            'total': total_appointments,
+            'completed': completed_appointments,
+            'doctors_visited': doctors_visited,
+            'specializations_visited': [
+                s['doctor__specialization']
+                for s in specializations
+                if s['doctor__specialization']
+            ],
+        },
+        'health_metrics': {
+            'vitals_logged': vitals.count(),
+            'bp_readings': bp_logs.count(),
+            'active_medications': active_meds,
+            'lab_orders_total': lab_orders.count(),
+            'lab_orders_with_abnormal': abnormal_labs,
+        },
+        'trends': {
+            'vitals': vitals_trend,
+            'blood_pressure': bp_trend,
+            'monthly_visits': [
+                {'month': str(m['month'])[:7], 'visits': m['count']}
+                for m in monthly_visits
+            ],
+        },
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def appointment_report(request):
+    """Detailed appointment report with filters"""
+    if request.user.role not in ['admin', 'doctor']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    from .models import Appointment
+    today = date.today()
+
+    date_from = request.query_params.get('date_from', str(today - timedelta(days=30)))
+    date_to = request.query_params.get('date_to', str(today))
+    doctor_id = request.query_params.get('doctor_id')
+    status_filter = request.query_params.get('status')
+
+    appointments = Appointment.objects.filter(
+        date__range=[date_from, date_to]
+    ).select_related('doctor', 'patient')
+
+    if doctor_id:
+        appointments = appointments.filter(doctor_id=doctor_id)
+    elif request.user.role == 'doctor':
+        appointments = appointments.filter(doctor=request.user)
+
+    if status_filter:
+        appointments = appointments.filter(status=status_filter)
+
+    total = appointments.count()
+    by_status = appointments.values('status').annotate(count=Count('id'))
+    by_specialization = appointments.values(
+        'doctor__specialization'
+    ).annotate(count=Count('id')).order_by('-count')
+
+    # Daily breakdown
+    daily = appointments.annotate(
+        day=TruncDate('date')
+    ).values('day').annotate(count=Count('id')).order_by('day')
+
+    return Response({
+        'period': {'from': date_from, 'to': date_to},
+        'total_appointments': total,
+        'by_status': {s['status']: s['count'] for s in by_status},
+        'by_specialization': [
+            {'specialization': s['doctor__specialization'], 'count': s['count']}
+            for s in by_specialization if s['doctor__specialization']
+        ],
+        'daily_breakdown': [
+            {'date': str(d['day']), 'count': d['count']}
+            for d in daily
+        ],
+        'appointments': [{
+            'id': a.id,
+            'date': str(a.date),
+            'time': str(a.time),
+            'patient': a.patient.full_name,
+            'doctor': a.doctor.full_name,
+            'specialization': a.doctor.specialization,
+            'status': a.status,
+        } for a in appointments[:100]],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def top_doctors_report(request):
+    """Top performing doctors report — admin only"""
+    if request.user.role != 'admin':
+        return Response({'error': 'Admin access required'}, status=403)
+
+    from .models import Appointment, Review
+    today = date.today()
+    date_from = request.query_params.get(
+        'date_from', str(today - timedelta(days=30))
+    )
+
+    top_doctors = User.objects.filter(
+        role='doctor', is_approved=True
+    ).annotate(
+        total_appointments=Count(
+            'doctor_appointments',
+            filter=Q(doctor_appointments__date__gte=date_from)
+        ),
+        completed_appointments=Count(
+            'doctor_appointments',
+            filter=Q(
+                doctor_appointments__date__gte=date_from,
+                doctor_appointments__status='completed'
+            )
+        ),
+        avg_rating=Avg('received_reviews__rating'),
+        total_reviews=Count('received_reviews'),
+    ).order_by('-completed_appointments')[:20]
+
+    return Response({
+        'period_from': date_from,
+        'generated_at': timezone.now().isoformat(),
+        'top_doctors': [{
+            'id': d.id,
+            'name': d.full_name,
+            'specialization': d.specialization,
+            'total_appointments': d.total_appointments,
+            'completed_appointments': d.completed_appointments,
+            'avg_rating': round(d.avg_rating, 2) if d.avg_rating else None,
+            'total_reviews': d.total_reviews,
+        } for d in top_doctors],
+    })

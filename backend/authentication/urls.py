@@ -222,4 +222,13 @@ urlpatterns = [
     path('push/test/', views.send_test_push, name='send_test_push'),
     path('push/send/', views.send_push_to_user, name='send_push_to_user'),
 
+    # Advanced analytics & reports
+    path('analytics/platform/', views.platform_analytics, name='platform_analytics'),
+    path('analytics/doctor/', views.doctor_analytics, name='doctor_analytics'),
+    path('analytics/doctor/<int:doctor_id>/', views.doctor_analytics, name='doctor_analytics_detail'),
+    path('analytics/patient/', views.patient_analytics, name='patient_analytics'),
+    path('analytics/patient/<int:patient_id>/', views.patient_analytics, name='patient_analytics_detail'),
+    path('analytics/appointments/', views.appointment_report, name='appointment_report'),
+    path('analytics/top-doctors/', views.top_doctors_report, name='top_doctors_report'),
+
 ] 
