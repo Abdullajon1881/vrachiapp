@@ -1705,3 +1705,187 @@ class RehabilitationPlan(models.Model):
 
     def __str__(self):
         return f"Rehab: {self.title} — {self.patient.full_name} ({self.status})"
+    
+# PEDIATRICS MODULE
+
+class ChildProfile(models.Model):
+    """Child profile linked to a parent patient account"""
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+
+    BLOOD_TYPE_CHOICES = [
+        ('A+', 'A+'), ('A-', 'A-'),
+        ('B+', 'B+'), ('B-', 'B-'),
+        ('AB+', 'AB+'), ('AB-', 'AB-'),
+        ('O+', 'O+'), ('O-', 'O-'),
+        ('unknown', 'Unknown'),
+    ]
+
+    parent = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='children'
+    )
+    full_name = models.CharField(max_length=200)
+    date_of_birth = models.DateField()
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
+    blood_type = models.CharField(
+        max_length=10, choices=BLOOD_TYPE_CHOICES, default='unknown'
+    )
+    birth_weight_kg = models.FloatField(null=True, blank=True)
+    birth_height_cm = models.FloatField(null=True, blank=True)
+    allergies = models.TextField(blank=True)
+    chronic_conditions = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date_of_birth']
+
+    def __str__(self):
+        return f"{self.full_name} (parent: {self.parent.full_name})"
+
+    @property
+    def age_months(self):
+        from dateutil.relativedelta import relativedelta
+        today = date.today()
+        delta = relativedelta(today, self.date_of_birth)
+        return delta.years * 12 + delta.months
+
+    @property
+    def age_years(self):
+        today = date.today()
+        return (today - self.date_of_birth).days // 365
+
+
+class GrowthRecord(models.Model):
+    """Height, weight and head circumference tracking"""
+    child = models.ForeignKey(
+        ChildProfile, on_delete=models.CASCADE,
+        related_name='growth_records'
+    )
+    recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='recorded_growth'
+    )
+    recorded_date = models.DateField()
+    age_months = models.IntegerField()
+    weight_kg = models.FloatField(null=True, blank=True)
+    height_cm = models.FloatField(null=True, blank=True)
+    head_circumference_cm = models.FloatField(null=True, blank=True)
+    bmi = models.FloatField(null=True, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recorded_date']
+
+    def __str__(self):
+        return f"Growth — {self.child.full_name} at {self.age_months} months"
+
+    def save(self, *args, **kwargs):
+        if self.weight_kg and self.height_cm and self.height_cm > 0:
+            height_m = self.height_cm / 100
+            self.bmi = round(self.weight_kg / (height_m ** 2), 1)
+        super().save(*args, **kwargs)
+
+
+class VaccinationRecord(models.Model):
+    """Vaccination/immunization record for a child"""
+    VACCINE_CHOICES = [
+        ('bcg', 'BCG (Tuberculosis)'),
+        ('hepb', 'Hepatitis B'),
+        ('dtap', 'DTaP (Diphtheria, Tetanus, Pertussis)'),
+        ('ipv', 'IPV (Polio)'),
+        ('hib', 'Hib (Haemophilus influenzae)'),
+        ('pcv', 'PCV (Pneumococcal)'),
+        ('rotavirus', 'Rotavirus'),
+        ('mmr', 'MMR (Measles, Mumps, Rubella)'),
+        ('varicella', 'Varicella (Chickenpox)'),
+        ('hepa', 'Hepatitis A'),
+        ('meningococcal', 'Meningococcal'),
+        ('hpv', 'HPV'),
+        ('flu', 'Influenza (Flu)'),
+        ('covid', 'COVID-19'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('completed', 'Completed'),
+        ('scheduled', 'Scheduled'),
+        ('overdue', 'Overdue'),
+        ('skipped', 'Skipped'),
+    ]
+
+    child = models.ForeignKey(
+        ChildProfile, on_delete=models.CASCADE,
+        related_name='vaccinations'
+    )
+    administered_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='administered_vaccines'
+    )
+    vaccine = models.CharField(max_length=20, choices=VACCINE_CHOICES)
+    dose_number = models.IntegerField(default=1)
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='completed'
+    )
+    administered_date = models.DateField(null=True, blank=True)
+    next_dose_date = models.DateField(null=True, blank=True)
+    batch_number = models.CharField(max_length=100, blank=True)
+    manufacturer = models.CharField(max_length=100, blank=True)
+    site = models.CharField(max_length=100, blank=True)  # e.g. "Left arm"
+    reactions = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-administered_date']
+
+    def __str__(self):
+        return f"{self.vaccine} dose {self.dose_number} — {self.child.full_name}"
+
+
+class PediatricVisit(models.Model):
+    """Pediatric clinic visit / well-child checkup"""
+    VISIT_TYPES = [
+        ('well_child', 'Well-Child Checkup'),
+        ('sick_visit', 'Sick Visit'),
+        ('follow_up', 'Follow-up'),
+        ('emergency', 'Emergency'),
+        ('developmental', 'Developmental Assessment'),
+        ('vaccination', 'Vaccination Visit'),
+    ]
+
+    child = models.ForeignKey(
+        ChildProfile, on_delete=models.CASCADE,
+        related_name='pediatric_visits'
+    )
+    doctor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='pediatric_consultations'
+    )
+    visit_date = models.DateField()
+    visit_type = models.CharField(
+        max_length=20, choices=VISIT_TYPES, default='well_child'
+    )
+    chief_complaint = models.CharField(max_length=300, blank=True)
+    diagnosis = models.CharField(max_length=300, blank=True)
+    weight_kg = models.FloatField(null=True, blank=True)
+    height_cm = models.FloatField(null=True, blank=True)
+    temperature_c = models.FloatField(null=True, blank=True)
+    heart_rate = models.IntegerField(null=True, blank=True)
+    developmental_notes = models.TextField(blank=True)
+    treatment_plan = models.TextField(blank=True)
+    medications_prescribed = models.JSONField(default=list, blank=True)
+    next_visit = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-visit_date']
+
+    def __str__(self):
+        return f"{self.visit_type} — {self.child.full_name} ({self.visit_date})"

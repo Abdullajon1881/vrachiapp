@@ -6959,3 +6959,417 @@ def orthopedics_summary(request, patient_id=None):
 
     except Exception as e:
         return Response({'error': f'Summary failed: {str(e)}'}, status=500)
+    
+# PEDIATRICS MODULE
+
+from .models import ChildProfile, GrowthRecord, VaccinationRecord, PediatricVisit
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def child_profiles(request):
+    """Get or create child profiles"""
+    user = request.user
+
+    if request.method == 'GET':
+        if user.role == 'patient':
+            children = ChildProfile.objects.filter(parent=user)
+        elif user.role in ['doctor', 'admin']:
+            parent_id = request.query_params.get('parent_id')
+            if parent_id:
+                children = ChildProfile.objects.filter(parent_id=parent_id)
+            else:
+                children = ChildProfile.objects.all().select_related('parent')
+        else:
+            children = ChildProfile.objects.none()
+
+        return Response({
+            'count': children.count(),
+            'children': [{
+                'id': c.id,
+                'full_name': c.full_name,
+                'date_of_birth': str(c.date_of_birth),
+                'age_months': c.age_months,
+                'age_years': c.age_years,
+                'gender': c.gender,
+                'blood_type': c.blood_type,
+                'birth_weight_kg': c.birth_weight_kg,
+                'birth_height_cm': c.birth_height_cm,
+                'allergies': c.allergies,
+                'chronic_conditions': c.chronic_conditions,
+                'notes': c.notes,
+            } for c in children],
+        })
+
+    # POST — patients (parents) create child profiles
+    required = ['full_name', 'date_of_birth', 'gender']
+    for field in required:
+        if not request.data.get(field):
+            return Response({'error': f'{field} is required'}, status=400)
+
+    parent = user
+    if user.role in ['doctor', 'admin']:
+        parent_id = request.data.get('parent_id')
+        if not parent_id:
+            return Response({'error': 'parent_id is required for doctors'}, status=400)
+        try:
+            parent = User.objects.get(id=parent_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Parent patient not found'}, status=404)
+
+    child = ChildProfile.objects.create(
+        parent=parent,
+        full_name=request.data.get('full_name'),
+        date_of_birth=request.data.get('date_of_birth'),
+        gender=request.data.get('gender'),
+        blood_type=request.data.get('blood_type', 'unknown'),
+        birth_weight_kg=request.data.get('birth_weight_kg'),
+        birth_height_cm=request.data.get('birth_height_cm'),
+        allergies=request.data.get('allergies', ''),
+        chronic_conditions=request.data.get('chronic_conditions', ''),
+        notes=request.data.get('notes', ''),
+    )
+
+    return Response({
+        'message': 'Child profile created successfully',
+        'id': child.id,
+        'full_name': child.full_name,
+        'age_months': child.age_months,
+    }, status=201)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def child_profile_detail(request, child_id):
+    """Get, update or delete a child profile"""
+    try:
+        child = ChildProfile.objects.get(id=child_id)
+    except ChildProfile.DoesNotExist:
+        return Response({'error': 'Child not found'}, status=404)
+
+    if child.parent != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        return Response({
+            'id': child.id,
+            'full_name': child.full_name,
+            'date_of_birth': str(child.date_of_birth),
+            'age_months': child.age_months,
+            'age_years': child.age_years,
+            'gender': child.gender,
+            'blood_type': child.blood_type,
+            'birth_weight_kg': child.birth_weight_kg,
+            'birth_height_cm': child.birth_height_cm,
+            'allergies': child.allergies,
+            'chronic_conditions': child.chronic_conditions,
+            'notes': child.notes,
+            'parent': child.parent.full_name,
+        })
+
+    if request.method == 'PUT':
+        updatable = [
+            'full_name', 'blood_type', 'allergies',
+            'chronic_conditions', 'notes',
+            'birth_weight_kg', 'birth_height_cm',
+        ]
+        for field in updatable:
+            if field in request.data:
+                setattr(child, field, request.data[field])
+        child.save()
+        return Response({'message': 'Child profile updated successfully'})
+
+    if request.method == 'DELETE':
+        if request.user.role not in ['admin']:
+            return Response({'error': 'Only admins can delete child profiles'}, status=403)
+        child.delete()
+        return Response({'message': 'Child profile deleted'})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def growth_records(request, child_id):
+    """Get or add growth records for a child"""
+    try:
+        child = ChildProfile.objects.get(id=child_id)
+    except ChildProfile.DoesNotExist:
+        return Response({'error': 'Child not found'}, status=404)
+
+    if child.parent != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        records = GrowthRecord.objects.filter(child=child)
+        return Response({
+            'child': child.full_name,
+            'count': records.count(),
+            'records': [{
+                'id': r.id,
+                'recorded_date': str(r.recorded_date),
+                'age_months': r.age_months,
+                'weight_kg': r.weight_kg,
+                'height_cm': r.height_cm,
+                'head_circumference_cm': r.head_circumference_cm,
+                'bmi': r.bmi,
+                'notes': r.notes,
+            } for r in records],
+        })
+
+    if not request.data.get('recorded_date'):
+        return Response({'error': 'recorded_date is required'}, status=400)
+
+    record = GrowthRecord.objects.create(
+        child=child,
+        recorded_by=request.user,
+        recorded_date=request.data.get('recorded_date'),
+        age_months=request.data.get('age_months', child.age_months),
+        weight_kg=request.data.get('weight_kg'),
+        height_cm=request.data.get('height_cm'),
+        head_circumference_cm=request.data.get('head_circumference_cm'),
+        notes=request.data.get('notes', ''),
+    )
+
+    return Response({
+        'message': 'Growth record added successfully',
+        'id': record.id,
+        'bmi': record.bmi,
+        'age_months': record.age_months,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def vaccination_records(request, child_id):
+    """Get or add vaccination records"""
+    try:
+        child = ChildProfile.objects.get(id=child_id)
+    except ChildProfile.DoesNotExist:
+        return Response({'error': 'Child not found'}, status=404)
+
+    if child.parent != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        vaccinations = VaccinationRecord.objects.filter(
+            child=child
+        ).select_related('administered_by')
+
+        completed = vaccinations.filter(status='completed').count()
+        scheduled = vaccinations.filter(status='scheduled').count()
+        overdue = vaccinations.filter(status='overdue').count()
+
+        return Response({
+            'child': child.full_name,
+            'stats': {
+                'completed': completed,
+                'scheduled': scheduled,
+                'overdue': overdue,
+                'total': vaccinations.count(),
+            },
+            'vaccinations': [{
+                'id': v.id,
+                'vaccine': v.vaccine,
+                'dose_number': v.dose_number,
+                'status': v.status,
+                'administered_date': str(v.administered_date) if v.administered_date else None,
+                'next_dose_date': str(v.next_dose_date) if v.next_dose_date else None,
+                'batch_number': v.batch_number,
+                'manufacturer': v.manufacturer,
+                'site': v.site,
+                'reactions': v.reactions,
+                'administered_by': v.administered_by.full_name if v.administered_by else None,
+                'notes': v.notes,
+            } for v in vaccinations],
+        })
+
+    if user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add vaccination records'}, status=403)
+
+    if not request.data.get('vaccine'):
+        return Response({'error': 'vaccine is required'}, status=400)
+
+    vaccination = VaccinationRecord.objects.create(
+        child=child,
+        administered_by=request.user,
+        vaccine=request.data.get('vaccine'),
+        dose_number=request.data.get('dose_number', 1),
+        status=request.data.get('status', 'completed'),
+        administered_date=request.data.get('administered_date'),
+        next_dose_date=request.data.get('next_dose_date'),
+        batch_number=request.data.get('batch_number', ''),
+        manufacturer=request.data.get('manufacturer', ''),
+        site=request.data.get('site', ''),
+        reactions=request.data.get('reactions', ''),
+        notes=request.data.get('notes', ''),
+    )
+
+    if vaccination.next_dose_date:
+        create_notification(
+            recipient=child.parent,
+            sender=request.user,
+            notification_type='general',
+            title='Next Vaccination Reminder',
+            message=f'{child.full_name} needs {vaccination.vaccine} dose {vaccination.dose_number + 1} on {vaccination.next_dose_date}.',
+            link='/pediatrics/',
+        )
+
+    return Response({
+        'message': 'Vaccination record added successfully',
+        'id': vaccination.id,
+        'vaccine': vaccination.vaccine,
+        'status': vaccination.status,
+    }, status=201)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def pediatric_visits(request, child_id):
+    """Get or add pediatric visits"""
+    try:
+        child = ChildProfile.objects.get(id=child_id)
+    except ChildProfile.DoesNotExist:
+        return Response({'error': 'Child not found'}, status=404)
+
+    if child.parent != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        visits = PediatricVisit.objects.filter(
+            child=child
+        ).select_related('doctor')
+
+        return Response({
+            'child': child.full_name,
+            'count': visits.count(),
+            'visits': [{
+                'id': v.id,
+                'visit_date': str(v.visit_date),
+                'visit_type': v.visit_type,
+                'doctor': v.doctor.full_name if v.doctor else None,
+                'chief_complaint': v.chief_complaint,
+                'diagnosis': v.diagnosis,
+                'weight_kg': v.weight_kg,
+                'height_cm': v.height_cm,
+                'temperature_c': v.temperature_c,
+                'heart_rate': v.heart_rate,
+                'developmental_notes': v.developmental_notes,
+                'treatment_plan': v.treatment_plan,
+                'medications_prescribed': v.medications_prescribed,
+                'next_visit': str(v.next_visit) if v.next_visit else None,
+                'notes': v.notes,
+            } for v in visits],
+        })
+
+    if request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Only doctors can add pediatric visits'}, status=403)
+
+    if not request.data.get('visit_date'):
+        return Response({'error': 'visit_date is required'}, status=400)
+
+    visit = PediatricVisit.objects.create(
+        child=child,
+        doctor=request.user,
+        visit_date=request.data.get('visit_date'),
+        visit_type=request.data.get('visit_type', 'well_child'),
+        chief_complaint=request.data.get('chief_complaint', ''),
+        diagnosis=request.data.get('diagnosis', ''),
+        weight_kg=request.data.get('weight_kg'),
+        height_cm=request.data.get('height_cm'),
+        temperature_c=request.data.get('temperature_c'),
+        heart_rate=request.data.get('heart_rate'),
+        developmental_notes=request.data.get('developmental_notes', ''),
+        treatment_plan=request.data.get('treatment_plan', ''),
+        medications_prescribed=request.data.get('medications_prescribed', []),
+        next_visit=request.data.get('next_visit'),
+        notes=request.data.get('notes', ''),
+    )
+
+    create_notification(
+        recipient=child.parent,
+        sender=request.user,
+        notification_type='general',
+        title='Pediatric Visit Added',
+        message=f'Dr. {request.user.full_name} added a visit record for {child.full_name} on {visit.visit_date}.',
+        link='/pediatrics/',
+    )
+
+    return Response({
+        'message': 'Pediatric visit added successfully',
+        'id': visit.id,
+        'visit_type': visit.visit_type,
+        'visit_date': str(visit.visit_date),
+    }, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pediatrics_summary(request, child_id):
+    """AI-powered pediatrics summary for a child"""
+    try:
+        child = ChildProfile.objects.get(id=child_id)
+    except ChildProfile.DoesNotExist:
+        return Response({'error': 'Child not found'}, status=404)
+
+    if child.parent != request.user and request.user.role not in ['doctor', 'admin']:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    growth = GrowthRecord.objects.filter(child=child)
+    vaccinations = VaccinationRecord.objects.filter(child=child)
+    visits = PediatricVisit.objects.filter(child=child)
+
+    latest_growth = growth.first()
+    growth_text = ""
+    if latest_growth:
+        growth_text = (
+            f"Последние показатели роста ({latest_growth.recorded_date}):\n"
+            f"Вес: {latest_growth.weight_kg} кг, Рост: {latest_growth.height_cm} см, "
+            f"BMI: {latest_growth.bmi}, Возраст: {latest_growth.age_months} мес."
+        )
+
+    completed_vaccines = vaccinations.filter(status='completed').count()
+    overdue_vaccines = vaccinations.filter(status='overdue').count()
+
+    prompt = f"""Ты педиатр-ассистент. Проанализируй историю здоровья ребёнка.
+
+Ребёнок: {child.full_name}
+Возраст: {child.age_years} лет ({child.age_months} месяцев)
+Пол: {child.gender}
+Группа крови: {child.blood_type}
+Аллергии: {child.allergies or 'Нет'}
+Хронические заболевания: {child.chronic_conditions or 'Нет'}
+
+{growth_text}
+
+Прививки: {completed_vaccines} выполнено, {overdue_vaccines} просрочено
+Визиты к врачу: {visits.count()}
+
+Дай краткое профессиональное резюме на русском:
+1. **Общее состояние здоровья**
+2. **Физическое развитие**
+3. **Вакцинация** (есть ли просроченные?)
+4. **Рекомендации педиатра**
+5. **На что обратить внимание** 🔴"""
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+        claude_client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+        response = claude_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+
+        return Response({
+            'child_name': child.full_name,
+            'age_months': child.age_months,
+            'generated_at': timezone.now().isoformat(),
+            'growth_records': growth.count(),
+            'vaccinations_completed': completed_vaccines,
+            'vaccinations_overdue': overdue_vaccines,
+            'visit_count': visits.count(),
+            'summary': response.content[0].text,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Summary failed: {str(e)}'}, status=500)
