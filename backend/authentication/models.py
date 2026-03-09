@@ -219,6 +219,12 @@ class Consultation(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Консультация'
         verbose_name_plural = 'Консультации'
+        indexes = [
+            models.Index(fields=['doctor', 'status']),
+            models.Index(fields=['patient', 'status']),
+            models.Index(fields=['created_at']),
+        ]
+
     
     def __str__(self):
         return f"Консультация {self.patient.full_name} - {self.doctor.full_name} ({self.get_status_display()})"
@@ -249,6 +255,10 @@ class Message(models.Model):
         ordering = ['created_at']
         verbose_name = 'Сообщение'
         verbose_name_plural = 'Сообщения'
+        indexes = [
+            models.Index(fields=['consultation', 'created_at']),
+        ]
+
     
     def __str__(self):
         return f"Сообщение от {self.sender.full_name} в {self.consultation}"
@@ -346,6 +356,11 @@ class Appointment(models.Model):
         verbose_name = 'Appointment'
         verbose_name_plural = 'Appointments'
         unique_together = ['doctor', 'appointment_date', 'appointment_time']
+        indexes = [
+            models.Index(fields=['doctor', 'appointment_date']),
+            models.Index(fields=['patient', 'status']),
+            models.Index(fields=['status', 'appointment_date']),
+    ]
 
     def __str__(self):
         return f"Appointment: {self.patient.full_name} with Dr. {self.doctor.full_name} on {self.appointment_date} at {self.appointment_time}"
@@ -517,6 +532,10 @@ class Notification(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Notification'
         verbose_name_plural = 'Notifications'
+        indexes = [
+            models.Index(fields=['recipient', 'is_read']),
+            models.Index(fields=['created_at']),
+            ]
 
     def __str__(self):
         return f"Notification for {self.recipient.full_name}: {self.title}"
