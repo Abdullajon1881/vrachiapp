@@ -9637,6 +9637,111 @@ Return ONLY a JSON object:
     except Exception as e:
         return Response({'error': f'Summary generation failed: {str(e)}'}, status=502)
 
+# AI Prescription Analyzer
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def prescription_analyzer(request):
+    """Upload a prescription image and get AI analysis of medications"""
+    import anthropic
+    import os
+    import base64
+
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file uploaded'}, status=400)
+
+    uploaded_file = request.FILES['file']
+    allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+    if uploaded_file.content_type not in allowed_types:
+        return Response({'error': 'File must be an image (JPEG, PNG, WebP) or PDF'}, status=400)
+
+    language = request.data.get('language', 'en')
+    lang_instruction = {
+        'en': 'Respond in English.',
+        'ru': 'Respond in Russian.',
+        'uz': 'Respond in Uzbek.',
+    }.get(language, 'Respond in English.')
+
+    file_bytes = uploaded_file.read()
+    file_base64 = base64.standard_b64encode(file_bytes).decode('utf-8')
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # Build content based on file type
+    if uploaded_file.content_type == 'application/pdf':
+        file_content = {
+            'type': 'document',
+            'source': {
+                'type': 'base64',
+                'media_type': 'application/pdf',
+                'data': file_base64,
+            }
+        }
+    else:
+        file_content = {
+            'type': 'image',
+            'source': {
+                'type': 'base64',
+                'media_type': uploaded_file.content_type,
+                'data': file_base64,
+            }
+        }
+
+    prompt = f"""You are a clinical pharmacist. Analyze the uploaded image or document.
+If it is a prescription or contains medication information, extract all details.
+If it does NOT appear to be a prescription, still return the JSON with best-effort analysis and note it in the summary field.
+NEVER ask questions. ALWAYS return only the JSON object, no matter what the image shows.
+
+{lang_instruction}
+
+Return ONLY a JSON object:
+{{
+  "medications": [
+    {{
+      "name": "Medication name",
+      "generic_name": "Generic/chemical name",
+      "dosage": "Dose and frequency",
+      "duration": "How long to take it",
+      "purpose": "What this medication treats",
+      "instructions": "How to take it (with food, time of day, etc)",
+      "side_effects": ["common side effect 1", "common side effect 2"],
+      "warnings": ["important warning 1"]
+    }}
+  ],
+  "interactions": ["Any interactions between the prescribed medications"],
+  "general_instructions": "Overall instructions from the prescription",
+  "doctor_name": "Doctor name if visible",
+  "patient_name": "Patient name if visible",
+  "prescription_date": "Date if visible",
+  "summary": "2-3 sentence plain language summary of this prescription",
+  "urgency": "routine/important/urgent"
+}}"""
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=2000,
+            messages=[{
+                'role': 'user',
+                'content': [
+                    file_content,
+                    {'type': 'text', 'text': prompt}
+                ]
+            }]
+        )
+        text = message.content[0].text.strip()
+        if not text:
+            return Response({'error': 'AI returned empty response'}, status=502)
+        import re
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            return Response({'raw_response': text}, status=200)
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'Analysis failed: {str(e)}'}, status=502)
+
 # Multilingual Translation
 @api_view(['POST'])
 @permission_classes([AllowAny])
