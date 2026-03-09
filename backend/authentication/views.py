@@ -9608,3 +9608,5 @@ Return ONLY a JSON object:
         return Response(result)
     except Exception as e:
         return Response({'error': f'Translation failed: {str(e)}'}, status=502)
+    
+    
