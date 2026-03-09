@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import (
-    User, UserProfile, Region, City, District,
+    User, UserProfile, Region, MedCity, MedDistrict,
     DoctorApplication, Consultation, Message,
     MedCity, MedDistrict, MedicalFacility, FacilityReview,
 )
@@ -32,7 +32,7 @@ class CitySerializer(serializers.ModelSerializer):
     region = RegionSerializer(read_only=True)
     
     class Meta:
-        model = City
+        model = MedCity
         fields = ['id', 'name', 'name_uz', 'region']
 
 
@@ -42,7 +42,7 @@ class DistrictSerializer(serializers.ModelSerializer):
     city = CitySerializer(read_only=True)
     
     class Meta:
-        model = District
+        model = MedDistrict
         fields = ['id', 'name', 'name_uz', 'region', 'city']
 
 
@@ -285,14 +285,14 @@ class DoctorApplicationCreateSerializer(serializers.ModelSerializer):
         
         if city_id:
             try:
-                application.city = City.objects.get(id=city_id)
-            except City.DoesNotExist:
+                application.city = MedCity.objects.get(id=city_id)
+            except MedCity.DoesNotExist:
                 pass
         
         if district_id:
             try:
-                application.district = District.objects.get(id=district_id)
-            except District.DoesNotExist:
+                application.district = MedDistrict.objects.get(id=district_id)
+            except MedDistrict.DoesNotExist:
                 pass
         
         application.save()

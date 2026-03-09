@@ -2158,43 +2158,7 @@ class FCMDevice(models.Model):
     def __str__(self):
         return f"{self.user.full_name} — {self.platform} ({self.device_name})"
     
-# ============================================
 # MEDICAL FACILITIES DIRECTORY
-# ============================================
-
-class City(models.Model):
-    """City in any country"""
-    name = models.CharField(max_length=100)
-    name_ru = models.CharField(max_length=100, blank=True)
-    country = models.CharField(max_length=100, default='Uzbekistan')
-    country_code = models.CharField(max_length=5, blank=True)
-    region = models.CharField(max_length=100, blank=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        ordering = ['country', 'name']
-        verbose_name_plural = 'Cities'
-
-    def __str__(self):
-        return f"{self.name}, {self.country}"
-
-
-class District(models.Model):
-    """District/neighborhood within a city"""
-    city = models.ForeignKey(
-        City, on_delete=models.CASCADE,
-        related_name='districts'
-    )
-    name = models.CharField(max_length=100)
-    name_ru = models.CharField(max_length=100, blank=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        ordering = ['name']
-
-    def __str__(self):
-        return f"{self.name}, {self.city.name}"
-
 
 class MedicalFacility(models.Model):
     """Medical clinic, hospital or facility"""

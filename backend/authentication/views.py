@@ -29,7 +29,7 @@ from .models import LabOrder, LabTest, LabReport
 
 
 from .models import (
-    User, UserProfile, Region, City, District,
+    User, UserProfile, Region, MedCity, MedDistrict,
     DoctorApplication, Consultation, Message,
     MedCity, MedDistrict, MedicalFacility, FacilityReview,
 )
@@ -37,7 +37,7 @@ from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer,
     GoogleAuthSerializer, PasswordResetSerializer,
     UserProfileSerializer, UserProfileReadSerializer,
-    RegionSerializer, CitySerializer, DistrictSerializer,
+    RegionSerializer, MedCitySerializer, MedDistrictSerializer,
     MedCitySerializer, MedDistrictSerializer,
     FacilityListSerializer, FacilityDetailSerializer, FacilityReviewSerializer,
 )
@@ -322,16 +322,14 @@ def get_regions(request):
     return Response(serializer.data)
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
 def get_cities(request):
     """Получение списка городов"""
     region_id = request.GET.get('region_id')
     if region_id:
-        cities = City.objects.filter(region_id=region_id)
+        cities = MedCity.objects.filter(region_id=region_id)
     else:
-        cities = City.objects.all()
-    serializer = CitySerializer(cities, many=True)
+        cities = MedCity.objects.all()
+    serializer = MedCitySerializer(cities, many=True)
     return Response(serializer.data)
 
 
@@ -341,16 +339,16 @@ def get_districts(request):
     """Получение списка районов"""
     region_id = request.GET.get('region_id')
     city_id = request.GET.get('city_id')
-    
-    districts = District.objects.all()
-    
+
+    districts = MedDistrict.objects.all()
+
     if region_id:
         districts = districts.filter(region_id=region_id)
-    
+
     if city_id:
         districts = districts.filter(city_id=city_id)
-    
-    serializer = DistrictSerializer(districts, many=True)
+
+    serializer = MedDistrictSerializer(districts, many=True)
     return Response(serializer.data)
 
 
@@ -376,7 +374,7 @@ def detect_location(request):
             city_obj = None
             if city and region_obj:
                 try:
-                    city_obj = City.objects.filter(
+                    city_obj = MedCity.objects.filter(
                         name__icontains=city,
                         region=region_obj
                     ).first()
@@ -410,7 +408,7 @@ def detect_location(request):
             city_obj = None
             if city and region_obj:
                 try:
-                    city_obj = City.objects.filter(
+                    city_obj = MedCity.objects.filter(
                         name__icontains=city,
                         region=region_obj
                     ).first()
@@ -443,7 +441,7 @@ def detect_location(request):
             city_obj = None
             if city and region_obj:
                 try:
-                    city_obj = City.objects.filter(
+                    city_obj = MedCity.objects.filter(
                         name__icontains=city,
                         region=region_obj
                     ).first()
@@ -1661,57 +1659,6 @@ def appointment_detail(request, appointment_id):
         appointment.cancellation_reason = request.data.get('reason', '')
         appointment.save()
         return Response({'message': 'Appointment cancelled successfully'})
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def doctor_available_slots(request, doctor_id):
-    """Get available time slots for a doctor on a specific date"""
-    date_str = request.query_params.get('date')
-    if not date_str:
-        return Response({'error': 'date parameter is required (YYYY-MM-DD)'}, status=400)
-
-    try:
-        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        doctor = User.objects.get(id=doctor_id, role='doctor')
-    except (ValueError, User.DoesNotExist):
-        return Response({'error': 'Invalid date or doctor not found'}, status=400)
-
-    # Get doctor's schedule for that day of week
-    day_of_week = target_date.weekday()
-    try:
-        schedule = DoctorSchedule.objects.get(doctor=doctor, day_of_week=day_of_week, is_available=True)
-    except DoctorSchedule.DoesNotExist:
-        return Response({'available_slots': [], 'message': 'Doctor is not available on this day'})
-
-    # Generate all possible slots
-    slot_duration = schedule.slot_duration_minutes
-    all_slots = []
-    current = datetime.combine(target_date, schedule.start_time)
-    end = datetime.combine(target_date, schedule.end_time)
-
-    while current + timedelta(minutes=slot_duration) <= end:
-        all_slots.append(current.strftime('%H:%M'))
-        current += timedelta(minutes=slot_duration)
-
-    # Remove already booked slots
-    booked = Appointment.objects.filter(
-        doctor=doctor,
-        appointment_date=target_date,
-        status__in=['pending', 'confirmed']
-    ).values_list('appointment_time', flat=True)
-
-    booked_times = [t.strftime('%H:%M') for t in booked]
-    available_slots = [s for s in all_slots if s not in booked_times]
-
-    return Response({
-        'doctor_id': doctor_id,
-        'date': date_str,
-        'available_slots': available_slots,
-        'booked_slots': booked_times,
-        'slot_duration_minutes': slot_duration,
-    })
-
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
