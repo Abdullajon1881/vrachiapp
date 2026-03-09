@@ -1,6 +1,4 @@
 import os
-from unicodedata import category
-
 from rest_framework import status, generics
 import uuid
 from django.views.decorators.csrf import csrf_exempt
@@ -10,7 +8,6 @@ from django.utils.decorators import method_decorator
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import login, logout
-from django.contrib.auth.models import User
 from django.utils import timezone
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -9050,9 +9047,15 @@ Respond ONLY in this exact JSON format with no extra text:
             model='claude-haiku-4-5',
             max_tokens=1000,
             messages=[{'role': 'user', 'content': prompt}])
-        text = message.content[0].text.strip().replace('```json', '').replace('```', '').strip()
-        result = json.loads(text)
-        return Response(result)
+        text = message.content[0].text.strip()
+        import re
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            text = json_match.group()
+        else:
+            text = text.replace('```json', '').replace('```', '').strip()
+            result = json.loads(text)
+            return Response(result)
     except Exception as e:
         return Response({'error': f'AI analysis failed: {str(e)}'}, status=502)
         
@@ -9296,8 +9299,15 @@ Return top 3 matches maximum, ordered by match_score descending."""
             max_tokens=1000,
             messages=[{'role': 'user', 'content': prompt}]
         )
-        text = message.content[0].text.strip().replace('```json', '').replace('```', '').strip()
-        result = json.loads(text)
+        text = message.content[0].text.strip()
+        import re
+        json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
+        if json_match:
+            text = json_match.group()
+        else:
+            text = text.replace('```json', '').replace('```', '').strip()
+            result = json.loads(text)
+            result = json.loads(text)
 
         # Enrich results with full doctor info
         doctor_map = {d['id']: d for d in doctor_list}
@@ -9311,3 +9321,87 @@ Return top 3 matches maximum, ordered by match_score descending."""
         return Response(result)
     except Exception as e:
         return Response({'error': f'Matching failed: {str(e)}'}, status=502)
+    
+# Medical PDF Summarizer
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def medical_pdf_summarizer(request):
+    """Upload a medical PDF and get a plain-language AI explanation"""
+    import anthropic
+    import os
+    import base64
+
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file uploaded'}, status=400)
+
+    pdf_file = request.FILES['file']
+    if not pdf_file.name.endswith('.pdf'):
+        return Response({'error': 'File must be a PDF'}, status=400)
+
+    language = request.data.get('language', 'en')
+
+    pdf_bytes = pdf_file.read()
+    pdf_base64 = base64.standard_b64encode(pdf_bytes).decode('utf-8')
+
+    lang_instruction = {
+        'en': 'Respond in English.',
+        'ru': 'Respond in Russian.',
+        'uz': 'Respond in Uzbek.',
+    }.get(language, 'Respond in English.')
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=2000,
+            messages=[{
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'document',
+                        'source': {
+                            'type': 'base64',
+                            'media_type': 'application/pdf',
+                            'data': pdf_base64,
+                        }
+                    },
+                    {
+                        'type': 'text',
+                        'text': f"""You are a medical assistant helping patients understand their medical reports.
+Analyze this medical document and provide:
+1. A simple summary (2-3 sentences) in plain language
+2. Key findings (list the most important results)
+3. What these results mean for the patient
+4. Any values that are abnormal or concerning
+5. Recommended next steps
+
+Use simple language a non-medical person can understand. Avoid jargon.
+{lang_instruction}
+
+Format your response as JSON:
+{{
+  "summary": "Simple 2-3 sentence overview",
+  "key_findings": ["finding 1", "finding 2"],
+  "what_it_means": "Plain language explanation",
+  "abnormal_values": ["value 1 - why concerning"],
+  "next_steps": ["step 1", "step 2"],
+  "urgency": "routine/soon/urgent"
+}}"""
+                    }
+                ]
+            }]
+        )
+        text = message.content[0].text.strip()
+        if not text:
+            return Response({'error': 'AI returned empty response'}, status=502)
+        import re
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            return Response({'raw_response': text}, status=200)
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'Analysis failed: {str(e)}'}, status=502)

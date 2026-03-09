@@ -268,5 +268,6 @@ urlpatterns = [
 
     # Smart doctor matching
     path('smart-doctor-match/', views.smart_doctor_match, name='smart_doctor_match'),
-    
+    path('medical-pdf-summarizer/', views.medical_pdf_summarizer, name='medical_pdf_summarizer'),
+
 ] 
