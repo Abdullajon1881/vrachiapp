@@ -968,6 +968,16 @@ def resend_verification_email(request):
         if user.is_verified:
             return Response({'error': 'Email уже подтвержден'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Rate limit: max 1 email per 2 minutes
+        if user.email_verification_sent_at:
+            from django.utils import timezone
+            elapsed = (timezone.now() - user.email_verification_sent_at).total_seconds()
+            if elapsed < 120:
+                remaining = int(120 - elapsed)
+                return Response({
+                    'error': f'Подождите {remaining} секунд перед повторной отправкой.'
+                    }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        
         # Создаем новый токен верификации
         user.email_verification_token = uuid.uuid4()
         user.email_verification_sent_at = timezone.now()
