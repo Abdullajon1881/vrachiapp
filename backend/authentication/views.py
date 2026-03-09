@@ -1,10 +1,12 @@
+import os
+
 from rest_framework import status, generics
 import uuid
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -16,15 +18,11 @@ import json
 from django.db import models
 from django.urls import reverse
 from django.shortcuts import render
-from django.http import HttpResponse
 from django.http import FileResponse, Http404
-from django.views.decorators.http import require_http_methods
-from asgiref.sync import sync_to_async
 import asyncio
 from .ai_service import ai_service
 import html
 from django.core.cache import cache
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from .models import LabOrder, LabTest, LabReport
 
 
@@ -2844,7 +2842,6 @@ def delete_file(request):
 # EMAIL NOTIFICATIONS SYSTEM
 
 from django.core.mail import send_mail
-from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 
@@ -5229,7 +5226,7 @@ def neurology_summary(request, patient_id=None):
 
 # PHARMACY MODULE
 
-from .models import Medication, PatientMedication, MedicationIntakeLog, DrugInteractionCheck
+from .models import PatientMedication, MedicationIntakeLog, DrugInteractionCheck
 
 
 @api_view(['GET', 'POST'])
@@ -8216,7 +8213,7 @@ def send_push_to_user(request):
 
 # ADVANCED ANALYTICS & REPORTS
 
-from django.db.models import Count, Avg, Sum, Q, F
+from django.db.models import Count, Avg, Q
 from django.db.models.functions import TruncMonth, TruncWeek, TruncDate
 
 
@@ -8994,6 +8991,63 @@ def health_tips(request):
         'all_tips': tips[category],
         'available_categories': list(tips.keys()),
     })
+
+# Symptom Checker (AI-powered)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@csrf_exempt
+def symptom_checker(request):
+    """AI-powered symptom checker using Google Generative AI"""
+    symptoms = request.data.get('symptoms', [])
+    age = request.data.get('age')
+    gender = request.data.get('gender', 'unknown')
+    duration = request.data.get('duration', 'unknown')
+
+    if not symptoms:
+        return Response({'error': 'symptoms list is required'}, status=400)
+
+    if isinstance(symptoms, list):
+        symptoms_text = ', '.join(symptoms)
+    else:
+        symptoms_text = str(symptoms)
+
+    import os
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        return Response({'error': 'AI service not configured'}, status=500)
+
+    prompt = f"""You are a medical assistant. A patient reports the following:
+- Symptoms: {symptoms_text}
+- Age: {age or 'not specified'}
+- Gender: {gender}
+- Duration: {duration}
+
+Respond ONLY in this exact JSON format with no extra text:
+{{
+  "possible_conditions": [
+    {{"name": "Condition name", "likelihood": "High/Medium/Low", "description": "Brief description"}}
+  ],
+  "urgency": "Emergency/See doctor soon/Monitor at home",
+  "urgency_reason": "Brief reason",
+  "recommended_specialist": "Type of doctor to see",
+  "home_care_tips": ["tip1", "tip2", "tip3"],
+  "warning_signs": ["sign1", "sign2"],
+  "disclaimer": "This is not a medical diagnosis. Please consult a doctor."
+}}"""
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=1000,
+            messages=[{'role': 'user', 'content': prompt}])
+        text = message.content[0].text.strip().replace('```json', '').replace('```', '').strip()
+        result = json.loads(text)
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'AI analysis failed: {str(e)}'}, status=502)
         
 # Health News
 @api_view(['GET'])

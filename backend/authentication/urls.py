@@ -259,5 +259,8 @@ urlpatterns = [
     path('facilities/<int:pk>/review/', FacilityReviewCreateView.as_view(), name='facility-review-create'),
     path('reviews/<int:pk>/delete/', FacilityReviewDeleteView.as_view(), name='review-delete'),
     path('reviews/<int:pk>/helpful/', FacilityMarkHelpfulView.as_view(), name='review-helpful'),
+
+    # Symptom checker
+    path('symptom-checker/', views.symptom_checker, name='symptom_checker'),
     
 ] 
