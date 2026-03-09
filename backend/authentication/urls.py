@@ -275,4 +275,8 @@ urlpatterns = [
     # SOAP notes generator
     path('soap-notes/', views.soap_notes_generator, name='soap_notes_generator'),
 
+    # Medical image analysis
+    path('translate/', views.translate_consultation, name='translate_consultation'),
+
+
 ] 

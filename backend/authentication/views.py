@@ -9490,3 +9490,69 @@ Return ONLY a JSON object in this exact format:
         return Response(result)
     except Exception as e:
         return Response({'error': f'SOAP generation failed: {str(e)}'}, status=502)
+
+# Multilingual Translation
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def translate_consultation(request):
+    """Translate consultation messages between English, Russian and Uzbek"""
+    import anthropic
+    import os
+    import json
+
+    text = request.data.get('text', '')
+    source_language = request.data.get('source_language', 'auto')
+    target_language = request.data.get('target_language', 'en')
+    context = request.data.get('context', 'medical')
+
+    if not text:
+        return Response({'error': 'text is required'}, status=400)
+
+    language_names = {
+        'en': 'English',
+        'ru': 'Russian',
+        'uz': 'Uzbek',
+    }
+
+    target_name = language_names.get(target_language, 'English')
+    source_instruction = (
+        'Auto-detect the source language.' if source_language == 'auto'
+        else f'Source language is {language_names.get(source_language, source_language)}.'
+    )
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""You are a medical translator. {source_instruction}
+Translate the following {context} text to {target_name}.
+Keep all medical terms accurate. Keep the tone professional.
+
+Text to translate:
+{text}
+
+Return ONLY a JSON object:
+{{
+  "translated_text": "The translated text here",
+  "source_language": "detected or provided source language",
+  "target_language": "{target_language}",
+  "medical_terms": ["any important medical terms identified"]
+}}"""
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=2000,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        text_response = message.content[0].text.strip()
+        if not text_response:
+            return Response({'error': 'AI returned empty response'}, status=502)
+        import re
+        json_match = re.search(r'\{.*\}', text_response, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            return Response({'raw_response': text_response}, status=200)
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'Translation failed: {str(e)}'}, status=502)
