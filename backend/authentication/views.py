@@ -1135,9 +1135,19 @@ def send_message(request, consultation_id):
             content=content
         )
         
+        # Push notification to the other person
+        recipient = consultation.doctor if request.user == consultation.patient else consultation.patient
+        send_push_notification(
+            user=recipient,
+            title=f'New message from {request.user.full_name}',
+            body=content[:100],
+            data={'consultation_id': str(consultation_id), 'url': f'/consultations/{consultation_id}/'},
+            notification_type='new_message',
+        )
+
         serializer = MessageSerializer(message)
         return Response({
-            'message': 'Сообщение отправлено',
+            'message': 'РЎРѕРѕР±С‰РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ',
             'message_data': serializer.data
         }, status=status.HTTP_201_CREATED)
     except Consultation.DoesNotExist:
@@ -1164,9 +1174,18 @@ def accept_consultation(request, consultation_id):
         consultation.started_at = timezone.now()
         consultation.save()
         
+        # Push notification to patient
+        send_push_notification(
+            user=consultation.patient,
+            title='Consultation Accepted',
+            body=f'Dr. {request.user.full_name} has accepted your consultation request.',
+            data={'consultation_id': str(consultation_id), 'url': f'/consultations/{consultation_id}/'},
+            notification_type='consultation',
+        )
+
         serializer = ConsultationSerializer(consultation)
         return Response({
-            'message': 'Консультация успешно принята',
+            'message': 'РљРѕРЅСЃСѓР»СЊС‚Р°С†РёСЏ СѓСЃРїРµС€РЅРѕ РїСЂРёРЅСЏС‚Р°',
             'consultation': serializer.data
         })
     except Consultation.DoesNotExist:
@@ -1598,7 +1617,17 @@ def appointments(request):
         send_appointment_confirmation_email(appointment)
         send_appointment_sms(appointment, event='booked')
 
+        # Push notification to doctor
+        send_push_notification(
+            user=doctor,
+            title='New Appointment Booked',
+            body=f'{request.user.full_name} booked an appointment on {appointment_date} at {appointment_time}.',
+            data={'appointment_id': str(appointment.id), 'url': f'/appointments/{appointment.id}/'},
+            notification_type='appointment_booked',
+        )
+
         return Response({
+
             'id': appointment.id,
             'message': 'Appointment booked successfully',
             'status': appointment.status,
@@ -8027,7 +8056,7 @@ def get_firebase_app():
     return firebase_admin.get_app() if firebase_admin._apps else None
 
 
-def send_push_notification(user, title, body, data=None):
+def send_push_notification(user, title, body, data=None, notification_type='general'):
     """Send FCM push notification to all active devices of a user"""
     from django.conf import settings as django_settings
     if not django_settings.FCM_ENABLED:
@@ -8045,6 +8074,29 @@ def send_push_notification(user, title, body, data=None):
         if not devices.exists():
             return {'sent': 0, 'reason': 'No active devices'}
 
+        # Unread badge count
+        try:
+            from .models import Notification
+            badge_count = Notification.objects.filter(
+                recipient=user, is_read=False
+            ).count()
+        except Exception:
+            badge_count = 1
+
+        # Notification type config
+        type_config = {
+            'new_message':        {'icon': 'ic_message',      'color': '#4CAF50', 'sound': 'default'},
+            'appointment_booked': {'icon': 'ic_appointment',  'color': '#2196F3', 'sound': 'default'},
+            'appointment_reminder':{'icon': 'ic_reminder',    'color': '#FF9800', 'sound': 'default'},
+            'consultation':       {'icon': 'ic_consultation', 'color': '#9C27B0', 'sound': 'default'},
+            'general':            {'icon': 'ic_notification', 'color': '#2196F3', 'sound': 'default'},
+        }
+        cfg = type_config.get(notification_type, type_config['general'])
+
+        # Ensure all data values are strings (FCM requirement)
+        str_data = {k: str(v) for k, v in (data or {}).items()}
+        str_data['notification_type'] = notification_type
+
         sent = 0
         failed_tokens = []
 
@@ -8055,21 +8107,22 @@ def send_push_notification(user, title, body, data=None):
                         title=title,
                         body=body,
                     ),
-                    data=data or {},
+                    data=str_data,
                     token=device.token,
                     android=messaging.AndroidConfig(
                         priority='high',
                         notification=messaging.AndroidNotification(
-                            icon='ic_notification',
-                            color='#2196F3',
-                            sound='default',
+                            icon=cfg['icon'],
+                            color=cfg['color'],
+                            sound=cfg['sound'],
+                            notification_count=badge_count,
                         ),
                     ),
                     apns=messaging.APNSConfig(
                         payload=messaging.APNSPayload(
                             aps=messaging.Aps(
-                                sound='default',
-                                badge=1,
+                                sound=cfg['sound'],
+                                badge=badge_count,
                             ),
                         ),
                     ),
@@ -8082,7 +8135,6 @@ def send_push_notification(user, title, body, data=None):
                    'invalid-registration-token' in error_str:
                     failed_tokens.append(device.token)
 
-        # Deactivate invalid tokens
         if failed_tokens:
             FCMDevice.objects.filter(
                 user=user, token__in=failed_tokens
