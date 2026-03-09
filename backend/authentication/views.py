@@ -8819,8 +8819,182 @@ class FacilityMarkHelpfulView(generics.GenericAPIView):
             return Response({'helpful_count': review.helpful_count})
         except FacilityReview.DoesNotExist:
             return Response({'error': 'Review not found'}, status=404)
-        
 
+# Health Calculators
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def health_calculators(request):
+    """BMI, BMR, ideal weight, calorie needs calculators"""
+    calc_type = request.data.get('type')
+
+    if calc_type == 'bmi':
+        weight = float(request.data.get('weight_kg', 0))
+        height = float(request.data.get('height_cm', 0))
+        if not weight or not height:
+            return Response({'error': 'weight_kg and height_cm required'}, status=400)
+        height_m = height / 100
+        bmi = round(weight / (height_m ** 2), 1)
+        if bmi < 18.5:
+            category = 'Underweight'
+        elif bmi < 25:
+            category = 'Normal weight'
+        elif bmi < 30:
+            category = 'Overweight'
+        else:
+            category = 'Obese'
+        return Response({'bmi': bmi, 'category': category, 'healthy_range': '18.5 - 24.9'})
+
+    elif calc_type == 'bmr':
+        weight = float(request.data.get('weight_kg', 0))
+        height = float(request.data.get('height_cm', 0))
+        age = int(request.data.get('age', 0))
+        gender = request.data.get('gender', 'male')
+        if not all([weight, height, age]):
+            return Response({'error': 'weight_kg, height_cm, age and gender required'}, status=400)
+        if gender == 'male':
+            bmr = round(10 * weight + 6.25 * height - 5 * age + 5)
+        else:
+            bmr = round(10 * weight + 6.25 * height - 5 * age - 161)
+        return Response({
+            'bmr': bmr,
+            'calories_sedentary': round(bmr * 1.2),
+            'calories_light': round(bmr * 1.375),
+            'calories_moderate': round(bmr * 1.55),
+            'calories_active': round(bmr * 1.725),
+        })
+
+    elif calc_type == 'ideal_weight':
+        height_cm = float(request.data.get('height_cm', 0))
+        gender = request.data.get('gender', 'male')
+        if not height_cm:
+            return Response({'error': 'height_cm required'}, status=400)
+        height_in = height_cm / 2.54
+        if gender == 'male':
+            ideal = round(50 + 2.3 * (height_in - 60), 1)
+        else:
+            ideal = round(45.5 + 2.3 * (height_in - 60), 1)
+        return Response({
+            'ideal_weight_kg': max(ideal, 30),
+            'healthy_range_kg': {
+                'min': round(max(ideal, 30) - 5, 1),
+                'max': round(max(ideal, 30) + 5, 1),
+            }
+        })
+
+    elif calc_type == 'water':
+        weight = float(request.data.get('weight_kg', 0))
+        activity = request.data.get('activity', 'moderate')
+        if not weight:
+            return Response({'error': 'weight_kg required'}, status=400)
+        base = weight * 35
+        if activity == 'active':
+            base += 500
+        elif activity == 'very_active':
+            base += 1000
+        return Response({
+            'water_ml': round(base),
+            'water_glasses': round(base / 250),
+        })
+
+    elif calc_type == 'heart_rate_zones':
+        age = int(request.data.get('age', 0))
+        if not age:
+            return Response({'error': 'age required'}, status=400)
+        max_hr = 220 - age
+        return Response({
+            'max_heart_rate': max_hr,
+            'zones': {
+                'rest': '60-100 bpm',
+                'warm_up': f'{round(max_hr * 0.5)}-{round(max_hr * 0.6)} bpm',
+                'fat_burn': f'{round(max_hr * 0.6)}-{round(max_hr * 0.7)} bpm',
+                'cardio': f'{round(max_hr * 0.7)}-{round(max_hr * 0.85)} bpm',
+                'peak': f'{round(max_hr * 0.85)}-{max_hr} bpm',
+            }
+        })
+
+    else:
+        return Response({
+            'available_calculators': ['bmi', 'bmr', 'ideal_weight', 'water', 'heart_rate_zones'],
+            'usage': 'POST with type=bmi and required fields'
+        })
+    
+
+# Health Tips & Daily Wellness
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_tips(request):
+    """Daily health tips and wellness advice"""
+    from django.core.cache import cache
+    import random
+
+    category = request.query_params.get('category', 'general')
+
+    tips = {
+        'general': [
+            {'title': 'Stay Hydrated', 'tip': 'Drink at least 8 glasses of water daily. Start your morning with a glass of warm water.', 'icon': '💧'},
+            {'title': 'Move Every Hour', 'tip': 'Stand up and walk for 2 minutes every hour to reduce risks of prolonged sitting.', 'icon': '🚶'},
+            {'title': 'Sleep 7-9 Hours', 'tip': 'Quality sleep boosts immunity, improves mood and helps maintain healthy weight.', 'icon': '😴'},
+            {'title': 'Eat the Rainbow', 'tip': 'Include colorful fruits and vegetables in every meal for diverse nutrients.', 'icon': '🌈'},
+            {'title': 'Wash Your Hands', 'tip': 'Wash hands for at least 20 seconds to prevent spread of infections.', 'icon': '🧼'},
+            {'title': 'Limit Screen Time', 'tip': 'Follow the 20-20-20 rule: every 20 min, look 20 feet away for 20 seconds.', 'icon': '👁️'},
+            {'title': 'Deep Breathing', 'tip': 'Practice 5 minutes of deep breathing daily to reduce stress and improve focus.', 'icon': '🫁'},
+            {'title': 'Regular Check-ups', 'tip': 'Schedule annual health check-ups even when you feel healthy.', 'icon': '🏥'},
+        ],
+        'nutrition': [
+            {'title': 'Breakfast Matters', 'tip': 'Never skip breakfast — it kickstarts metabolism and improves concentration.', 'icon': '🍳'},
+            {'title': 'Reduce Sugar', 'tip': 'Limit added sugar to less than 25g per day for women, 36g for men.', 'icon': '🍬'},
+            {'title': 'Healthy Fats', 'tip': 'Include avocados, nuts and olive oil — healthy fats support brain function.', 'icon': '🥑'},
+            {'title': 'Fiber is Key', 'tip': 'Aim for 25-35g of fiber daily from vegetables, fruits and whole grains.', 'icon': '🥦'},
+            {'title': 'Protein with Every Meal', 'tip': 'Including protein in meals keeps you fuller longer and supports muscle health.', 'icon': '🥩'},
+        ],
+        'fitness': [
+            {'title': '150 Min Per Week', 'tip': 'Aim for 150 minutes of moderate aerobic activity per week as recommended by WHO.', 'icon': '🏃'},
+            {'title': 'Strength Training', 'tip': 'Include strength training 2x per week to maintain muscle mass and bone density.', 'icon': '💪'},
+            {'title': 'Warm Up First', 'tip': 'Always warm up for 5-10 minutes before exercise to prevent injuries.', 'icon': '🔥'},
+            {'title': 'Rest Days Matter', 'tip': 'Rest days are essential for muscle recovery and preventing overtraining.', 'icon': '🛌'},
+            {'title': 'Walk More', 'tip': 'Aim for 10,000 steps daily. Park farther, take stairs, walk during calls.', 'icon': '👟'},
+        ],
+        'mental': [
+            {'title': 'Practice Gratitude', 'tip': 'Write 3 things you are grateful for each morning to boost mental wellbeing.', 'icon': '🙏'},
+            {'title': 'Limit News Intake', 'tip': 'Constant news consumption increases anxiety. Set specific times to check news.', 'icon': '📱'},
+            {'title': 'Social Connections', 'tip': 'Strong social bonds are one of the biggest predictors of long-term health and happiness.', 'icon': '👥'},
+            {'title': 'Mindfulness', 'tip': 'Even 5 minutes of mindfulness meditation daily reduces stress and improves focus.', 'icon': '🧘'},
+            {'title': 'Nature Time', 'tip': 'Spending 20 minutes in nature significantly lowers cortisol (stress hormone) levels.', 'icon': '🌿'},
+        ],
+        'sleep': [
+            {'title': 'Consistent Schedule', 'tip': 'Go to bed and wake up at the same time every day, even on weekends.', 'icon': '⏰'},
+            {'title': 'Dark & Cool Room', 'tip': 'Keep bedroom temperature between 16-19°C and use blackout curtains for better sleep.', 'icon': '🌙'},
+            {'title': 'No Screens Before Bed', 'tip': 'Avoid screens 1 hour before bed — blue light suppresses melatonin production.', 'icon': '📵'},
+            {'title': 'Avoid Caffeine Late', 'tip': 'Stop caffeine intake after 2 PM as it has a half-life of 5-6 hours in your body.', 'icon': '☕'},
+        ],
+    }
+
+    if category == 'all':
+        all_tips = []
+        for cat, cat_tips in tips.items():
+            for t in cat_tips:
+                t['category'] = cat
+                all_tips.append(t)
+        random.shuffle(all_tips)
+        return Response({'category': 'all', 'tips': all_tips})
+
+    if category not in tips:
+        return Response({
+            'available_categories': list(tips.keys()) + ['all'],
+        }, status=400)
+
+    # Daily tip — changes every day based on date
+    import datetime
+    day_index = datetime.date.today().toordinal() % len(tips[category])
+    daily_tip = tips[category][day_index]
+
+    return Response({
+        'category': category,
+        'daily_tip': daily_tip,
+        'all_tips': tips[category],
+        'available_categories': list(tips.keys()),
+    })
+        
 # Health News
 @api_view(['GET'])
 @permission_classes([AllowAny])
