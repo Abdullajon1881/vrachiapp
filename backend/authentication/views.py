@@ -21,7 +21,6 @@ from django.http import FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from asgiref.sync import sync_to_async
 import asyncio
-import os
 from .ai_service import ai_service
 import html
 from django.core.cache import cache
@@ -8767,7 +8766,31 @@ class FacilityListView(generics.ListAPIView):
         if verified == 'true':
             queryset = queryset.filter(is_verified=True)
 
+        specialization = self.request.query_params.get('specialization')
+        has_lab = self.request.query_params.get('has_lab')
+        has_pharmacy = self.request.query_params.get('has_pharmacy')
+        accepts_insurance = self.request.query_params.get('accepts_insurance')
+
+        if specialization:
+            queryset = queryset.filter(specializations__icontains=specialization)
+        if has_lab == 'true':
+            queryset = queryset.filter(has_lab=True)
+        if has_pharmacy == 'true':
+            queryset = queryset.filter(has_pharmacy=True)
+        if accepts_insurance == 'true':
+            queryset = queryset.filter(accepts_insurance=True)
+
+        ordering = self.request.query_params.get('ordering', '-is_featured')
+        allowed_orderings = [
+            '-avg_rating', 'avg_rating',
+            '-total_reviews', 'total_reviews',
+            '-is_featured', 'name'
+        ]
+        if ordering in allowed_orderings:
+            queryset = queryset.order_by(ordering)
+
         return queryset
+
 
 
 class FacilityDetailView(generics.RetrieveAPIView):
