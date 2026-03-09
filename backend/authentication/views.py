@@ -34,14 +34,28 @@ from .models import (
     MedCity, MedDistrict, MedicalFacility, FacilityReview,
 )
 from .serializers import (
-    UserSerializer, RegisterSerializer, LoginSerializer,
+    ConsultationSerializer, ConsultationCreateSerializer, ConsultationUpdateSerializer, MessageSerializer, UserSerializer, RegisterSerializer, LoginSerializer,
     GoogleAuthSerializer, PasswordResetSerializer,
     UserProfileSerializer, UserProfileReadSerializer,
     RegionSerializer, MedCitySerializer, MedDistrictSerializer,
     MedCitySerializer, MedDistrictSerializer,
     FacilityListSerializer, FacilityDetailSerializer, FacilityReviewSerializer,
+    DoctorApplicationSerializer, DoctorApplicationCreateSerializer,
 )
 from .utils import create_user_with_verification, send_verification_email, verify_email_token, create_google_user
+
+from rest_framework.pagination import PageNumberPagination
+
+def paginate(request, queryset, serializer_class):
+    paginator = PageNumberPagination()
+    paginator.page_size = int(request.query_params.get('page_size', 20))
+    paginator.page_size = min(paginator.page_size, 100)  # max 100
+    page = paginator.paginate_queryset(queryset, request)
+    if page is not None:
+        serializer = serializer_class(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+    serializer = serializer_class(queryset, many=True)
+    return Response(serializer.data)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -1018,9 +1032,7 @@ def get_consultations(request):
         consultations = Consultation.objects.filter(doctor=user)
     else:
         return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
-    
-    serializer = ConsultationSerializer(consultations, many=True)
-    return Response(serializer.data)
+    return paginate(request, consultations, ConsultationSerializer)
 
 
 @api_view(['POST'])
@@ -1095,8 +1107,7 @@ def get_messages(request, consultation_id):
             return Response({'error': 'Доступ запрещен'}, status=status.HTTP_403_FORBIDDEN)
         
         messages = consultation.messages.all()
-        serializer = MessageSerializer(messages, many=True)
-        return Response(serializer.data)
+        return paginate(request, messages, MessageSerializer)
     except Consultation.DoesNotExist:
         return Response({'error': 'Консультация не найдена'}, status=status.HTTP_404_NOT_FOUND)
 
