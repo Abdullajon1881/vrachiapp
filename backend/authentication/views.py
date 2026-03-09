@@ -64,6 +64,8 @@ class RegisterView(generics.CreateAPIView):
         last_name = serializer.validated_data.get('last_name', '')
         username = serializer.validated_data.get('username', '')
         role = serializer.validated_data.get('role', 'patient')
+        if role not in ['patient', 'doctor']:
+            role = 'patient'
         
         # Если username не указан, используем email
         if not username:

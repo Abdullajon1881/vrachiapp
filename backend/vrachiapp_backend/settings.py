@@ -32,7 +32,7 @@ ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', 'sk_496981d7be389ba63dc3909
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '*']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'healzy.uz', 'www.healzy.uz']
 
 
 # Application definition
