@@ -79,3 +79,68 @@ def cleanup_old_notifications():
         is_read=True
     ).delete()
     return f'Deleted {deleted} old notifications'
+
+@shared_task
+def generate_consultation_summary(consultation_id):
+    """Auto-generate AI summary when consultation is completed"""
+    import anthropic
+    import os
+    import json
+    import re
+
+    try:
+        from .models import Consultation, Message
+        consultation = Consultation.objects.get(id=consultation_id)
+
+        messages = Message.objects.filter(
+            consultation=consultation
+        ).select_related('sender').order_by('created_at')
+
+        if not messages.exists():
+            return 'No messages — skipped'
+
+        chat_text = '\n'.join([
+            f"{msg.sender.full_name} ({'Doctor' if msg.sender.role == 'doctor' else 'Patient'}): {msg.content}"
+            for msg in messages
+        ])
+
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        client = anthropic.Anthropic(api_key=api_key)
+
+        prompt = f"""Summarize this doctor-patient consultation.
+
+Patient: {consultation.patient.full_name}
+Doctor: {consultation.doctor.full_name}
+Date: {consultation.created_at.strftime('%Y-%m-%d')}
+
+Transcript:
+{chat_text}
+
+Return ONLY a JSON object:
+{{
+  "chief_complaint": "Main reason for consultation",
+  "symptoms_discussed": ["symptom 1", "symptom 2"],
+  "doctor_assessment": "Doctor's assessment",
+  "treatment_plan": ["treatment 1"],
+  "medications_prescribed": ["med 1"],
+  "follow_up": "Follow up instructions",
+  "summary": "2-3 sentence summary",
+  "urgency_flags": ["any urgent concerns"]
+}}"""
+
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=1500,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+
+        text = message.content[0].text.strip()
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            consultation.ai_summary = json_match.group()
+            consultation.save(update_fields=['ai_summary'])
+            return f'Summary generated for consultation {consultation_id}'
+        return 'Could not parse AI response'
+
+    except Exception as e:
+        return f'Error: {str(e)}'

@@ -214,6 +214,7 @@ class Consultation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    ai_summary = models.TextField(blank=True, null=True)
     
     class Meta:
         ordering = ['-created_at']

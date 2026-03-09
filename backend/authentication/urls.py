@@ -278,5 +278,9 @@ urlpatterns = [
     # Medical image analysis
     path('translate/', views.translate_consultation, name='translate_consultation'),
 
+    # AI summary for consultations
+    path('consultations/<int:consultation_id>/ai-summary/', views.consultation_ai_summary, name='consultation_ai_summary'),
+
+
 
 ] 

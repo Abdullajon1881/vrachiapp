@@ -1211,6 +1211,10 @@ def complete_consultation(request, consultation_id):
         consultation.status = 'completed'
         consultation.completed_at = timezone.now()
         consultation.save()
+
+        # Auto-generate AI summary in background
+        from .tasks import generate_consultation_summary
+        generate_consultation_summary.delay(consultation.id)
         
         serializer = ConsultationSerializer(consultation)
         return Response({
@@ -9542,6 +9546,96 @@ Return ONLY a JSON object in this exact format:
         return Response(result)
     except Exception as e:
         return Response({'error': f'SOAP generation failed: {str(e)}'}, status=502)
+    
+
+# AI Consultation Summary
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def consultation_ai_summary(request, consultation_id):
+    """Get or generate AI summary for a completed consultation"""
+    import anthropic
+    import os
+
+    try:
+        consultation = Consultation.objects.get(id=consultation_id)
+    except Consultation.DoesNotExist:
+        return Response({'error': 'Consultation not found'}, status=404)
+
+    if request.user not in [consultation.patient, consultation.doctor]:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    # Return cached summary if exists
+    if consultation.ai_summary:
+        return Response({
+            'consultation_id': consultation_id,
+            'ai_summary': consultation.ai_summary,
+            'cached': True,
+        })
+
+    # Get all messages
+    messages = Message.objects.filter(
+        consultation=consultation
+    ).select_related('sender').order_by('created_at')
+
+    if not messages.exists():
+        return Response({'error': 'No messages in this consultation'}, status=400)
+
+    chat_text = '\n'.join([
+        f"{msg.sender.full_name} ({'Doctor' if msg.sender.role == 'doctor' else 'Patient'}): {msg.content}"
+        for msg in messages
+    ])
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""You are a medical assistant. Summarize this doctor-patient consultation concisely.
+
+Consultation between:
+- Patient: {consultation.patient.full_name}
+- Doctor: {consultation.doctor.full_name}
+- Date: {consultation.created_at.strftime('%Y-%m-%d')}
+- Duration: {int((consultation.completed_at - consultation.started_at).total_seconds() / 60) if consultation.completed_at and consultation.started_at else 'Unknown'} minutes
+
+Chat transcript:
+{chat_text}
+
+Return ONLY a JSON object:
+{{
+  "chief_complaint": "Main reason for consultation",
+  "symptoms_discussed": ["symptom 1", "symptom 2"],
+  "doctor_assessment": "Doctor's assessment in plain language",
+  "treatment_plan": ["treatment 1", "treatment 2"],
+  "medications_prescribed": ["med 1"],
+  "follow_up": "Follow up instructions",
+  "summary": "2-3 sentence plain language summary",
+  "urgency_flags": ["any urgent concerns raised"]
+}}"""
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=1500,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        text = message.content[0].text.strip()
+        import re
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            return Response({'raw_response': text}, status=200)
+
+        # Cache the summary on the consultation
+        consultation.ai_summary = json.dumps(result)
+        consultation.save(update_fields=['ai_summary'])
+
+        return Response({
+            'consultation_id': consultation_id,
+            'ai_summary': result,
+            'cached': False,
+        })
+    except Exception as e:
+        return Response({'error': f'Summary generation failed: {str(e)}'}, status=502)
 
 # Multilingual Translation
 @api_view(['POST'])
@@ -9608,5 +9702,4 @@ Return ONLY a JSON object:
         return Response(result)
     except Exception as e:
         return Response({'error': f'Translation failed: {str(e)}'}, status=502)
-    
     
