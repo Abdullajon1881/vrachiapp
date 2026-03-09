@@ -36,7 +36,6 @@ urlpatterns = [
     path('user-applications/', views.get_user_applications, name='get_user_applications'),
     
     # Управление пользователями (только для админов)
-    path('users/', views.get_all_users, name='get_all_users'),
     path('users/<int:user_id>/delete/', views.delete_user, name='delete_user'),
     
     # Врачи (только для пациентов)
@@ -69,7 +68,7 @@ urlpatterns = [
     path('appointments/', views.appointments, name='appointments'),
     path('appointments/<int:appointment_id>/', views.appointment_detail, name='appointment_detail'),
     path('appointments/<int:appointment_id>/cancel/', views.appointment_detail, name='appointment_cancel'),
-    path('doctors/<int:doctor_id>/available-slots/', views.doctor_available_slots, name='doctor_available_slots'),
+    path('doctors/<int:doctor_id>/available-slots/', views.doctor_available_slots, name='doctor_available_slots_legacy'),
     path('doctor/schedule/', views.doctor_schedule, name='doctor_schedule'),
     
     # Medical records system
@@ -232,10 +231,17 @@ urlpatterns = [
     path('analytics/appointments/', views.appointment_report, name='appointment_report'),
     path('analytics/top-doctors/', views.top_doctors_report, name='top_doctors_report'),
 
+    # Neurology module
+    path('neurology/headache/', views.headache_diary, name='headache_diary'),
+    path('neurology/headache/<int:entry_id>/', views.headache_entry_detail, name='headache_entry_detail'),
+    path('neurology/seizures/', views.seizure_records, name='seizure_records'),
+    path('neurology/visits/', views.neurology_visits, name='neurology_visits'),
+    path('neurology/summary/', views.neurology_summary, name='neurology_summary'),
+    path('neurology/summary/<int:patient_id>/', views.neurology_summary, name='neurology_summary_patient'),
+
     # Medical Facilities
     path('facilities/', views.FacilityListView.as_view(), name='facility-list'),
     path('facilities/<int:pk>/', views.FacilityDetailView.as_view(), name='facility-detail'),
-    path('facilities/<int:pk>/review/', views.FacilityReviewCreateView.as_view(), name='facility-review'),
     path('med-cities/', views.MedCityListView.as_view(), name='med-city-list'),
     path('med-districts/', views.MedDistrictListView.as_view(), name='med-district-list'),
 
