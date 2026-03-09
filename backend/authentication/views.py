@@ -9742,6 +9742,121 @@ Return ONLY a JSON object:
     except Exception as e:
         return Response({'error': f'Analysis failed: {str(e)}'}, status=502)
 
+# Diet & Nutrition Planner
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def diet_nutrition_planner(request):
+    """Generate personalized diet and nutrition plan based on health conditions"""
+    import anthropic
+    import os
+
+    # Patient info
+    age = request.data.get('age')
+    gender = request.data.get('gender', '')
+    weight_kg = request.data.get('weight_kg')
+    height_cm = request.data.get('height_cm')
+    conditions = request.data.get('conditions', [])       # e.g. ['diabetes', 'hypertension']
+    medications = request.data.get('medications', [])     # e.g. ['metformin', 'lisinopril']
+    allergies = request.data.get('allergies', [])         # e.g. ['nuts', 'dairy']
+    goal = request.data.get('goal', 'general health')     # e.g. 'weight loss', 'muscle gain'
+    diet_type = request.data.get('diet_type', 'omnivore') # e.g. 'vegetarian', 'vegan'
+    language = request.data.get('language', 'en')
+
+    if not age:
+        return Response({'error': 'age is required'}, status=400)
+
+    lang_instruction = {
+        'en': 'Respond in English.',
+        'ru': 'Respond in Russian.',
+        'uz': 'Respond in Uzbek.',
+    }.get(language, 'Respond in English.')
+
+    # Calculate BMI if height and weight provided
+    bmi_info = ''
+    if weight_kg and height_cm:
+        bmi = round(float(weight_kg) / ((float(height_cm) / 100) ** 2), 1)
+        bmi_info = f'BMI: {bmi}'
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""You are a clinical dietitian creating a personalized nutrition plan.
+
+Patient Profile:
+- Age: {age}, Gender: {gender}
+- Weight: {weight_kg}kg, Height: {height_cm}cm {bmi_info}
+- Medical conditions: {', '.join(conditions) if conditions else 'None'}
+- Current medications: {', '.join(medications) if medications else 'None'}
+- Allergies/intolerances: {', '.join(allergies) if allergies else 'None'}
+- Diet type: {diet_type}
+- Goal: {goal}
+
+{lang_instruction}
+
+Create a practical, medically-appropriate nutrition plan. Return ONLY a JSON object:
+{{
+  "daily_calories": 2000,
+  "macros": {{
+    "protein_g": 120,
+    "carbs_g": 200,
+    "fat_g": 65,
+    "fiber_g": 30
+  }},
+  "meal_plan": {{
+    "breakfast": {{
+      "description": "meal description",
+      "foods": ["food 1", "food 2"],
+      "calories": 450
+    }},
+    "morning_snack": {{
+      "description": "snack description",
+      "foods": ["food 1"],
+      "calories": 150
+    }},
+    "lunch": {{
+      "description": "meal description",
+      "foods": ["food 1", "food 2", "food 3"],
+      "calories": 550
+    }},
+    "afternoon_snack": {{
+      "description": "snack description",
+      "foods": ["food 1"],
+      "calories": 150
+    }},
+    "dinner": {{
+      "description": "meal description",
+      "foods": ["food 1", "food 2", "food 3"],
+      "calories": 600
+    }}
+  }},
+  "foods_to_avoid": ["food 1 - reason", "food 2 - reason"],
+  "foods_to_prioritize": ["food 1 - benefit", "food 2 - benefit"],
+  "hydration": "Daily water intake recommendation",
+  "supplements": ["supplement 1 - why", "supplement 2 - why"],
+  "medical_notes": "Important dietary notes based on conditions and medications",
+  "weekly_tips": ["tip 1", "tip 2", "tip 3"],
+  "summary": "2-3 sentence personalized summary"
+}}"""
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=2500,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        text = message.content[0].text.strip()
+        if not text:
+            return Response({'error': 'AI returned empty response'}, status=502)
+        import re
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            return Response({'raw_response': text}, status=200)
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'Plan generation failed: {str(e)}'}, status=502)
+
 # Multilingual Translation
 @api_view(['POST'])
 @permission_classes([AllowAny])

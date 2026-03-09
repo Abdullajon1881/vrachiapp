@@ -283,4 +283,8 @@ urlpatterns = [
     
     # Prescription analyzer
     path('prescription-analyzer/', views.prescription_analyzer, name='prescription_analyzer'),
+
+    # Diet and nutrition planner
+    path('diet-planner/', views.diet_nutrition_planner, name='diet_nutrition_planner'),
+
 ] 
