@@ -368,7 +368,7 @@ def detect_location(request):
             if region:
                 try:
                     region_obj = Region.objects.filter(name__icontains=region).first()
-                except:
+                except Exception:
                     pass
             # Ищем город в базе данных
             city_obj = None
@@ -378,7 +378,7 @@ def detect_location(request):
                         name__icontains=city,
                         region=region_obj
                     ).first()
-                except:
+                except Exception:
                     pass
             return {
                 'country': country,
@@ -402,7 +402,7 @@ def detect_location(request):
             if region:
                 try:
                     region_obj = Region.objects.filter(name__icontains=region).first()
-                except:
+                except Exception:
                     pass
             # Ищем город в базе данных
             city_obj = None
@@ -412,7 +412,7 @@ def detect_location(request):
                         name__icontains=city,
                         region=region_obj
                     ).first()
-                except:
+                except Exception:
                     pass
             return {
                 'country': country,
@@ -435,7 +435,7 @@ def detect_location(request):
             if region:
                 try:
                     region_obj = Region.objects.filter(name__icontains=region).first()
-                except:
+                except Exception:
                     pass
             # Ищем город в базе данных
             city_obj = None
@@ -445,7 +445,7 @@ def detect_location(request):
                         name__icontains=city,
                         region=region_obj
                     ).first()
-                except:
+                except Exception:
                     pass
             return {
                 'country': country,
@@ -475,7 +475,7 @@ def detect_location(request):
                 data = response.json()
                 if data.get('status') == 'success':
                     location_data = extract_nominatim_address(data)
-        except:
+        except Exception:
             pass
         
         # Попытка 2: BigDataCloud
@@ -485,7 +485,7 @@ def detect_location(request):
                 if response.status_code == 200:
                     data = response.json()
                     location_data = extract_bigdatacloud_address(data)
-            except:
+            except Exception:
                 pass
         
         # Попытка 3: LocationIQ (если есть API ключ)
@@ -497,7 +497,7 @@ def detect_location(request):
                 #     data = response.json()
                 #     location_data = self.extract_locationiq_address(data)
                 pass
-            except:
+            except Exception:
                 pass
         
         if location_data:
