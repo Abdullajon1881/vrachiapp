@@ -265,5 +265,8 @@ urlpatterns = [
 
     # Nearby hospitals and emergency services
     path('nearby-hospitals/', views.nearby_hospitals, name='nearby_hospitals'),
+
+    # Smart doctor matching
+    path('smart-doctor-match/', views.smart_doctor_match, name='smart_doctor_match'),
     
 ] 

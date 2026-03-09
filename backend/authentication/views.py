@@ -9211,3 +9211,103 @@ def nearby_hospitals(request):
 
     except Exception as e:
         return Response({'error': f'Failed to fetch nearby places: {str(e)}'}, status=502)
+
+# Smart Doctor Matching
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def smart_doctor_match(request):
+    """AI-powered doctor matching based on symptoms and patient needs"""
+    import anthropic
+    import os
+
+    symptoms = request.data.get('symptoms', [])
+    age = request.data.get('age')
+    gender = request.data.get('gender', 'unknown')
+    preferences = request.data.get('preferences', '')
+    language = request.data.get('language', 'en')
+
+    if not symptoms:
+        return Response({'error': 'symptoms are required'}, status=400)
+
+    if isinstance(symptoms, list):
+        symptoms_text = ', '.join(symptoms)
+    else:
+        symptoms_text = str(symptoms)
+
+    # Get all active doctors from DB
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    doctors = User.objects.filter(
+        role='doctor',
+        is_active=True,
+        is_verified=True
+    ).select_related('profile')[:50]
+
+    doctor_list = []
+    for doc in doctors:
+        profile = getattr(doc, 'profile', None)
+        avg_rating = 0
+        doctor_list.append({
+            'id': doc.id,
+            'name': f"{doc.first_name} {doc.last_name}".strip() or doc.username,
+            'specialization': getattr(profile, 'specialization', 'General'),
+            'experience_years': getattr(profile, 'experience_years', 0),
+            'rating': round(avg_rating, 1),
+            'languages': getattr(profile, 'languages', 'Uzbek, Russian'),
+        })
+
+    if not doctor_list:
+        return Response({'error': 'No doctors available'}, status=404)
+
+    import json
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""You are a medical triage assistant. Match the best doctors for this patient.
+
+Patient info:
+- Symptoms: {symptoms_text}
+- Age: {age or 'not specified'}
+- Gender: {gender}
+- Preferences: {preferences or 'none'}
+
+Available doctors:
+{json.dumps(doctor_list, indent=2)}
+
+Return ONLY a JSON object in this exact format:
+{{
+  "top_matches": [
+    {{
+      "doctor_id": 1,
+      "match_score": 95,
+      "reason": "Brief reason why this doctor is a good match",
+      "urgency": "routine/soon/urgent"
+    }}
+  ],
+  "recommended_specialization": "Name of specialization needed",
+  "explanation": "Brief explanation of why these doctors were chosen"
+}}
+
+Return top 3 matches maximum, ordered by match_score descending."""
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=1000,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        text = message.content[0].text.strip().replace('```json', '').replace('```', '').strip()
+        result = json.loads(text)
+
+        # Enrich results with full doctor info
+        doctor_map = {d['id']: d for d in doctor_list}
+        for match in result.get('top_matches', []):
+            doc_info = doctor_map.get(match['doctor_id'], {})
+            match['doctor_name'] = doc_info.get('name')
+            match['specialization'] = doc_info.get('specialization')
+            match['rating'] = doc_info.get('rating')
+            match['experience_years'] = doc_info.get('experience_years')
+
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'Matching failed: {str(e)}'}, status=502)
