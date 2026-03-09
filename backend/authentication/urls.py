@@ -268,6 +268,11 @@ urlpatterns = [
 
     # Smart doctor matching
     path('smart-doctor-match/', views.smart_doctor_match, name='smart_doctor_match'),
+
+    # Medical PDF summarizer
     path('medical-pdf-summarizer/', views.medical_pdf_summarizer, name='medical_pdf_summarizer'),
+
+    # SOAP notes generator
+    path('soap-notes/', views.soap_notes_generator, name='soap_notes_generator'),
 
 ] 

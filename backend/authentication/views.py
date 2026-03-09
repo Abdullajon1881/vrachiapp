@@ -9405,3 +9405,88 @@ Format your response as JSON:
         return Response(result)
     except Exception as e:
         return Response({'error': f'Analysis failed: {str(e)}'}, status=502)
+
+# SOAP Notes Generator
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def soap_notes_generator(request):
+    """Generate structured SOAP notes from consultation chat history"""
+    import anthropic
+    import os
+    import json
+
+    consultation_id = request.data.get('consultation_id')
+    chat_history = request.data.get('chat_history', [])
+    patient_name = request.data.get('patient_name', 'Patient')
+    doctor_name = request.data.get('doctor_name', 'Doctor')
+    language = request.data.get('language', 'en')
+
+    if not chat_history:
+        return Response({'error': 'chat_history is required'}, status=400)
+
+    chat_text = '\n'.join([
+        f"{msg.get('sender', 'Unknown')}: {msg.get('message', '')}"
+        for msg in chat_history
+    ])
+
+    lang_instruction = {
+        'en': 'Respond in English.',
+        'ru': 'Respond in Russian.',
+        'uz': 'Respond in Uzbek.',
+    }.get(language, 'Respond in English.')
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    client = anthropic.Anthropic(api_key=api_key)
+
+    prompt = f"""You are a medical assistant helping doctors create SOAP notes.
+Based on this consultation chat between {doctor_name} and {patient_name}, generate structured SOAP notes.
+
+Consultation chat:
+{chat_text}
+
+{lang_instruction}
+
+Return ONLY a JSON object in this exact format:
+{{
+  "subjective": {{
+    "chief_complaint": "Main reason for visit",
+    "history": "Patient's description of symptoms, onset, duration",
+    "symptoms": ["symptom 1", "symptom 2"]
+  }},
+  "objective": {{
+    "observations": "Doctor's observations from the chat",
+    "vitals_mentioned": "Any vitals mentioned",
+    "findings": ["finding 1", "finding 2"]
+  }},
+  "assessment": {{
+    "diagnosis": "Likely diagnosis or differential",
+    "severity": "mild/moderate/severe",
+    "notes": "Clinical assessment notes"
+  }},
+  "plan": {{
+    "treatment": ["treatment 1", "treatment 2"],
+    "medications": ["medication 1"],
+    "follow_up": "Follow up instructions",
+    "referrals": "Any referrals needed"
+  }},
+  "summary": "One paragraph summary of the consultation"
+}}"""
+
+    try:
+        message = client.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=2000,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        text = message.content[0].text.strip()
+        if not text:
+            return Response({'error': 'AI returned empty response'}, status=502)
+        import re
+        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            return Response({'raw_response': text}, status=200)
+        return Response(result)
+    except Exception as e:
+        return Response({'error': f'SOAP generation failed: {str(e)}'}, status=502)
