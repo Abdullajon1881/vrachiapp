@@ -1,4 +1,5 @@
 import os
+from unicodedata import category
 
 from rest_framework import status, generics
 import uuid
@@ -8921,10 +8922,14 @@ def health_calculators(request):
 @permission_classes([AllowAny])
 def health_tips(request):
     """Daily health tips and wellness advice"""
-    from django.core.cache import cache
-    import random
 
     category = request.query_params.get('category', 'general')
+
+    from django.core.cache import cache
+    cache_key = f"health_tips_{category}"
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(cached)
 
     tips = {
         'general': [
@@ -8985,12 +8990,14 @@ def health_tips(request):
     day_index = datetime.date.today().toordinal() % len(tips[category])
     daily_tip = tips[category][day_index]
 
-    return Response({
+    result = {
         'category': category,
         'daily_tip': daily_tip,
         'all_tips': tips[category],
         'available_categories': list(tips.keys()),
-    })
+    }
+    cache.set(cache_key, result, timeout=3600)
+    return Response(result)
 
 # Symptom Checker (AI-powered)
 
@@ -9134,7 +9141,11 @@ def health_news(request):
 @permission_classes([AllowAny])
 def nearby_hospitals(request):
     """Find nearby hospitals and clinics using Google Places API"""
-    import requests as http_requests
+    from django.core.cache import cache
+    cache_key = f"hospitals_{lat}_{lng}_{radius}_{facility_type}"
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(cached)
 
     lat = request.query_params.get('lat')
     lng = request.query_params.get('lng')
@@ -9189,12 +9200,14 @@ def nearby_hospitals(request):
             })
 
         places.sort(key=lambda x: x.get('rating') or 0, reverse=True)
-
-        return Response({
+        
+        result = {
             'count': len(places),
             'radius_meters': radius,
             'facilities': places,
-        })
+        }
+        cache.set(cache_key, result, timeout=1800)  # cache 30 mins
+        return Response(result)
 
     except Exception as e:
         return Response({'error': f'Failed to fetch nearby places: {str(e)}'}, status=502)
