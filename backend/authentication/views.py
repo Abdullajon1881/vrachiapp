@@ -9128,3 +9128,73 @@ def health_news(request):
 
     except Exception as e:
         return Response({'error': f'Failed to fetch news: {str(e)}'}, status=502)
+    
+# Nearby Hospitals
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def nearby_hospitals(request):
+    """Find nearby hospitals and clinics using Google Places API"""
+    import requests as http_requests
+
+    lat = request.query_params.get('lat')
+    lng = request.query_params.get('lng')
+    radius = int(request.query_params.get('radius', 5000))
+    facility_type = request.query_params.get('type', 'hospital')
+
+    if not lat or not lng:
+        return Response({'error': 'lat and lng parameters are required'}, status=400)
+
+    import os
+    api_key = os.getenv('GOOGLE_MAPS_API_KEY')
+    if not api_key:
+        return Response({'error': 'Maps API not configured'}, status=500)
+
+    type_map = {
+        'hospital': 'hospital',
+        'clinic': 'doctor',
+        'pharmacy': 'pharmacy',
+        'dentist': 'dentist',
+        'emergency': 'hospital',
+    }
+    place_type = type_map.get(facility_type, 'hospital')
+
+    try:
+        response = http_requests.get(
+            'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
+            params={
+                'location': f'{lat},{lng}',
+                'radius': radius,
+                'type': place_type,
+                'key': api_key,
+            },
+            timeout=10
+        )
+        data = response.json()
+
+        if data.get('status') not in ['OK', 'ZERO_RESULTS']:
+            return Response({'error': data.get('status')}, status=502)
+
+        places = []
+        for place in data.get('results', []):
+            places.append({
+                'name': place.get('name'),
+                'address': place.get('vicinity'),
+                'rating': place.get('rating'),
+                'total_ratings': place.get('user_ratings_total'),
+                'open_now': place.get('opening_hours', {}).get('open_now'),
+                'lat': place.get('geometry', {}).get('location', {}).get('lat'),
+                'lng': place.get('geometry', {}).get('location', {}).get('lng'),
+                'place_id': place.get('place_id'),
+                'types': place.get('types', []),
+            })
+
+        places.sort(key=lambda x: x.get('rating') or 0, reverse=True)
+
+        return Response({
+            'count': len(places),
+            'radius_meters': radius,
+            'facilities': places,
+        })
+
+    except Exception as e:
+        return Response({'error': f'Failed to fetch nearby places: {str(e)}'}, status=502)

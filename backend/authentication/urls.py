@@ -262,5 +262,8 @@ urlpatterns = [
 
     # Symptom checker
     path('symptom-checker/', views.symptom_checker, name='symptom_checker'),
+
+    # Nearby hospitals and emergency services
+    path('nearby-hospitals/', views.nearby_hospitals, name='nearby_hospitals'),
     
 ] 
