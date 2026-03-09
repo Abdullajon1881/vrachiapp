@@ -231,6 +231,9 @@ urlpatterns = [
     path('analytics/appointments/', views.appointment_report, name='appointment_report'),
     path('analytics/top-doctors/', views.top_doctors_report, name='top_doctors_report'),
 
+    # Health News   
+    path('health-news/', views.health_news, name='health_news'),
+
     # Neurology module
     path('neurology/headache/', views.headache_diary, name='headache_diary'),
     path('neurology/headache/<int:entry_id>/', views.headache_entry_detail, name='headache_entry_detail'),
@@ -250,4 +253,6 @@ urlpatterns = [
     path('facilities/<int:pk>/review/', FacilityReviewCreateView.as_view(), name='facility-review-create'),
     path('reviews/<int:pk>/delete/', FacilityReviewDeleteView.as_view(), name='review-delete'),
     path('reviews/<int:pk>/helpful/', FacilityMarkHelpfulView.as_view(), name='review-helpful'),
+
+    
 ] 

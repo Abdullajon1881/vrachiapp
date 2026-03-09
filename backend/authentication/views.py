@@ -8819,3 +8819,84 @@ class FacilityMarkHelpfulView(generics.GenericAPIView):
             return Response({'helpful_count': review.helpful_count})
         except FacilityReview.DoesNotExist:
             return Response({'error': 'Review not found'}, status=404)
+        
+
+# Health News
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_news(request):
+    """Fetch latest health & medical news via NewsAPI"""
+    import requests as http_requests
+    from django.core.cache import cache
+
+    category = request.query_params.get('category', 'health')
+    page = int(request.query_params.get('page', 1))
+    page_size = min(int(request.query_params.get('page_size', 10)), 20)
+    cache_key = f'health_news_{category}_{page}_{page_size}'
+
+    # Return cached result if available (cache for 30 minutes)
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(cached)
+
+    import os
+    api_key = os.getenv('NEWSAPI_KEY')
+    if not api_key:
+        return Response({'error': 'News API not configured'}, status=500)
+
+    # Category to query mapping
+    queries = {
+        'health': 'health OR medicine OR medical',
+        'technology': 'medical technology OR health tech OR digital health',
+        'surgery': 'surgery OR surgical innovation OR minimally invasive',
+        'research': 'medical research OR clinical trial OR drug discovery',
+        'ai': 'AI healthcare OR artificial intelligence medicine',
+    }
+    query = queries.get(category, queries['health'])
+
+    try:
+        response = http_requests.get(
+            'https://newsapi.org/v2/everything',
+            params={
+                'q': query,
+                'language': 'en',
+                'sortBy': 'publishedAt',
+                'page': page,
+                'pageSize': page_size,
+                'apiKey': api_key,
+            },
+            timeout=10
+        )
+        data = response.json()
+
+        if data.get('status') != 'ok':
+            return Response({'error': data.get('message', 'News API error')}, status=502)
+
+        # Clean up articles
+        articles = []
+        for article in data.get('articles', []):
+            if article.get('title') and article.get('title') != '[Removed]':
+                articles.append({
+                    'title': article.get('title'),
+                    'description': article.get('description'),
+                    'url': article.get('url'),
+                    'image': article.get('urlToImage'),
+                    'source': article.get('source', {}).get('name'),
+                    'published_at': article.get('publishedAt'),
+                    'author': article.get('author'),
+                })
+
+        result = {
+            'total_results': data.get('totalResults', 0),
+            'page': page,
+            'page_size': page_size,
+            'category': category,
+            'articles': articles,
+        }
+
+        # Cache for 30 minutes
+        cache.set(cache_key, result, 60 * 30)
+        return Response(result)
+
+    except Exception as e:
+        return Response({'error': f'Failed to fetch news: {str(e)}'}, status=502)
