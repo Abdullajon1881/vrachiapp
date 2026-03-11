@@ -287,4 +287,8 @@ urlpatterns = [
     # Diet and nutrition planner
     path('diet-planner/', views.diet_nutrition_planner, name='diet_nutrition_planner'),
 
+    # Exercise and fitness recommendations
+    path('analytics/timeline/', views.patient_health_timeline, name='patient_health_timeline'),
+    path('analytics/timeline/<int:patient_id>/', views.patient_health_timeline, name='patient_health_timeline_detail'),
+
 ] 

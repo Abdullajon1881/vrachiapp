@@ -9922,4 +9922,118 @@ Return ONLY a JSON object:
         return Response(result)
     except Exception as e:
         return Response({'error': f'Translation failed: {str(e)}'}, status=502)
+
+
+        # Patient Health Timeline
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_health_timeline(request, patient_id=None):
+    """Chronological feed of all patient health events in one view"""
+    from .models import (
+        Appointment, Message, Consultation, VitalSigns,
+        BloodPressureLog, LabOrder, Notification
+    )
+
+    user = request.user
+
+    if user.role == 'patient':
+        target_patient = user
+    elif user.role in ['doctor', 'admin']:
+        if not patient_id:
+            return Response({'error': 'patient_id is required'}, status=400)
+        try:
+            target_patient = User.objects.get(id=patient_id, role='patient')
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found'}, status=404)
+    else:
+        return Response({'error': 'Permission denied'}, status=403)
+
+    days = int(request.query_params.get('days', 90))
+    since = timezone.now() - timedelta(days=days)
+
+    timeline = []
+
+    # Appointments
+    appointments = Appointment.objects.filter(
+        patient=target_patient,
+        appointment_date__gte=since.date()
+    ).select_related('doctor')
+    for a in appointments:
+        timeline.append({
+            'type': 'appointment',
+            'date': a.appointment_date.isoformat(),
+            'title': f'Appointment with Dr. {a.doctor.full_name}',
+            'detail': f'{a.doctor.specialization} — {a.status}',
+            'status': a.status,
+            'icon': 'calendar',
+        })
+
+    # Consultations
+    consultations = Consultation.objects.filter(
+        patient=target_patient,
+        created_at__gte=since
+    ).select_related('doctor')
+    for c in consultations:
+        timeline.append({
+            'type': 'consultation',
+            'date': c.created_at.isoformat(),
+            'title': f'Consultation with Dr. {c.doctor.full_name}',
+            'detail': c.title or c.status,
+            'status': c.status,
+            'icon': 'chat',
+        })
+
+    # Vital signs
+    vitals = VitalSigns.objects.filter(
+        patient=target_patient,
+        recorded_at__gte=since
+    )
+    for v in vitals:
+        timeline.append({
+            'type': 'vital_sign',
+            'date': v.recorded_at.isoformat(),
+            'title': 'Vital Signs Recorded',
+            'detail': f'HR: {v.heart_rate} bpm, Temp: {v.temperature}°C, Weight: {v.weight} kg',
+            'icon': 'heart',
+        })
+
+    # Blood pressure logs
+    bp_logs = BloodPressureLog.objects.filter(
+        patient=target_patient,
+        measured_at__gte=since
+    )
+    for b in bp_logs:
+        timeline.append({
+            'type': 'blood_pressure',
+            'date': b.measured_at.isoformat(),
+            'title': 'Blood Pressure Reading',
+            'detail': f'{b.systolic}/{b.diastolic} mmHg — {b.category}',
+            'icon': 'activity',
+        })
+
+    # Lab orders
+    lab_orders = LabOrder.objects.filter(
+        patient=target_patient,
+        created_at__gte=since
+    ).select_related('doctor')
+    for l in lab_orders:
+        timeline.append({
+            'type': 'lab_order',
+            'date': l.created_at.isoformat(),
+            'title': f'Lab Order — {l.status}',
+            'detail': f'Ordered by Dr. {l.doctor.full_name}',
+            'status': l.status,
+            'icon': 'flask',
+        })
+
+    # Sort all events by date descending
+    timeline.sort(key=lambda x: x['date'], reverse=True)
+
+    return Response({
+        'patient': target_patient.full_name,
+        'days': days,
+        'total_events': len(timeline),
+        'generated_at': timezone.now().isoformat(),
+        'timeline': timeline,
+    })
     
