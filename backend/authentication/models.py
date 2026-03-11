@@ -2354,3 +2354,29 @@ class FacilityPhoto(models.Model):
 
     def __str__(self):
         return f"Photo — {self.facility.name}"
+    
+class MoodEntry(models.Model):
+    """Track patient mood over time for mental health monitoring"""
+    MOOD_CHOICES = [
+        (1, 'Very Bad'),
+        (2, 'Bad'),
+        (3, 'Neutral'),
+        (4, 'Good'),
+        (5, 'Very Good'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mood_entries')
+    mood_score = models.IntegerField(choices=MOOD_CHOICES)
+    notes = models.TextField(blank=True)
+    ai_response = models.TextField(blank=True)
+    triggers = models.JSONField(default=list, blank=True)  # ['stress', 'sleep', 'work']
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.full_name} - Mood {self.mood_score} - {self.created_at.date()}"
