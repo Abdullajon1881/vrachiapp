@@ -9273,7 +9273,7 @@ def nearby_hospitals(request):
 
 # Smart Doctor Matching
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def smart_doctor_match(request):
     """AI-powered doctor matching based on symptoms and patient needs"""
     import anthropic
@@ -9380,7 +9380,7 @@ Return top 3 matches maximum, ordered by match_score descending."""
     
 # Medical PDF Summarizer
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def medical_pdf_summarizer(request):
     """Upload a medical PDF and get a plain-language AI explanation"""
     import anthropic
@@ -9464,7 +9464,7 @@ Format your response as JSON:
 
 # SOAP Notes Generator
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def soap_notes_generator(request):
     """Generate structured SOAP notes from consultation chat history"""
     import anthropic
@@ -9639,7 +9639,7 @@ Return ONLY a JSON object:
 
 # AI Prescription Analyzer
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def prescription_analyzer(request):
     """Upload a prescription image and get AI analysis of medications"""
     import anthropic
@@ -9744,7 +9744,7 @@ Return ONLY a JSON object:
 
 # Diet & Nutrition Planner
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def diet_nutrition_planner(request):
     """Generate personalized diet and nutrition plan based on health conditions"""
     import anthropic
@@ -9859,7 +9859,7 @@ Create a practical, medically-appropriate nutrition plan. Return ONLY a JSON obj
 
 # Multilingual Translation
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def translate_consultation(request):
     """Translate consultation messages between English, Russian and Uzbek"""
     import anthropic
