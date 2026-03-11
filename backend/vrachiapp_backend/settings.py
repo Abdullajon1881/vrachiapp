@@ -32,7 +32,7 @@ ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', 'sk_496981d7be389ba63dc3909
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'healzy.uz', 'www.healzy.uz']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'healzy.uz', 'www.healzy.uz', '.railway.app', '.up.railway.app']
 
 
 # Application definition
@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'authentication.middleware.DisableCSRFMiddleware',
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -213,6 +214,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
