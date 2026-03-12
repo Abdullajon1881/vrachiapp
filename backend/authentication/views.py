@@ -10036,4 +10036,3 @@ def patient_health_timeline(request, patient_id=None):
         'generated_at': timezone.now().isoformat(),
         'timeline': timeline,
     })
-    

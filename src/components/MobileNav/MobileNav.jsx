@@ -43,7 +43,7 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
 
   const fetchConsultationsStats = async () => {
     try {
-      const response = await fetch('https://healzy.uz/api/auth/consultations/', {
+      const response = await fetch('${import.meta.env.VITE_API_URL}/api/auth/consultations/', {
         credentials: 'include'
       });
 
@@ -254,3 +254,4 @@ const MobileNav = ({ isAuthenticated, userData, isDarkTheme, toggleTheme }) => {
 };
 
 export default MobileNav; 
+
