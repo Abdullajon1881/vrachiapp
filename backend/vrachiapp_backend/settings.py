@@ -287,17 +287,17 @@ DEFAULT_FROM_EMAIL = EMAIL_FROM
 
 # Session settings (30 дней, скользящая сессия)
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
-SESSION_COOKIE_SECURE = False # В продакшене лучше True, но для локальной разработки False  
+SESSION_COOKIE_SECURE = True # В продакшене лучше True, но для локальной разработки False  
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'None'
 # Если используете субдомены — раскомментируйте:
 # SESSION_COOKIE_DOMAIN = '.healzy.uz'
 SESSION_SAVE_EVERY_REQUEST = True
 
 # CSRF tightening (SPA должен слать X-CSRFToken)
-CSRF_COOKIE_SECURE = False # В продакшене лучше True, но для локальной разработки False
+CSRF_COOKIE_SECURE = True # В продакшене лучше True, но для локальной разработки False
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'None'
 # Делаем CSRF cookie долгоживущей, чтобы не терять её на мобильном
 CSRF_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 
@@ -392,3 +392,4 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Tashkent'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
