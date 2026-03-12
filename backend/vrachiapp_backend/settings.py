@@ -254,6 +254,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://healzy.uz",
     "https://www.healzy.uz",
+    "https://intelligent-quietude-production-db15.up.railway.app",
+    "https://intelligent-quietude-production-db15.up.railway.app",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -379,7 +381,8 @@ SPECTACULAR_SETTINGS = {
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000']
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000'
+                        "https://intelligent-quietude-production-db15.up.railway.app",]
 
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
