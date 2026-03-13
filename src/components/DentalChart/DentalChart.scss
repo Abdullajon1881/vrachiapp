@@ -1,0 +1,307 @@
+@import '../../styles/variables.scss';
+
+.dental-chart {
+  max-width: $container-max-width;
+  margin: 0 auto;
+  padding: $spacing-2xl;
+  min-height: 100vh;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: $spacing-2xl;
+    flex-wrap: wrap;
+    gap: $spacing-md;
+  }
+
+  &__title {
+    font-size: $font-size-3xl;
+    font-weight: $font-weight-bold;
+    background: $gradient-primary;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 $spacing-xs;
+  }
+
+  &__subtitle {
+    color: $text-light;
+    margin: 0;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__header-actions {
+    display: flex;
+    gap: $spacing-sm;
+  }
+
+  &__view-btn {
+    padding: $spacing-sm $spacing-lg;
+    border: 2px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: $white;
+    color: $text-dark;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    cursor: pointer;
+    transition: all 0.2s;
+    .dark-theme & { background: $dark-card; border-color: $dark-border; color: $dark-text; }
+    &--active {
+      background: $gradient-primary;
+      color: $white;
+      border-color: transparent;
+    }
+    &:hover:not(&--active) { border-color: $primary-blue; }
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xl;
+  }
+
+  &__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md;
+    border: 2px solid transparent;
+    border-radius: 20px;
+    background: $white;
+    cursor: pointer;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $text-dark;
+    transition: all 0.2s;
+    box-shadow: $shadow-light;
+    .dark-theme & { background: $dark-card; color: $dark-text; }
+    &--active {
+      border-color: var(--cond-color);
+      box-shadow: 0 0 0 3px rgba(var(--cond-color), 0.15);
+    }
+    &:hover { transform: translateY(-1px); }
+  }
+
+  &__legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__diagram {
+    background: $white;
+    border-radius: $border-radius-lg;
+    padding: $spacing-xl;
+    box-shadow: $shadow-light;
+    .dark-theme & { background: $dark-card; box-shadow: $shadow-dark-light; }
+  }
+
+  &__jaw-label {
+    font-size: $font-size-xs;
+    color: $text-light;
+    text-align: center;
+    margin: $spacing-sm 0;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: $spacing-xs 0;
+  }
+
+  &__divider {
+    height: 2px;
+    background: $border-color;
+    margin: $spacing-sm 0;
+    .dark-theme & { background: $dark-border; }
+  }
+
+  &__tooth {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+
+    svg {
+      width: 36px;
+      height: 38px;
+      transition: all 0.15s;
+    }
+
+    &:hover { transform: scale(1.15); }
+    &--selected svg { filter: drop-shadow(0 0 4px rgba($primary-blue, 0.6)); }
+    &--molar svg { width: 40px; }
+    &--incisor svg { width: 28px; }
+    &--canine svg { width: 30px; }
+    &--premolar svg { width: 34px; }
+  }
+
+  &__tooth-num {
+    font-size: 9px;
+    color: $text-light;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__hint {
+    text-align: center;
+    color: $text-light;
+    font-size: $font-size-base;
+    padding: $spacing-lg;
+    background: $gray-light;
+    border-radius: $border-radius-md;
+    .dark-theme & { background: $dark-surface; color: $dark-text-secondary; }
+  }
+
+  &__panel {
+    background: $light-blue;
+    border-radius: $border-radius-md;
+    padding: $spacing-xl;
+    border: 2px solid lighten($primary-blue, 40%);
+    .dark-theme & { background: rgba($primary-blue, 0.1); border-color: rgba($primary-blue, 0.3); }
+
+    &-header {
+      display: flex;
+      align-items: baseline;
+      gap: $spacing-md;
+      margin-bottom: $spacing-md;
+      flex-wrap: wrap;
+      h3 { margin: 0; font-size: $font-size-xl; font-weight: $font-weight-bold; color: $primary-blue; .dark-theme & { color: lighten($primary-blue, 30%); } }
+    }
+    &-name { font-size: $font-size-sm; color: $text-light; .dark-theme & { color: $dark-text-secondary; } }
+    &-current { font-size: $font-size-base; color: $text-dark; margin-bottom: $spacing-md; .dark-theme & { color: $dark-text; } }
+    &-actions { display: flex; gap: $spacing-md; margin-bottom: $spacing-md; flex-wrap: wrap; }
+    &-notes {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-xs;
+      label { font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $text-dark; .dark-theme & { color: $dark-text; } }
+      textarea {
+        padding: $spacing-sm;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+        background: $white;
+        font-family: $font-family;
+        font-size: $font-size-sm;
+        color: $text-dark;
+        resize: vertical;
+        .dark-theme & { background: $dark-card; color: $dark-text; border-color: $dark-border; }
+        &:focus { outline: none; border-color: $primary-blue; }
+      }
+    }
+  }
+
+  &__apply-btn {
+    padding: $spacing-sm $spacing-xl;
+    background: $gradient-primary;
+    color: $white;
+    border: none;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    &:hover { opacity: 0.9; }
+  }
+
+  &__clear-btn {
+    padding: $spacing-sm $spacing-lg;
+    background: transparent;
+    color: $error;
+    border: 2px solid $error;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    &:hover { background: $error; color: $white; }
+  }
+
+  &__stats {
+    background: $white;
+    border-radius: $border-radius-md;
+    padding: $spacing-lg;
+    box-shadow: $shadow-light;
+    .dark-theme & { background: $dark-card; }
+    h3 { margin: 0 0 $spacing-md; font-size: $font-size-lg; font-weight: $font-weight-semibold; color: $text-dark; .dark-theme & { color: $dark-text; } }
+    &-grid { display: flex; flex-wrap: wrap; gap: $spacing-md; }
+  }
+
+  &__stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: $spacing-md $spacing-lg;
+    background: $gray-light;
+    border-radius: $border-radius-sm;
+    border-left: 4px solid var(--c);
+    .dark-theme & { background: $dark-surface; }
+  }
+
+  &__stat-count {
+    font-size: $font-size-2xl;
+    font-weight: $font-weight-bold;
+    color: var(--c);
+  }
+
+  &__stat-label {
+    font-size: $font-size-xs;
+    color: $text-light;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  &__reset-btn {
+    padding: $spacing-sm $spacing-xl;
+    background: transparent;
+    color: $text-light;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    .dark-theme & { border-color: $dark-border; color: $dark-text-secondary; }
+    &:hover { color: $error; border-color: $error; }
+  }
+
+  // Report
+  &__report {
+    background: $white;
+    border-radius: $border-radius-lg;
+    padding: $spacing-xl;
+    box-shadow: $shadow-light;
+    .dark-theme & { background: $dark-card; }
+    h2 { font-size: $font-size-2xl; font-weight: $font-weight-bold; color: $text-dark; margin: 0 0 $spacing-xl; .dark-theme & { color: $dark-text; } }
+    h3 { font-size: $font-size-lg; font-weight: $font-weight-semibold; color: $text-dark; margin: $spacing-xl 0 $spacing-md; .dark-theme & { color: $dark-text; } }
+    &-empty { text-align: center; padding: $spacing-3xl; p { color: $text-light; margin: 0 0 $spacing-xl; .dark-theme & { color: $dark-text-secondary; } } }
+    &-stats { display: flex; flex-wrap: wrap; gap: $spacing-lg; margin-bottom: $spacing-xl; }
+    &-stat { display: flex; align-items: center; gap: $spacing-sm; font-size: $font-size-base; color: $text-dark; .dark-theme & { color: $dark-text; } &-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; } }
+    &-list { display: flex; flex-direction: column; gap: $spacing-sm; }
+    &-item { display: flex; align-items: center; gap: $spacing-md; padding: $spacing-sm $spacing-md; background: $gray-light; border-radius: $border-radius-sm; flex-wrap: wrap; .dark-theme & { background: $dark-surface; } }
+    &-num { font-weight: $font-weight-bold; color: $primary-blue; min-width: 30px; .dark-theme & { color: lighten($primary-blue, 30%); } }
+    &-tooth-name { flex: 1; font-size: $font-size-sm; color: $text-dark; .dark-theme & { color: $dark-text; } }
+    &-cond { padding: 2px 10px; border-radius: 12px; font-size: $font-size-xs; font-weight: $font-weight-semibold; }
+    &-note { font-size: $font-size-xs; color: $text-light; font-style: italic; .dark-theme & { color: $dark-text-secondary; } }
+    &-tip { margin-top: $spacing-xl; padding: $spacing-md; background: lighten($info, 40%); border-radius: $border-radius-sm; color: darken($info, 20%); font-size: $font-size-sm; .dark-theme & { background: rgba($info, 0.15); color: lighten($info, 20%); } }
+  }
+
+  @media (max-width: 640px) {
+    padding: $spacing-md;
+    &__tooth svg { width: 28px !important; }
+    &__row { gap: 2px; }
+  }
+}

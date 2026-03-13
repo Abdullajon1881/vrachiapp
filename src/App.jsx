@@ -18,7 +18,19 @@ import DoctorApplication from './components/DoctorApplication/DoctorApplication'
 import Consultations from './components/Consultations/Consultations';
 import Chat from './components/Chat/Chat';
 import Footer from './components/Footer/Footer';
+import Appointments from './components/Appointments/Appointments';
+import MedicalRecords from './components/MedicalRecords/MedicalRecords';
+import HealthNews from './components/HealthNews/HealthNews';
+import HealthTools from './components/HealthTools/HealthTools';
+import DentalChart from './components/DentalChart/DentalChart';
+import Facilities from './components/Facilities/Facilities';
 import { useTranslation } from 'react-i18next';
+import Appointments from './components/Appointments/Appointments';
+import MedicalRecords from './components/MedicalRecords/MedicalRecords';
+import DentalChart from './components/DentalChart/DentalChart';
+import HealthTools from './components/HealthTools/HealthTools';
+import Facilities from './components/Facilities/Facilities';
+import HealthNews from './components/HealthNews/HealthNews';
 
 function App() {
   const { t } = useTranslation();
@@ -286,11 +298,30 @@ function App() {
 
   // Компонент для AI диагностики (только для авторизованных)
   const AIDiagnosisPage = () => {
-    if (!isAuthenticated) {
-      return <Navigate to="/" replace />;
-    }
+    if (!isAuthenticated) return <Navigate to="/" replace />;
     return <AIDiagnosis />;
   };
+
+  const AppointmentsPage = () => {
+    if (!isAuthenticated) return <Navigate to="/" replace />;
+    return <Appointments userData={userData} />;
+  };
+
+  const MedicalRecordsPage = () => {
+    if (!isAuthenticated) return <Navigate to="/" replace />;
+    return <MedicalRecords />;
+  };
+
+  const HealthNewsPage = () => <HealthNews />;
+
+  const HealthToolsPage = () => <HealthTools />;
+
+  const DentalChartPage = () => {
+    if (!isAuthenticated) return <Navigate to="/" replace />;
+    return <DentalChart userData={userData} />;
+  };
+
+  const FacilitiesPage = () => <Facilities />;
 
   return (
     <Router>
@@ -322,6 +353,18 @@ function App() {
             <Route path="/consultations" element={<ConsultationsPage />} />
             <Route path="/consultations/:consultationId" element={<ChatPage />} />
             <Route path="/ai-diagnosis" element={<AIDiagnosisPage />} />
+            <Route path="/appointments" element={<AppointmentsPage />} />
+            <Route path="/medical-records" element={<MedicalRecordsPage />} />
+            <Route path="/health-news" element={<HealthNewsPage />} />
+            <Route path="/health-tools" element={<HealthToolsPage />} />
+            <Route path="/dental-chart" element={<DentalChartPage />} />
+            <Route path="/facilities" element={<FacilitiesPage />} />
+            <Route path="/appointments" element={isAuthenticated ? <Appointments /> : <Navigate to="/" replace />} />
+            <Route path="/medical-records" element={isAuthenticated ? <MedicalRecords /> : <Navigate to="/" replace />} />
+            <Route path="/dental-chart" element={isAuthenticated ? <DentalChart /> : <Navigate to="/" replace />} />
+            <Route path="/health-tools" element={<HealthTools />} />
+            <Route path="/facilities" element={<Facilities />} />
+            <Route path="/health-news" element={<HealthNews />} />
           </Routes>
         </main>
         <Footer />
@@ -339,6 +382,3 @@ function App() {
 }
 
 export default App;
-
-
-

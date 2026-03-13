@@ -1,0 +1,433 @@
+@import '../../styles/variables.scss';
+
+.health-tools {
+  max-width: $container-max-width;
+  margin: 0 auto;
+  padding: $spacing-2xl;
+  min-height: 100vh;
+
+  &__header {
+    text-align: center;
+    margin-bottom: $spacing-2xl;
+  }
+
+  &__title {
+    font-size: $font-size-3xl;
+    font-weight: $font-weight-bold;
+    background: $gradient-primary;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 $spacing-xs;
+  }
+
+  &__subtitle {
+    color: $text-light;
+    margin: 0;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__tabs {
+    display: flex;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+    background: $light-gray;
+    padding: $spacing-xs;
+    border-radius: $border-radius-md;
+    width: fit-content;
+    margin: 0 auto $spacing-2xl;
+    .dark-theme & { background: $dark-surface; }
+  }
+
+  &__tab {
+    padding: $spacing-sm $spacing-xl;
+    border: none;
+    background: transparent;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $text-light;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    .dark-theme & { color: $dark-text-secondary; }
+    &--active {
+      background: $white;
+      color: $primary-blue;
+      font-weight: $font-weight-semibold;
+      box-shadow: $shadow-light;
+      .dark-theme & { background: $dark-card; color: lighten($primary-blue, 30%); }
+    }
+  }
+
+  &__tool {
+    background: $white;
+    border-radius: $border-radius-lg;
+    padding: $spacing-2xl;
+    box-shadow: $shadow-light;
+    .dark-theme & { background: $dark-card; box-shadow: $shadow-dark-light; }
+
+    h2 {
+      font-size: $font-size-2xl;
+      font-weight: $font-weight-bold;
+      color: $text-dark;
+      margin: 0 0 $spacing-xs;
+      .dark-theme & { color: $dark-text; }
+    }
+  }
+
+  &__tool-desc {
+    color: $text-light;
+    margin: 0 0 $spacing-xl;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    margin-bottom: $spacing-xl;
+  }
+
+  &__form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: $spacing-md;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    label {
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: $text-dark;
+      .dark-theme & { color: $dark-text; }
+    }
+    input, select {
+      padding: $spacing-sm $spacing-md;
+      border: 2px solid $border-color;
+      border-radius: $border-radius-sm;
+      font-size: $font-size-base;
+      background: $white;
+      color: $text-dark;
+      font-family: $font-family;
+      transition: border-color 0.2s;
+      .dark-theme & { background: $dark-surface; color: $dark-text; border-color: $dark-border; }
+      &:focus { outline: none; border-color: $primary-blue; }
+    }
+  }
+
+  &__calc-btn {
+    align-self: flex-start;
+    padding: $spacing-sm $spacing-2xl;
+    background: $gradient-primary;
+    color: $white;
+    border: none;
+    border-radius: $border-radius-md;
+    font-size: $font-size-base;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: all 0.2s;
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &:not(:disabled):hover { transform: translateY(-2px); box-shadow: $shadow-medium; }
+  }
+
+  &__reset-btn {
+    align-self: flex-start;
+    padding: $spacing-sm $spacing-lg;
+    background: transparent;
+    color: $text-light;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    .dark-theme & { border-color: $dark-border; color: $dark-text-secondary; }
+    &:hover { color: $error; border-color: $error; }
+  }
+
+  // BMI Result
+  &__result {
+    background: $gray-light;
+    border-radius: $border-radius-md;
+    padding: $spacing-xl;
+    border-left: 4px solid var(--res-color);
+    .dark-theme & { background: $dark-surface; }
+
+    &-main {
+      display: flex;
+      align-items: baseline;
+      gap: $spacing-md;
+      margin-bottom: $spacing-lg;
+    }
+
+    &-value {
+      font-size: 3.5rem;
+      font-weight: $font-weight-extrabold;
+      color: var(--res-color);
+      line-height: 1;
+    }
+
+    &-label {
+      font-size: $font-size-xl;
+      font-weight: $font-weight-bold;
+    }
+
+    &-advice {
+      color: $text-dark;
+      margin: $spacing-md 0 $spacing-sm;
+      .dark-theme & { color: $dark-text; }
+    }
+
+    &-ideal {
+      color: $text-light;
+      font-size: $font-size-sm;
+      margin: 0;
+      .dark-theme & { color: $dark-text-secondary; }
+    }
+  }
+
+  &__bmi-scale {
+    margin: $spacing-md 0;
+  }
+
+  &__bmi-bar {
+    position: relative;
+    height: 12px;
+    background: linear-gradient(to right, #2196f3 0%, #4caf50 37%, #ff9800 62%, #f44336 100%);
+    border-radius: 6px;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__bmi-fill {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    background: $white;
+    border: 3px solid $primary-blue;
+    border-radius: 50%;
+    box-shadow: $shadow-medium;
+    transition: left 0.5s ease;
+  }
+
+  &__bmi-mark {
+    position: absolute;
+    top: 100%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+    span { font-size: 10px; color: $text-light; }
+  }
+
+  &__bmi-zones {
+    display: flex;
+    justify-content: space-between;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    margin-top: $spacing-xs;
+  }
+
+  // Water Tracker
+  &__water {
+    display: flex;
+    gap: $spacing-2xl;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  &__water-circle {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    flex-shrink: 0;
+    svg { width: 100%; height: 100%; }
+  }
+
+  &__water-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__water-ml {
+    font-size: $font-size-2xl;
+    font-weight: $font-weight-bold;
+    color: $primary-blue;
+    .dark-theme & { color: lighten($primary-blue, 30%); }
+  }
+
+  &__water-total {
+    font-size: $font-size-xs;
+    color: $text-light;
+    .dark-theme & { color: $dark-text-secondary; }
+  }
+
+  &__water-controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  &__water-pct {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-bold;
+    color: $primary-blue;
+    margin: 0;
+    .dark-theme & { color: lighten($primary-blue, 30%); }
+  }
+
+  &__water-btns {
+    display: flex;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+
+  &__water-btn {
+    padding: $spacing-sm $spacing-lg;
+    border: none;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: all 0.2s;
+    &--plus { background: $gradient-primary; color: $white; &:hover { opacity: 0.9; } }
+    &--minus { background: $light-gray; color: $text-dark; .dark-theme & { background: $dark-surface; color: $dark-text; } &:hover { background: $gray; } }
+  }
+
+  &__water-glasses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 1.4rem;
+  }
+
+  &__glass {
+    opacity: 0.2;
+    transition: opacity 0.2s;
+    &--filled { opacity: 1; }
+  }
+
+  // Calorie Result
+  &__calories-result {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xl;
+  }
+
+  &__calorie-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $spacing-md;
+    @media (max-width: 600px) { grid-template-columns: 1fr; }
+  }
+
+  &__calorie-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: $spacing-xl;
+    background: $gray-light;
+    border-radius: $border-radius-md;
+    border-top: 4px solid var(--c);
+    text-align: center;
+    .dark-theme & { background: $dark-surface; }
+  }
+
+  &__calorie-icon { font-size: 2rem; margin-bottom: $spacing-sm; }
+  &__calorie-val { font-size: $font-size-3xl; font-weight: $font-weight-extrabold; color: var(--c); }
+  &__calorie-unit { font-size: $font-size-xs; color: $text-light; .dark-theme & { color: $dark-text-secondary; } }
+  &__calorie-label { font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $text-dark; margin-top: $spacing-xs; .dark-theme & { color: $dark-text; } }
+
+  &__macros {
+    background: $gray-light;
+    border-radius: $border-radius-md;
+    padding: $spacing-lg;
+    .dark-theme & { background: $dark-surface; }
+    h4 { margin: 0 0 $spacing-md; font-size: $font-size-base; font-weight: $font-weight-semibold; color: $text-dark; .dark-theme & { color: $dark-text; } }
+  }
+
+  &__macro-bars { display: flex; flex-direction: column; gap: $spacing-md; }
+
+  &__macro-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  &__macro-label { width: 90px; font-size: $font-size-sm; color: $text-dark; .dark-theme & { color: $dark-text; } }
+  &__macro-bar-wrap { flex: 1; height: 10px; background: $gray; border-radius: 5px; overflow: hidden; .dark-theme & { background: $dark-border; } }
+  &__macro-bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s ease; }
+  &__macro-val { width: 60px; text-align: right; font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $text-dark; .dark-theme & { color: $dark-text; } }
+
+  // Symptom Checker
+  &__symptoms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: $spacing-sm;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__symptom-btn {
+    padding: $spacing-sm $spacing-md;
+    border: 2px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: $white;
+    color: $text-dark;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    .dark-theme & { background: $dark-surface; color: $dark-text; border-color: $dark-border; }
+    &:hover { border-color: $primary-blue; }
+    &--active { background: $light-blue; border-color: $primary-blue; color: $primary-blue; font-weight: $font-weight-semibold; .dark-theme & { background: rgba($primary-blue, 0.15); } }
+  }
+
+  &__symptom-result {
+    background: $gray-light;
+    border-radius: $border-radius-md;
+    padding: $spacing-xl;
+    border-left: 4px solid var(--urgency);
+    .dark-theme & { background: $dark-surface; }
+    h4 { font-size: $font-size-base; font-weight: $font-weight-semibold; color: $text-dark; margin: 0 0 $spacing-sm; .dark-theme & { color: $dark-text; } }
+  }
+
+  &__urgency-badge {
+    display: inline-block;
+    padding: $spacing-xs $spacing-lg;
+    border-radius: 20px;
+    color: $white;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-bold;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__specialists { margin-bottom: $spacing-lg; }
+
+  &__specialist-list { display: flex; flex-wrap: wrap; gap: $spacing-sm; }
+
+  &__specialist-tag {
+    padding: $spacing-xs $spacing-md;
+    background: $light-blue;
+    color: $primary-blue;
+    border-radius: 20px;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    .dark-theme & { background: rgba($primary-blue, 0.15); color: lighten($primary-blue, 30%); }
+  }
+
+  &__tips { }
+  &__tip { color: $text-dark; margin: $spacing-xs 0; font-size: $font-size-sm; .dark-theme & { color: $dark-text; } }
+
+  @media (max-width: 640px) {
+    padding: $spacing-md;
+    &__tabs { width: 100%; }
+    &__tool { padding: $spacing-lg; }
+    &__water { flex-direction: column; align-items: flex-start; }
+  }
+}
