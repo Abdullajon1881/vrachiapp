@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './HealthTools.scss';
+import './Healthtools.scss';
 
 // ─── BMI Calculator ───────────────────────────────────────────────────────────
 const BMICalculator = () => {

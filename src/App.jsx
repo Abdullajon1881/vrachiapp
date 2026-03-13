@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.scss';
-import Sidebar from './components/Sidebar/Sidebar';
-import MobileNav from './components/MobileNav/MobileNav';
-import Header from './components/Header/Header';
 import Hero from './components/Hero/Hero';
 import Services from './components/Services/Services';
 import ServicesPage from './components/Services/ServicesPage';
@@ -17,88 +14,25 @@ import AuthModal from './components/AuthModal/AuthModal';
 import DoctorApplication from './components/DoctorApplication/DoctorApplication';
 import Consultations from './components/Consultations/Consultations';
 import Chat from './components/Chat/Chat';
-import Footer from './components/Footer/Footer';
-import Appointments from './components/Appointments/Appointments';
-import MedicalRecords from './components/MedicalRecords/MedicalRecords';
+import Appointments from './components/Appointments/Appointments_1';
+import MedicalRecords from './components/MedicalRecords/MedicalRecords_2';
 import HealthNews from './components/HealthNews/HealthNews';
-import HealthTools from './components/HealthTools/HealthTools';
+import HealthTools from './components/Healthtools/Healthtools';
 import DentalChart from './components/DentalChart/DentalChart';
 import Facilities from './components/Facilities/Facilities';
 import { useTranslation } from 'react-i18next';
-import Appointments from './components/Appointments/Appointments';
-import MedicalRecords from './components/MedicalRecords/MedicalRecords';
-import DentalChart from './components/DentalChart/DentalChart';
-import HealthTools from './components/HealthTools/HealthTools';
-import Facilities from './components/Facilities/Facilities';
-import HealthNews from './components/HealthNews/HealthNews';
+import { useAuth } from './shared/AuthContext.jsx';
+import AppShell from './layout/AppShell.jsx';
 
 function App() {
   const { t } = useTranslation();
+  const { user, isAuthenticated, validateAuth, logout, refreshUser } = useAuth();
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
     const saved = localStorage.getItem('darkTheme');
     return saved ? JSON.parse(saved) : false;
   });
   
   const [currentPage, setCurrentPage] = useState('home');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userData, setUserData] = useState(null);
-
-  // Серверная проверка сессии: истинный источник авторизации
-  const validateAuth = async () => {
-    try {
-      const resp = await fetch('https://vrachiapp-production.up.railway.app/api/auth/check-auth/', { credentials: 'include' });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.authenticated) {
-          setIsAuthenticated(true);
-          setUserData(data.user || null);
-          if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-        } else {
-          setIsAuthenticated(false);
-          setUserData(null);
-          localStorage.removeItem('user');
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUserData(null);
-        localStorage.removeItem('user');
-      }
-    } catch (_) {
-      // В оффлайне не меняем состояние резко, но не повышаем привилегии
-    }
-  };
-
-  // Проверяем авторизацию при загрузке и при возвращении в приложение
-  useEffect(() => {
-    // Быстрый первичный рендер из localStorage (опционально), затем серверная валидация
-    try {
-      const cached = localStorage.getItem('user');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setUserData(parsed);
-        setIsAuthenticated(true);
-      }
-    } catch (_) {}
-    validateAuth();
-
-    const onFocus = () => validateAuth();
-    const onVisibility = () => { if (document.visibilityState === 'visible') validateAuth(); };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, []);
-
-  // Инициализация CSRF cookie для SPA (нужно до любых POST/PUT/DELETE)
-  useEffect(() => {
-    try {
-      fetch('https://vrachiapp-production.up.railway.app/api/auth/csrf/', {
-        credentials: 'include'
-      });
-    } catch (_) {}
-  }, []);
 
   useEffect(() => {
     localStorage.setItem('darkTheme', JSON.stringify(isDarkTheme));
@@ -202,27 +136,11 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUserData(null);
-    // Перенаправляем на главную страницу
-    window.location.href = '/';
+    logout();
   };
 
   const updateUserData = async () => {
-    try {
-      const response = await fetch('https://vrachiapp-production.up.railway.app/api/auth/current-user/', {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUserData(data);
-        localStorage.setItem('user', JSON.stringify(data));
-      }
-    } catch (error) {
-      console.error('Ошибка обновления данных пользователя:', error);
-    }
+    await refreshUser();
   };
 
   const handleShowAllServices = () => {
@@ -239,7 +157,7 @@ function App() {
   const HomePage = () => (
     <>
       <Hero />
-      <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={userData} />
+      <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={user} />
     </>
   );
 
@@ -304,7 +222,7 @@ function App() {
 
   const AppointmentsPage = () => {
     if (!isAuthenticated) return <Navigate to="/" replace />;
-    return <Appointments userData={userData} />;
+    return <Appointments userData={user} />;
   };
 
   const MedicalRecordsPage = () => {
@@ -318,65 +236,43 @@ function App() {
 
   const DentalChartPage = () => {
     if (!isAuthenticated) return <Navigate to="/" replace />;
-    return <DentalChart userData={userData} />;
+    return <DentalChart userData={user} />;
   };
 
   const FacilitiesPage = () => <Facilities />;
 
   return (
     <Router>
-      <div className="app">
-        <Header 
-          isAuthenticated={isAuthenticated}
-          userData={userData}
-          onLogout={handleLogout}
-          onAuthSuccess={validateAuth}
-          isDarkTheme={isDarkTheme}
-          toggleTheme={toggleTheme}
-        />
-        <Sidebar 
-          toggleTheme={toggleTheme} 
-          isDarkTheme={isDarkTheme} 
-          isAuthenticated={isAuthenticated}
-          userData={userData}
-        />
-        <main className="main">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/services" element={<ServicesPage userData={userData} />} />
-            <Route path="/doctors" element={<DoctorsPage />} />
-            <Route path="/doctors/:id" element={<DoctorProfilePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/admin" element={<AdminPanelPage />} />
-            <Route path="/doctor-application" element={<DoctorApplicationPage />} />
-            <Route path="/consultations" element={<ConsultationsPage />} />
-            <Route path="/consultations/:consultationId" element={<ChatPage />} />
-            <Route path="/ai-diagnosis" element={<AIDiagnosisPage />} />
-            <Route path="/appointments" element={<AppointmentsPage />} />
-            <Route path="/medical-records" element={<MedicalRecordsPage />} />
-            <Route path="/health-news" element={<HealthNewsPage />} />
-            <Route path="/health-tools" element={<HealthToolsPage />} />
-            <Route path="/dental-chart" element={<DentalChartPage />} />
-            <Route path="/facilities" element={<FacilitiesPage />} />
-            <Route path="/appointments" element={isAuthenticated ? <Appointments /> : <Navigate to="/" replace />} />
-            <Route path="/medical-records" element={isAuthenticated ? <MedicalRecords /> : <Navigate to="/" replace />} />
-            <Route path="/dental-chart" element={isAuthenticated ? <DentalChart /> : <Navigate to="/" replace />} />
-            <Route path="/health-tools" element={<HealthTools />} />
-            <Route path="/facilities" element={<Facilities />} />
-            <Route path="/health-news" element={<HealthNews />} />
-          </Routes>
-        </main>
-        <Footer />
-        <MobileNav 
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          isAuthenticated={isAuthenticated}
-          userData={userData}
-          isDarkTheme={isDarkTheme}
-          toggleTheme={toggleTheme}
-        />
-      </div>
+      <Routes>
+        <Route
+          element={
+            <AppShell
+              isDarkTheme={isDarkTheme}
+              toggleTheme={toggleTheme}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+            />
+          }
+        >
+          <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/services" element={<ServicesPage userData={user} />} />
+          <Route path="/doctors" element={<DoctorsPage />} />
+          <Route path="/doctors/:id" element={<DoctorProfilePage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin" element={<AdminPanelPage />} />
+          <Route path="/doctor-application" element={<DoctorApplicationPage />} />
+          <Route path="/consultations" element={<ConsultationsPage />} />
+          <Route path="/consultations/:consultationId" element={<ChatPage />} />
+          <Route path="/ai-diagnosis" element={<AIDiagnosisPage />} />
+          <Route path="/appointments" element={<AppointmentsPage />} />
+          <Route path="/medical-records" element={<MedicalRecordsPage />} />
+          <Route path="/health-news" element={<HealthNewsPage />} />
+          <Route path="/health-tools" element={<HealthToolsPage />} />
+          <Route path="/dental-chart" element={<DentalChartPage />} />
+          <Route path="/facilities" element={<FacilitiesPage />} />
+        </Route>
+      </Routes>
     </Router>
   );
 }
