@@ -1,4 +1,5 @@
 import os
+import random
 from rest_framework import status, generics
 import uuid
 from django.views.decorators.csrf import csrf_exempt
@@ -21,7 +22,7 @@ import asyncio
 from .ai_service import ai_service
 import html
 from django.core.cache import cache
-from .models import LabOrder, LabTest, LabReport
+from .models import LabOrder, LabTest, LabReport, Prescription
 
 
 from .models import (
@@ -30,7 +31,7 @@ from .models import (
     MedCity, MedDistrict, MedicalFacility, FacilityReview,
 )
 from .serializers import (
-    ConsultationSerializer, ConsultationCreateSerializer, ConsultationUpdateSerializer, MessageSerializer, UserSerializer, RegisterSerializer, LoginSerializer,
+    ConsultationSerializer, ConsultationCreateSerializer, ConsultationUpdateSerializer, DoctorApplicationUpdateSerializer, MessageSerializer, UserSerializer, RegisterSerializer, LoginSerializer,
     GoogleAuthSerializer, PasswordResetSerializer,
     UserProfileSerializer, UserProfileReadSerializer,
     RegionSerializer, MedCitySerializer, MedDistrictSerializer,
@@ -7187,7 +7188,7 @@ def vaccination_records(request, child_id):
             } for v in vaccinations],
         })
 
-    if user.role not in ['doctor', 'admin']:
+    if User.role not in ['doctor', 'admin']:
         return Response({'error': 'Only doctors can add vaccination records'}, status=403)
 
     if not request.data.get('vaccine'):
@@ -9229,7 +9230,7 @@ def nearby_hospitals(request):
     place_type = type_map.get(facility_type, 'hospital')
 
     try:
-        response = http_requests.get(
+        response = requests.get(
             'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
             params={
                 'location': f'{lat},{lng}',
