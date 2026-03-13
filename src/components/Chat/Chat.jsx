@@ -98,7 +98,7 @@ const Chat = () => {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : 'vrachiapp-production.up.railway.app';
     const wsUrl = `${protocol}//${host}/ws/chat/${consultationId}/`;
     
     
