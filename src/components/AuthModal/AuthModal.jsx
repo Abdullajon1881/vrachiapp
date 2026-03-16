@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import './AuthModal.scss';
 import { useTranslation } from 'react-i18next';
+import { apiClient, getCsrfToken } from '../../shared/apiClient';
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess, isDarkTheme }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -32,26 +33,14 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, isDarkTheme }) => {
     setError('');
 
     try {
-      const response = await fetch('https://vrachiapp-production.up.railway.app/api/auth/resend-verification/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
-        },
-        credentials: 'include',
-        body: JSON.stringify({ email: verificationEmail })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage(t('auth.resendSuccess', 'Confirmation email resent. Please check your email..'));
-        setNeedsVerification(false);
-        // Очищаем сообщение через 5 секунд
-        setTimeout(() => setSuccessMessage(''), 5000);
-      } else {
-        setError(data.error || 'Ошибка отправки email');
-      }
+      await apiClient.post(
+        '/api/auth/resend-verification/',
+        { email: verificationEmail },
+        { csrf: true }
+      );
+      setSuccessMessage(t('auth.resendSuccess', 'Confirmation email resent. Please check your email..'));
+      setNeedsVerification(false);
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
       setError('Ошибка соединения с сервером');
     } finally {
@@ -70,40 +59,35 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, isDarkTheme }) => {
 
     try {
       const endpoint = isLogin ? '/api/auth/login/' : '/api/auth/register/';
-      const response = await fetch(`https://vrachiapp-production.up.railway.app${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
+          'X-CSRFToken': getCsrfToken(),
         },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         if (isLogin) {
-          // Сохраняем пользователя при входе
           localStorage.setItem('user', JSON.stringify(data.user));
           onAuthSuccess(data.user);
           onClose();
         } else {
-          // При регистрации показываем сообщение о необходимости подтверждения
           setSuccessMessage(data.message || 'Регистрация успешна! Проверьте ваш email для подтверждения аккаунта.');
-          // Закрываем модальное окно через 3 секунды
           setTimeout(() => {
             onClose();
             setSuccessMessage('');
           }, 3000);
         }
       } else {
-        // Обрабатываем конкретные ошибки
-         let errorMessage = t('auth.genericError', 'Произошла ошибка');
-        
+        let errorMessage = t('auth.genericError', 'Произошла ошибка');
+
         if (response.status === 400) {
           if (data.needs_verification) {
-            // Пользователь не подтвердил email
             setNeedsVerification(true);
             setVerificationEmail(data.email);
             errorMessage = data.error;
@@ -127,7 +111,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, isDarkTheme }) => {
         } else if (response.status === 500) {
           errorMessage = t('auth.serverError', 'Ошибка сервера. Попробуйте позже');
         }
-        
+
         setError(errorMessage);
       }
     } catch (err) {

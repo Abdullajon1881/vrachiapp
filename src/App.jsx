@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import './App.scss';
 import Hero from './components/Hero/Hero';
 import Services from './components/Services/Services';
@@ -22,33 +22,15 @@ import DentalChart from './components/DentalChart/DentalChart';
 import Facilities from './components/Facilities/Facilities';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './shared/AuthContext.jsx';
+import { apiClient, getCsrfToken } from './shared/apiClient';
+import { useTheme } from './shared/useTheme';
 import AppShell from './layout/AppShell.jsx';
 
 function App() {
   const { t } = useTranslation();
   const { user, isAuthenticated, validateAuth, logout, refreshUser } = useAuth();
-  const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    const saved = localStorage.getItem('darkTheme');
-    return saved ? JSON.parse(saved) : false;
-  });
-  
-  const [currentPage, setCurrentPage] = useState('home');
-
-  useEffect(() => {
-    localStorage.setItem('darkTheme', JSON.stringify(isDarkTheme));
-    const appElement = document.querySelector('.app');
-    const htmlElement = document.documentElement;
-    const bodyElement = document.body;
-    if (isDarkTheme) {
-      appElement.classList.add('dark-theme');
-      htmlElement.classList.add('dark-theme');
-      bodyElement.classList.add('dark-theme');
-    } else {
-      appElement.classList.remove('dark-theme');
-      htmlElement.classList.remove('dark-theme');
-      bodyElement.classList.remove('dark-theme');
-    }
-  }, [isDarkTheme]);
+  const { isDarkTheme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   // Обработка возврата от Google OAuth
   useEffect(() => {
@@ -63,30 +45,17 @@ function App() {
         if (accessToken) {
           try {
             // Отправляем токен на сервер
-            const response = await fetch('https://vrachiapp-production.up.railway.app/api/auth/google-auth/', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[]).pop() || ''
-              },
-              credentials: 'include',
-              body: JSON.stringify({ access_token: accessToken })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-              localStorage.setItem('user', JSON.stringify(data.user));
-              setUserData(data.user);
-              setIsAuthenticated(true);
-              // Очищаем URL
-              window.history.replaceState({}, document.title, window.location.pathname);
-            } else {
-              window.history.replaceState({}, document.title, window.location.pathname);
-            }
-          } catch (err) {
-            window.history.replaceState({}, document.title, window.location.pathname);
+            await apiClient.post(
+              '/api/auth/google-auth/',
+              { access_token: accessToken },
+              { csrf: true }
+            );
+            await validateAuth();
+          } catch {
+            // ignore, URL cleanup below
           }
+          // Очищаем URL
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
     };
@@ -104,23 +73,12 @@ function App() {
         
         if (token) {
           try {
-            const response = await fetch(`https://vrachiapp-production.up.railway.app/api/auth/verify-email/${token}/`, {
-              method: 'GET',
-              credentials: 'include'
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-              // Показываем сообщение об успешной верификации
-              alert(t('app.emailVerified', 'Email successfully confirmed! Now you can log in.'));
-            } else {
-              alert(t('app.emailVerifyError', 'Ошибка подтверждения email') + ': ' + (data.error || t('app.unknownError', 'Неизвестная ошибка')));
-            }
+            const data = await apiClient.get(`/api/auth/verify-email/${token}/`);
+            alert(t('app.emailVerified', 'Email successfully confirmed! Now you can log in.'));
             
             // Перенаправляем на главную страницу
             window.location.href = '/';
-          } catch (err) {
+          } catch {
             alert(t('common.serverError', 'Ошибка соединения с сервером'));
             window.location.href = '/';
           }
@@ -131,10 +89,6 @@ function App() {
     handleEmailVerification();
   }, []);
 
-  const toggleTheme = () => {
-    setIsDarkTheme(!isDarkTheme);
-  };
-
   const handleLogout = () => {
     logout();
   };
@@ -143,21 +97,11 @@ function App() {
     await refreshUser();
   };
 
-  const handleShowAllServices = () => {
-    setCurrentPage('services');
-    window.location.href = '/services';
-  };
-
-  const handleShowDoctors = () => {
-    setCurrentPage('doctors');
-    window.location.href = '/doctors';
-  };
-
   // Компонент для главной страницы
   const HomePage = () => (
     <>
       <Hero />
-      <Services onShowAllServices={handleShowAllServices} onShowDoctors={handleShowDoctors} userData={user} />
+      <Services userData={user} />
     </>
   );
 
@@ -184,7 +128,7 @@ function App() {
 
   // Компонент для админ панели (только для админов)
   const AdminPanelPage = () => {
-    if (!isAuthenticated || userData?.role !== 'admin') {
+    if (!isAuthenticated || user?.role !== 'admin') {
       return <Navigate to="/" replace />;
     }
     return <AdminPanel />;
@@ -249,8 +193,6 @@ function App() {
             <AppShell
               isDarkTheme={isDarkTheme}
               toggleTheme={toggleTheme}
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
             />
           }
         >

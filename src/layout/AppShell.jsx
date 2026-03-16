@@ -6,7 +6,7 @@ import Footer from '../components/Footer/Footer';
 import MobileNav from '../components/MobileNav/MobileNav';
 import { useAuth } from '../shared/AuthContext.jsx';
 
-function AppShell({ isDarkTheme, toggleTheme, currentPage, setCurrentPage }) {
+function AppShell({ isDarkTheme, toggleTheme }) {
   const { user, isAuthenticated, logout, validateAuth } = useAuth();
 
   const handleLogout = () => {
@@ -34,8 +34,6 @@ function AppShell({ isDarkTheme, toggleTheme, currentPage, setCurrentPage }) {
       </main>
       <Footer />
       <MobileNav
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
         isAuthenticated={isAuthenticated}
         userData={user}
         isDarkTheme={isDarkTheme}

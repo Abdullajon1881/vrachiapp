@@ -24,10 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '296411a6e1177b3d3d96dc074cd15b83817c00cc8c6c2ab889069c7cbc45b753')
+# In production, DJANGO_SECRET_KEY must be provided via environment.
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-me')
 
 # TTS API Key для качественного женского голоса ElevenLabs
-ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', 'sk_496981d7be389ba63dc39097302ffe0c712406ea91d026a3')
+ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', '')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -158,7 +159,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': os.getenv('DB_NAME', 'vrachiapp_db'),
         'USER': os.getenv('DB_USER', 'vrachiapp_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '1435511926Ss..'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
@@ -282,8 +283,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Google OAuth settings
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '735617581412-e8ceb269bj7qqrv9sl066q63g5dr5sne.apps.googleusercontent.com')
-GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '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')
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 
 
 # Email settings для Gmail SMTP
@@ -291,7 +292,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'ymarumar502@gmail.com')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_FROM = os.getenv('EMAIL_FROM', EMAIL_HOST_USER)
 DEFAULT_FROM_EMAIL = EMAIL_FROM
@@ -324,11 +325,8 @@ SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # Telegram support bot settings
 # В продакшене лучше брать из переменных окружения:
-# TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
-# TELEGRAM_SUPPORT_CHAT_ID = os.getenv('TELEGRAM_SUPPORT_CHAT_ID', '')
-# Для текущего запуска используем значения, предоставленные вами:
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8120853924:AAE8QVugXnKY3Ax_uiDDWE9OP1wjlQHztMQ')
-TELEGRAM_SUPPORT_CHAT_ID = os.getenv('TELEGRAM_SUPPORT_CHAT_ID', '-1002756008326')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_SUPPORT_CHAT_ID = os.getenv('TELEGRAM_SUPPORT_CHAT_ID', '')
 
 # DRF throttling (защита от брутфорса/флуда)
 REST_FRAMEWORK.update({
@@ -391,9 +389,6 @@ SPECTACULAR_SETTINGS = {
 }
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000'
-                        "https://intelligent-quietude-production-db15.up.railway.app",]
 
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
